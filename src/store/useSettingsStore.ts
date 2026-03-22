@@ -46,66 +46,43 @@ export const useSettingsStore = create<SettingsStore>()((set, get) => ({
       .eq('user_id', user.id)
       .single();
 
-    const updates: Partial<SettingsStore> = { initialized: true };
-
-    if (data?.platforms) {
-      try {
-        const platforms = typeof data.platforms === 'string' ? JSON.parse(data.platforms) : data.platforms;
-        if (Array.isArray(platforms) && platforms.length > 0) updates.platforms = platforms;
-      } catch { /* fallback */ }
+    if (!data) {
+      set({ initialized: true });
+      return;
     }
 
-    if (data?.mediators) {
-      try {
-        const mediators = typeof data.mediators === 'string' ? JSON.parse(data.mediators) : data.mediators;
-        if (Array.isArray(mediators) && mediators.length > 0) updates.mediators = mediators;
-      } catch { /* fallback */ }
-    }
-
-    if (data?.reviewers) {
-      try {
-        const reviewers = typeof data.reviewers === 'string' ? JSON.parse(data.reviewers) : data.reviewers;
-        if (Array.isArray(reviewers) && reviewers.length > 0) updates.reviewers = reviewers;
-      } catch { /* fallback */ }
-    }
-
-    if (data?.banks) {
-      try {
-        const banks = typeof data.banks === 'string' ? JSON.parse(data.banks) : data.banks;
-        if (Array.isArray(banks) && banks.length > 0) updates.banks = banks;
-      } catch { /* fallback */ }
-    }
-
-    if (data?.order_types) {
-      try {
-        const orderTypes = typeof data.order_types === 'string' ? JSON.parse(data.order_types) : data.order_types;
-        if (Array.isArray(orderTypes) && orderTypes.length > 0) updates.orderTypes = orderTypes;
-      } catch { /* fallback */ }
-    }
-
-    set(updates);
+    set({
+      initialized: true,
+      platforms: Array.isArray(data.platforms) && data.platforms.length > 0 ? data.platforms : DEFAULT_PLATFORMS,
+      mediators: Array.isArray(data.mediators) ? data.mediators : DEFAULT_MEDIATORS,
+      reviewers: Array.isArray(data.reviewers) ? data.reviewers : DEFAULT_REVIEWERS,
+      banks: Array.isArray(data.banks) ? data.banks : DEFAULT_BANKS,
+      orderTypes: Array.isArray(data.order_types) ? data.order_types : DEFAULT_ORDER_TYPES,
+    });
   },
 
   saveSettings: async (platforms, mediators, reviewers, banks, orderTypes) => {
     const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
+    if (!user) { console.error('saveSettings: No user found'); return; }
 
     const { error } = await supabase
       .from('user_settings')
       .upsert(
         {
           user_id: user.id,
-          platforms: JSON.stringify(platforms),
-          mediators: JSON.stringify(mediators),
-          reviewers: JSON.stringify(reviewers),
-          banks: JSON.stringify(banks),
-          order_types: JSON.stringify(orderTypes),
+          platforms,
+          mediators,
+          reviewers,
+          banks,
+          order_types: orderTypes,
         },
         { onConflict: 'user_id' }
       );
 
-    if (!error) {
+    if (error) {
+      console.error('saveSettings error:', error);
+    } else {
       set({ platforms, mediators, reviewers, banks, orderTypes });
     }
   },
