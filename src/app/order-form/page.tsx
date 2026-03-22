@@ -162,8 +162,6 @@ export default function OrderFormPage() {
     }
 
     setSubmitting(true);
-    const finalReviewerName = form.reviewerName === 'Other' ? form.reviewerNameCustom : form.reviewerName;
-
     await addOrder({
       orderId: form.orderId,
       platform: form.platform as OrderPlatform,
@@ -173,8 +171,8 @@ export default function OrderFormPage() {
       orderDate: form.orderDate,
       totalAmount: parseFloat(form.totalAmount),
       sellerLess: parseFloat(form.sellerLess) || 0,
-      mediatorName: form.mediatorName === 'Other' ? form.mediatorNameCustom : (form.mediatorName || ''),
-      reviewerName: finalReviewerName || 'Aaditya',
+      mediatorName: form.mediatorNameCustom || '',
+      reviewerName: form.reviewerNameCustom || '',
       orderType: form.orderType,
       isReplacement: form.isReplacement,
       isExchange: form.isExchange,
@@ -528,55 +526,14 @@ export default function OrderFormPage() {
               <label className={labelClass}>
                 Mediator Name <span className="text-accent-red">*</span>
               </label>
-              {settingsMediators.length > 0 ? (
-                <select
-                  name="mediatorName"
-                  value={form.mediatorName}
-                  onChange={(e) => {
-                    if (e.target.value === '__add_to_settings__') {
-                      e.target.value = form.mediatorName || '';
-                      window.open('/account-settings?tab=dropdowns', '_blank');
-                      return;
-                    }
-                    handleChange(e);
-                  }}
-                  className={inputClass}
-                >
-                  <option value="">Choose...</option>
-                  {settingsMediators.map((m) => (
-                    <option key={m} value={m}>{m}</option>
-                  ))}
-                  <option value="Other">Other (type manually)</option>
-                  <option value="__add_to_settings__">+ Add Mediator to Dropdown List</option>
-                </select>
-              ) : (
-                <input
-                  type="text"
-                  name="mediatorNameCustom"
-                  value={form.mediatorNameCustom}
-                  onChange={handleChange}
-                  placeholder="Type mediator name here"
-                  className={inputClass}
-                />
-              )}
-              {form.mediatorName === 'Other' && (
-                <input
-                  type="text"
-                  name="mediatorNameCustom"
-                  value={form.mediatorNameCustom}
-                  onChange={handleChange}
-                  placeholder="Type mediator name here"
-                  className={`mt-2 ${inputClass}`}
-                />
-              )}
-              {settingsMediators.length === 0 && (
-                <p className="text-xs text-form-hint mt-1">
-                  No mediators saved yet.{' '}
-                  <button type="button" onClick={() => window.open('/account-settings?tab=dropdowns', '_blank')} className="text-form-link hover:underline">
-                    Add mediators to your dropdown list
-                  </button>
-                </p>
-              )}
+              <input
+                type="text"
+                name="mediatorNameCustom"
+                value={form.mediatorNameCustom}
+                onChange={handleChange}
+                placeholder="Type mediator name"
+                className={inputClass}
+              />
             </div>
 
             {/* 10. Reviewer Name */}
@@ -584,55 +541,14 @@ export default function OrderFormPage() {
               <label className={labelClass}>
                 Reviewer Name <span className="text-accent-red">*</span>
               </label>
-              {settingsReviewers.length > 0 ? (
-                <select
-                  name="reviewerName"
-                  value={form.reviewerName}
-                  onChange={(e) => {
-                    if (e.target.value === '__add_to_settings__') {
-                      e.target.value = form.reviewerName || '';
-                      window.open('/account-settings?tab=dropdowns', '_blank');
-                      return;
-                    }
-                    handleChange(e);
-                  }}
-                  className={inputClass}
-                >
-                  <option value="">Choose...</option>
-                  {settingsReviewers.map((r) => (
-                    <option key={r} value={r}>{r}</option>
-                  ))}
-                  <option value="Other">Other (type manually)</option>
-                  <option value="__add_to_settings__">+ Add Reviewer to Dropdown List</option>
-                </select>
-              ) : (
-                <input
-                  type="text"
-                  name="reviewerNameCustom"
-                  value={form.reviewerNameCustom}
-                  onChange={handleChange}
-                  placeholder="Type reviewer name here"
-                  className={inputClass}
-                />
-              )}
-              {form.reviewerName === 'Other' && (
-                <input
-                  type="text"
-                  name="reviewerNameCustom"
-                  value={form.reviewerNameCustom}
-                  onChange={handleChange}
-                  placeholder="Type reviewer name here"
-                  className={`mt-2 ${inputClass}`}
-                />
-              )}
-              {settingsReviewers.length === 0 && (
-                <p className="text-xs text-form-hint mt-1">
-                  No reviewers saved yet.{' '}
-                  <button type="button" onClick={() => window.open('/account-settings?tab=dropdowns', '_blank')} className="text-form-link hover:underline">
-                    Add reviewers to your dropdown list
-                  </button>
-                </p>
-              )}
+              <input
+                type="text"
+                name="reviewerNameCustom"
+                value={form.reviewerNameCustom}
+                onChange={handleChange}
+                placeholder="Type reviewer name"
+                className={inputClass}
+              />
             </div>
 
             {/* 11. Replacement Order */}
