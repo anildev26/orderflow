@@ -23,6 +23,7 @@ export default function UpdateOrderModal({ order, onClose }: UpdateOrderModalPro
   const bankOptions = useSettingsStore((s) => s.banks);
   const today = new Date().toISOString().split('T')[0];
   const [showArchiveConfirm, setShowArchiveConfirm] = useState(false);
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
 
   const [newStatus, setNewStatus] = useState<OrderStatus>(order.status);
 
@@ -91,6 +92,12 @@ export default function UpdateOrderModal({ order, onClose }: UpdateOrderModalPro
     // Show confirmation when archiving (payment_received)
     if (newStatus === 'payment_received' && !showArchiveConfirm) {
       setShowArchiveConfirm(true);
+      return;
+    }
+
+    // Show confirmation when cancelling
+    if (newStatus === 'order_cancelled' && !showCancelConfirm) {
+      setShowCancelConfirm(true);
       return;
     }
 
@@ -486,6 +493,32 @@ export default function UpdateOrderModal({ order, onClose }: UpdateOrderModalPro
                   className="px-4 py-2 bg-dashboard-bg text-text-primary text-sm font-medium rounded-lg hover:bg-dashboard-border transition"
                 >
                   Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Cancel Confirmation Dialog */}
+        {showCancelConfirm && (
+          <div className="px-5 pb-3">
+            <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/30">
+              <p className="text-sm font-semibold text-red-400 mb-1">Cancel Order?</p>
+              <p className="text-xs text-text-secondary mb-3">
+                This will cancel the order and move it to Archive under Cancelled Orders. Continue?
+              </p>
+              <div className="flex gap-2">
+                <button
+                  onClick={handleUpdate}
+                  className="px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 transition"
+                >
+                  Yes, Cancel Order
+                </button>
+                <button
+                  onClick={() => setShowCancelConfirm(false)}
+                  className="px-4 py-2 bg-dashboard-bg text-text-primary text-sm font-medium rounded-lg hover:bg-dashboard-border transition"
+                >
+                  Go Back
                 </button>
               </div>
             </div>

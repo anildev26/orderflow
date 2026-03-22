@@ -7,7 +7,8 @@ export type OrderStatus =
   | 'refund_form_pending'
   | 'refund_form_filled'
   | 'informed_mediator'
-  | 'payment_received';
+  | 'payment_received'
+  | 'order_cancelled';
 
 export interface Order {
   id: string;
@@ -66,6 +67,7 @@ export const STATUS_LABELS: Record<OrderStatus, string> = {
   refund_form_filled: 'Refund Form Filled',
   informed_mediator: 'Informed Mediator',
   payment_received: 'Payment Received',
+  order_cancelled: 'Order Cancelled',
 };
 
 export const STATUS_COLORS: Record<OrderStatus, string> = {
@@ -76,6 +78,7 @@ export const STATUS_COLORS: Record<OrderStatus, string> = {
   refund_form_filled: 'bg-green-500',
   informed_mediator: 'bg-teal-500',
   payment_received: 'bg-emerald-600',
+  order_cancelled: 'bg-gray-500',
 };
 
 // Status options for Update Order dropdown AND Filter panel
@@ -87,6 +90,7 @@ export const STATUS_OPTIONS: { value: OrderStatus; label: string }[] = [
   { value: 'refund_form_filled', label: 'Refund Form Filled' },
   { value: 'informed_mediator', label: 'Informed Mediator' },
   { value: 'payment_received', label: 'Payment Received' },
+  { value: 'order_cancelled', label: 'Order Cancelled' },
 ];
 
 export const PLATFORM_OPTIONS: { value: OrderPlatform; label: string }[] = [

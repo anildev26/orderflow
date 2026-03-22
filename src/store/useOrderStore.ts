@@ -29,7 +29,7 @@ function dbToOrder(row: Record<string, unknown>): Order {
   // Handle legacy status values - map old statuses to new ones
   let status = row.status as string;
   if (status === 'paid') status = 'payment_received';
-  if (status === 'cancelled') status = 'ordered'; // cancelled no longer exists, default to ordered
+  if (status === 'cancelled') status = 'order_cancelled';
   if (status === 'rating_review_submitted') status = 'review_rating_submitted';
   if (status === 'rating_form_filled' || status === 'review_form_filled') status = 'refund_form_filled';
 
@@ -227,8 +227,8 @@ export const useOrderStore = create<OrderStore>()((set, get) => ({
   getOrder: (orderId) => get().orders.find((o) => o.orderId === orderId),
 
   getActiveOrders: (status = 'all', search = '', searchField = 'orderid', platform = 'all', month = 'all') => {
-    // Active = everything except payment_received
-    let filtered = get().orders.filter((o) => o.status !== 'payment_received');
+    // Active = everything except payment_received and order_cancelled
+    let filtered = get().orders.filter((o) => o.status !== 'payment_received' && o.status !== 'order_cancelled');
     if (status && status !== 'all') filtered = filtered.filter((o) => o.status === status);
     if (platform && platform !== 'all') filtered = filtered.filter((o) => o.platform === platform);
     if (month && month !== 'all') {
@@ -273,7 +273,7 @@ export const useOrderStore = create<OrderStore>()((set, get) => ({
   getStats: (platform = 'all') => {
     let orders = get().orders;
     if (platform && platform !== 'all') orders = orders.filter((o) => o.platform === platform);
-    const activeOrders = orders.filter((o) => o.status !== 'payment_received');
+    const activeOrders = orders.filter((o) => o.status !== 'payment_received' && o.status !== 'order_cancelled');
     const totalAmount = activeOrders.reduce((sum, o) => sum + o.totalAmount, 0);
     const actualSpent = activeOrders.reduce((sum, o) => sum + o.sellerLess, 0);
     return {

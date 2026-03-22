@@ -88,10 +88,16 @@ export default function ArchivePage() {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [bankFilter, setBankFilter] = useState<string>('all');
+  const [archiveFilter, setArchiveFilter] = useState<'payment_received' | 'order_cancelled' | 'all'>('all');
   const [expandedOrder, setExpandedOrder] = useState<string | null>(null);
 
+  const cancelledCount = useMemo(() => orders.filter((o) => o.status === 'order_cancelled').length, [orders]);
+  const paidCount = useMemo(() => orders.filter((o) => o.status === 'payment_received').length, [orders]);
+
   const archivedOrders = useMemo(() => {
-    let filtered = orders.filter((o) => o.status === 'payment_received');
+    let filtered = archiveFilter === 'all'
+      ? orders.filter((o) => o.status === 'payment_received' || o.status === 'order_cancelled')
+      : orders.filter((o) => o.status === archiveFilter);
     if (platform && platform !== 'all') filtered = filtered.filter((o) => o.platform === platform);
     if (startDate) filtered = filtered.filter((o) => o.orderDate >= startDate);
     if (endDate) filtered = filtered.filter((o) => o.orderDate <= endDate);
@@ -111,7 +117,7 @@ export default function ArchivePage() {
       });
     }
     return filtered.sort((a, b) => new Date(b.orderDate).getTime() - new Date(a.orderDate).getTime());
-  }, [orders, search, searchField, platform, startDate, endDate, bankFilter]);
+  }, [orders, search, searchField, platform, startDate, endDate, bankFilter, archiveFilter]);
 
   const totalRefundReceived = useMemo(
     () => archivedOrders.reduce((sum, o) => sum + (o.totalAmount - o.sellerLess), 0),
@@ -119,7 +125,7 @@ export default function ArchivePage() {
   );
 
   const uniqueBanks = useMemo(() => {
-    const allArchived = orders.filter((o) => o.status === 'payment_received');
+    const allArchived = orders.filter((o) => o.status === 'payment_received' || o.status === 'order_cancelled');
     const banks = new Set<string>();
     allArchived.forEach((o) => { if (o.paymentBank) banks.add(o.paymentBank); });
     return Array.from(banks).sort();
@@ -195,23 +201,34 @@ export default function ArchivePage() {
       {/* Page header */}
       <div className="px-6 pt-5">
         <h1 className="text-2xl font-bold text-text-primary mb-1">Archive</h1>
-        <p className="text-sm text-text-muted mb-4">Orders where payment has been received</p>
+        <p className="text-sm text-text-muted mb-4">Completed and cancelled orders</p>
 
         {/* Stats */}
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-4">
-          <div className="p-4 rounded-xl bg-dashboard-card border border-dashboard-border">
-            <p className="text-xs text-text-muted">Archived Orders</p>
-            <p className="text-xl font-bold text-emerald-400 mt-1">{archivedOrders.length}</p>
-          </div>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+          <button
+            onClick={() => setArchiveFilter(archiveFilter === 'all' ? 'all' : 'all')}
+            className={`p-4 rounded-xl border text-left transition ${archiveFilter === 'all' ? 'bg-dashboard-card border-accent-blue ring-1 ring-accent-blue' : 'bg-dashboard-card border-dashboard-border hover:border-accent-blue/50'}`}
+          >
+            <p className="text-xs text-text-muted">All Archived</p>
+            <p className="text-xl font-bold text-emerald-400 mt-1">{paidCount + cancelledCount}</p>
+          </button>
+          <button
+            onClick={() => setArchiveFilter(archiveFilter === 'payment_received' ? 'all' : 'payment_received')}
+            className={`p-4 rounded-xl border text-left transition ${archiveFilter === 'payment_received' ? 'bg-dashboard-card border-emerald-500 ring-1 ring-emerald-500' : 'bg-dashboard-card border-dashboard-border hover:border-emerald-500/50'}`}
+          >
+            <p className="text-xs text-text-muted">Payment Received</p>
+            <p className="text-xl font-bold text-emerald-400 mt-1">{paidCount}</p>
+          </button>
+          <button
+            onClick={() => setArchiveFilter(archiveFilter === 'order_cancelled' ? 'all' : 'order_cancelled')}
+            className={`p-4 rounded-xl border text-left transition ${archiveFilter === 'order_cancelled' ? 'bg-dashboard-card border-red-500 ring-1 ring-red-500' : 'bg-dashboard-card border-dashboard-border hover:border-red-500/50'}`}
+          >
+            <p className="text-xs text-text-muted">Cancelled Orders</p>
+            <p className="text-xl font-bold text-red-400 mt-1">{cancelledCount}</p>
+          </button>
           <div className="p-4 rounded-xl bg-dashboard-card border border-dashboard-border">
             <p className="text-xs text-text-muted">Total Refund Received</p>
             <p className="text-xl font-bold text-green-400 mt-1">&#8377;{totalRefundReceived.toLocaleString('en-IN')}</p>
-          </div>
-          <div className="p-4 rounded-xl bg-dashboard-card border border-dashboard-border">
-            <p className="text-xs text-text-muted">Total Order Value</p>
-            <p className="text-xl font-bold text-blue-400 mt-1">
-              &#8377;{archivedOrders.reduce((s, o) => s + o.totalAmount, 0).toLocaleString('en-IN')}
-            </p>
           </div>
         </div>
 
@@ -307,7 +324,7 @@ export default function ArchivePage() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
             </svg>
             <p className="text-text-muted text-lg">No archived orders</p>
-            <p className="text-text-muted text-sm mt-1">Orders move here when payment is received</p>
+            <p className="text-text-muted text-sm mt-1">Orders move here when payment is received or order is cancelled</p>
           </div>
         ) : (
           archivedOrders.map((order) => {
@@ -315,7 +332,7 @@ export default function ArchivePage() {
             return (
             <div
               key={order.id}
-              className="rounded-xl overflow-hidden bg-dashboard-card border border-dashboard-border border-l-4 border-l-emerald-500"
+              className={`rounded-xl overflow-hidden bg-dashboard-card border border-dashboard-border border-l-4 ${order.status === 'order_cancelled' ? 'border-l-red-500' : 'border-l-emerald-500'}`}
             >
               <button
                 type="button"
@@ -344,8 +361,8 @@ export default function ArchivePage() {
                     <p className="text-xs font-bold text-emerald-400 mt-1">
                       Received Amount: &#8377;{(order.totalAmount - order.sellerLess).toLocaleString('en-IN')}
                     </p>
-                    <span className="inline-block mt-1 text-[10px] font-semibold px-2 py-0.5 rounded bg-emerald-600 text-white">
-                      Payment Received
+                    <span className={`inline-block mt-1 text-[10px] font-semibold px-2 py-0.5 rounded text-white ${order.status === 'order_cancelled' ? 'bg-red-500' : 'bg-emerald-600'}`}>
+                      {order.status === 'order_cancelled' ? 'Cancelled' : 'Payment Received'}
                     </span>
                   </div>
                 </div>
