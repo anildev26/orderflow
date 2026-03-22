@@ -1,26 +1,284 @@
 @import "tailwindcss";
 
+/* ─── Theme variables (overridable by data-theme) ─── */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --theme-dashboard-bg: #0f172a;
+  --theme-dashboard-card: #1e293b;
+  --theme-dashboard-card-hover: #273548;
+  --theme-dashboard-border: #334155;
+  --theme-sidebar-bg: #0c1222;
+  --theme-sidebar-active: #1d4ed8;
+  --theme-accent-blue: #3b82f6;
+  --theme-accent-green: #22c55e;
+  --theme-accent-orange: #f97316;
+  --theme-accent-red: #ef4444;
+  --theme-accent-yellow: #eab308;
+  --theme-text-primary: #f1f5f9;
+  --theme-text-secondary: #94a3b8;
+  --theme-text-muted: #64748b;
+  --theme-form-bg: #0f172a;
+  --theme-form-card: #1e293b;
+  --theme-form-border: #334155;
+  --theme-form-input-bg: #0f172a;
+  --theme-form-label: #94a3b8;
+  --theme-form-text: #f1f5f9;
+  --theme-form-placeholder: #64748b;
+  --theme-form-header-bg: #0c1222;
+  --theme-form-header-text: #f1f5f9;
+  --theme-form-header-border: #334155;
+  --theme-form-link: #60a5fa;
+  --theme-form-hint: #64748b;
+  --theme-form-confirm-bg: #1e3a5f;
+  --theme-form-confirm-border: #2563eb;
+  --theme-form-confirm-text: #93c5fd;
+  --theme-form-highlight-bg: #1e293b;
+  --theme-form-success-bg: #14532d;
+  --theme-form-success-border: #166534;
+  --theme-form-success-text: #86efac;
+  --theme-form-info-bg: #1e3a5f;
+  --theme-form-info-border: #1e40af;
+  --theme-form-info-text: #93c5fd;
+  --theme-form-currency-bg: #1e293b;
+  --theme-form-currency-border: #334155;
+  --theme-form-currency-text: #94a3b8;
 }
 
+/* ─── Light theme overrides ─── */
+[data-theme="light"] {
+  --theme-dashboard-bg: #f1f5f9;
+  --theme-dashboard-card: #ffffff;
+  --theme-dashboard-card-hover: #f8fafc;
+  --theme-dashboard-border: #cbd5e1;
+  --theme-sidebar-bg: #ffffff;
+  --theme-sidebar-active: #2563eb;
+  --theme-accent-blue: #2563eb;
+  --theme-accent-green: #15803d;
+  --theme-accent-orange: #c2410c;
+  --theme-accent-red: #b91c1c;
+  --theme-accent-yellow: #a16207;
+  --theme-text-primary: #0f172a;
+  --theme-text-secondary: #334155;
+  --theme-text-muted: #64748b;
+  --theme-form-bg: #f8fafc;
+  --theme-form-card: #ffffff;
+  --theme-form-border: #e2e8f0;
+  --theme-form-input-bg: #ffffff;
+  --theme-form-label: #334155;
+  --theme-form-text: #0f172a;
+  --theme-form-placeholder: #64748b;
+  --theme-form-header-bg: #ffffff;
+  --theme-form-header-text: #0f172a;
+  --theme-form-header-border: #e2e8f0;
+  --theme-form-link: #2563eb;
+  --theme-form-hint: #64748b;
+  --theme-form-confirm-bg: #eff6ff;
+  --theme-form-confirm-border: #bfdbfe;
+  --theme-form-confirm-text: #1d4ed8;
+  --theme-form-highlight-bg: #fefce8;
+  --theme-form-success-bg: #f0fdf4;
+  --theme-form-success-border: #bbf7d0;
+  --theme-form-success-text: #15803d;
+  --theme-form-info-bg: #eff6ff;
+  --theme-form-info-border: #bfdbfe;
+  --theme-form-info-text: #1d4ed8;
+  --theme-form-currency-bg: #f1f5f9;
+  --theme-form-currency-border: #e2e8f0;
+  --theme-form-currency-text: #64748b;
+}
+
+/* ─── Register tokens with Tailwind v4 (pointing to theme vars) ─── */
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-dashboard-bg: var(--theme-dashboard-bg);
+  --color-dashboard-card: var(--theme-dashboard-card);
+  --color-dashboard-card-hover: var(--theme-dashboard-card-hover);
+  --color-dashboard-border: var(--theme-dashboard-border);
+  --color-sidebar-bg: var(--theme-sidebar-bg);
+  --color-sidebar-active: var(--theme-sidebar-active);
+  --color-accent-blue: var(--theme-accent-blue);
+  --color-accent-green: var(--theme-accent-green);
+  --color-accent-orange: var(--theme-accent-orange);
+  --color-accent-red: var(--theme-accent-red);
+  --color-accent-yellow: var(--theme-accent-yellow);
+  --color-text-primary: var(--theme-text-primary);
+  --color-text-secondary: var(--theme-text-secondary);
+  --color-text-muted: var(--theme-text-muted);
+  --color-form-bg: var(--theme-form-bg);
+  --color-form-card: var(--theme-form-card);
+  --color-form-border: var(--theme-form-border);
+  --color-form-input-bg: var(--theme-form-input-bg);
+  --color-form-label: var(--theme-form-label);
+  --color-form-text: var(--theme-form-text);
+  --color-form-placeholder: var(--theme-form-placeholder);
+  --color-form-header-bg: var(--theme-form-header-bg);
+  --color-form-header-text: var(--theme-form-header-text);
+  --color-form-header-border: var(--theme-form-header-border);
+  --color-form-link: var(--theme-form-link);
+  --color-form-hint: var(--theme-form-hint);
+  --color-form-confirm-bg: var(--theme-form-confirm-bg);
+  --color-form-confirm-border: var(--theme-form-confirm-border);
+  --color-form-confirm-text: var(--theme-form-confirm-text);
+  --color-form-highlight-bg: var(--theme-form-highlight-bg);
+  --color-form-success-bg: var(--theme-form-success-bg);
+  --color-form-success-border: var(--theme-form-success-border);
+  --color-form-success-text: var(--theme-form-success-text);
+  --color-form-info-bg: var(--theme-form-info-bg);
+  --color-form-info-border: var(--theme-form-info-border);
+  --color-form-info-text: var(--theme-form-info-text);
+  --color-form-currency-bg: var(--theme-form-currency-bg);
+  --color-form-currency-border: var(--theme-form-currency-border);
+  --color-form-currency-text: var(--theme-form-currency-text);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--theme-dashboard-border) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background-color: var(--theme-dashboard-border);
+  border-radius: 3px;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--theme-dashboard-bg);
+  color: var(--theme-text-primary);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* Smooth transitions */
+.transition-smooth {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Glassmorphism card */
+.glass-card {
+  background: rgba(30, 41, 59, 0.8);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(51, 65, 85, 0.5);
+}
+
+[data-theme="light"] .glass-card {
+  background: rgba(255, 255, 255, 0.8);
+  border: 1px solid rgba(226, 232, 240, 0.8);
+}
+
+/* KPI card hover glow */
+.kpi-card {
+  transition: all 0.3s ease;
+}
+.kpi-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(59, 130, 246, 0.15);
+}
+
+[data-theme="light"] .kpi-card:hover {
+  box-shadow: 0 8px 25px rgba(59, 130, 246, 0.1);
+}
+
+/* Order card */
+.order-card {
+  transition: all 0.2s ease;
+  border-left: 4px solid transparent;
+}
+.order-card:hover {
+  border-left-color: #3b82f6;
+}
+
+/* Status badge animation */
+.status-badge {
+  animation: pulse-soft 2s ease-in-out infinite;
+}
+@keyframes pulse-soft {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.85; }
+}
+
+/* Timeline line */
+.timeline-line {
+  background: linear-gradient(to bottom, #22c55e, #3b82f6, #64748b);
+}
+
+/* Hide scrollbar for KPI row */
+.kpi-scroll {
+  overflow-x: auto;
+  scroll-behavior: smooth;
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.kpi-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+/* Modal overlay */
+.modal-overlay {
+  animation: fadeIn 0.2s ease;
+}
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.modal-content {
+  animation: slideUp 0.3s ease;
+}
+@keyframes slideUp {
+  from { transform: translateY(20px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+/* Sidebar slide animation */
+.sidebar-enter {
+  animation: slideRight 0.3s ease;
+}
+@keyframes slideRight {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(0); }
+}
+
+/* Filter panel slide */
+.filter-panel {
+  animation: slideLeft 0.3s ease;
+}
+@keyframes slideLeft {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+
+/* Hide scrollbar utility */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+/* Light mode: card shadow for better definition */
+[data-theme="light"] .bg-dashboard-card {
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+/* Light mode: KPI value colors need to be darker for readability */
+[data-theme="light"] .text-yellow-400 { color: #a16207; }
+[data-theme="light"] .text-green-400 { color: #15803d; }
+[data-theme="light"] .text-cyan-400 { color: #0e7490; }
+[data-theme="light"] .text-red-400 { color: #b91c1c; }
+[data-theme="light"] .text-emerald-400 { color: #047857; }
+[data-theme="light"] .text-purple-400 { color: #7e22ce; }
+
+/* Toast theme override for light mode */
+[data-theme="light"] .toast-theme {
+  background: #ffffff !important;
+  color: #0f172a !important;
+  border-color: #cbd5e1 !important;
 }
