@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import toast from 'react-hot-toast';
@@ -615,6 +615,14 @@ function DropdownsSection() {
 
 /* ─── Main Page ─── */
 export default function AccountSettingsPage() {
+  return (
+    <Suspense fallback={null}>
+      <AccountSettingsInner />
+    </Suspense>
+  );
+}
+
+function AccountSettingsInner() {
   const searchParams = useSearchParams();
   const initialTab = searchParams.get('tab') === 'dropdowns' ? 'dropdowns' : 'account';
   const [activeTab, setActiveTab] = useState<SettingsTab>(initialTab);
