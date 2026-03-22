@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
@@ -9,6 +9,8 @@ import { useSettingsStore } from '@/store/useSettingsStore';
 import { useAuth } from '@/hooks/useAuth';
 import { OrderPlatform } from '@/types/order';
 import ThemeToggle from '@/components/ThemeToggle';
+
+const FORM_DRAFT_KEY = 'orderflow_form_draft';
 
 export default function OrderFormPage() {
   const router = useRouter();
@@ -43,6 +45,50 @@ export default function OrderFormPage() {
     mediatorMessage: '',
     confirmed: false,
   });
+
+  const [draftRestored, setDraftRestored] = useState(false);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Restore draft from localStorage on mount
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(FORM_DRAFT_KEY);
+      if (saved) {
+        const draft = JSON.parse(saved);
+        // Merge saved draft into form (keep today's date if no saved date)
+        setForm((prev) => ({ ...prev, ...draft, orderDate: draft.orderDate || prev.orderDate }));
+        setDraftRestored(true);
+        // Auto-hide the "draft restored" message after 3 seconds
+        setTimeout(() => setDraftRestored(false), 3000);
+      }
+    } catch {
+      // Ignore corrupt localStorage data
+    }
+  }, []);
+
+  // Auto-save form to localStorage on every change (debounced 500ms)
+  const saveFormDraft = useCallback((formData: typeof form) => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      try {
+        // Don't save the 'confirmed' checkbox state
+        const { confirmed, ...dataToSave } = formData;
+        localStorage.setItem(FORM_DRAFT_KEY, JSON.stringify(dataToSave));
+      } catch {
+        // Ignore storage errors
+      }
+    }, 500);
+  }, []);
+
+  // Watch form changes and auto-save
+  useEffect(() => {
+    saveFormDraft(form);
+  }, [form, saveFormDraft]);
+
+  // Clear draft from localStorage (called on successful submit or reset)
+  const clearDraft = () => {
+    try { localStorage.removeItem(FORM_DRAFT_KEY); } catch { /* ignore */ }
+  };
 
   // Auto-fill email from logged-in user
   useEffect(() => {
@@ -139,6 +185,7 @@ export default function OrderFormPage() {
 
     setSubmitting(false);
     setSubmitted(true);
+    clearDraft();
   };
 
   const handleReset = () => {
@@ -163,6 +210,7 @@ export default function OrderFormPage() {
       confirmed: false,
     });
     setSubmitted(false);
+    clearDraft();
   };
 
   const inputClass = "w-full bg-form-input-bg border border-form-border rounded-lg px-4 py-2.5 text-form-text placeholder-form-placeholder focus:ring-2 focus:ring-accent-blue focus:border-accent-blue outline-none transition";
@@ -258,6 +306,21 @@ export default function OrderFormPage() {
           </p>
           <p className="text-sm text-accent-red font-medium mb-6">* Important</p>
 
+          {/* Draft restored notification */}
+          {draftRestored && (
+            <div className="flex items-center gap-2 p-3 mb-4 bg-green-500/10 border border-green-500/30 rounded-lg animate-in fade-in duration-300">
+              <svg className="w-4 h-4 text-green-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <p className="text-sm text-green-500 font-medium">Draft restored! Your previous form data has been loaded.</p>
+              <button type="button" onClick={() => setDraftRestored(false)} className="ml-auto text-green-500/70 hover:text-green-500">
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+          )}
+
           <form onSubmit={handleSubmit} className="space-y-5">
             {/* 1. Order Platform */}
             <div>
@@ -269,7 +332,8 @@ export default function OrderFormPage() {
                 value={form.platform}
                 onChange={(e) => {
                   if (e.target.value === '__add_new__') {
-                    router.push('/account-settings?tab=dropdowns');
+                    e.target.value = form.platform || '';
+                    window.open('/account-settings?tab=dropdowns', '_blank');
                     return;
                   }
                   handleChange(e);
@@ -470,7 +534,8 @@ export default function OrderFormPage() {
                   value={form.mediatorName}
                   onChange={(e) => {
                     if (e.target.value === '__add_to_settings__') {
-                      router.push('/account-settings?tab=dropdowns');
+                      e.target.value = form.mediatorName || '';
+                      window.open('/account-settings?tab=dropdowns', '_blank');
                       return;
                     }
                     handleChange(e);
@@ -507,7 +572,7 @@ export default function OrderFormPage() {
               {settingsMediators.length === 0 && (
                 <p className="text-xs text-form-hint mt-1">
                   No mediators saved yet.{' '}
-                  <button type="button" onClick={() => router.push('/account-settings?tab=dropdowns')} className="text-form-link hover:underline">
+                  <button type="button" onClick={() => window.open('/account-settings?tab=dropdowns', '_blank')} className="text-form-link hover:underline">
                     Add mediators to your dropdown list
                   </button>
                 </p>
@@ -525,7 +590,8 @@ export default function OrderFormPage() {
                   value={form.reviewerName}
                   onChange={(e) => {
                     if (e.target.value === '__add_to_settings__') {
-                      router.push('/account-settings?tab=dropdowns');
+                      e.target.value = form.reviewerName || '';
+                      window.open('/account-settings?tab=dropdowns', '_blank');
                       return;
                     }
                     handleChange(e);
@@ -562,7 +628,7 @@ export default function OrderFormPage() {
               {settingsReviewers.length === 0 && (
                 <p className="text-xs text-form-hint mt-1">
                   No reviewers saved yet.{' '}
-                  <button type="button" onClick={() => router.push('/account-settings?tab=dropdowns')} className="text-form-link hover:underline">
+                  <button type="button" onClick={() => window.open('/account-settings?tab=dropdowns', '_blank')} className="text-form-link hover:underline">
                     Add reviewers to your dropdown list
                   </button>
                 </p>
