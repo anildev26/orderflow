@@ -21,7 +21,8 @@ export default function UpdateOrderModal({ order, onClose }: UpdateOrderModalPro
   const router = useRouter();
   const updateOrderStatus = useOrderStore((s) => s.updateOrderStatus);
   const bankOptions = useSettingsStore((s) => s.banks);
-  const today = new Date().toISOString().split('T')[0];
+  const _d = new Date();
+  const today = `${_d.getFullYear()}-${String(_d.getMonth() + 1).padStart(2, '0')}-${String(_d.getDate()).padStart(2, '0')}`;
   const [showArchiveConfirm, setShowArchiveConfirm] = useState(false);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
 
