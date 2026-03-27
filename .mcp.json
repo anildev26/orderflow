@@ -1,10 +1,9 @@
 {
   "mcpServers": {
     "code-review-graph": {
-      "command": "/usr/local/bin/python",
+      "command": "uvx",
       "args": [
-        "-m",
-        "code_review_graph",
+        "code-review-graph",
         "serve"
       ]
     }
