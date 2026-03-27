@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "code-review-graph": {
+      "command": "/usr/local/bin/python",
+      "args": [
+        "-m",
+        "code_review_graph",
+        "serve"
+      ]
+    }
+  }
+}
