@@ -163,28 +163,31 @@ export default function OrderFormPage() {
     }
 
     setSubmitting(true);
-    await addOrder({
-      orderId: form.orderId,
-      platform: form.platform as OrderPlatform,
-      email: form.email,
-      brandName: extractedBrand,
-      productName: form.productName || 'Custom Product',
-      orderDate: form.orderDate,
-      totalAmount: parseFloat(form.totalAmount),
-      sellerLess: parseFloat(form.sellerLess) || 0,
-      mediatorName: form.mediatorNameCustom || '',
-      reviewerName: form.reviewerNameCustom || '',
-      orderType: form.orderType,
-      isReplacement: form.isReplacement,
-      isExchange: form.isExchange,
-      exchangeProductName: form.isExchange ? form.exchangeProductName : '',
-      replacementOrderId: form.isReplacement ? form.replacementOrderId : '',
-      mediatorMessage: form.mediatorMessage,
-    });
-
+    try {
+      await addOrder({
+        orderId: form.orderId,
+        platform: form.platform as OrderPlatform,
+        email: form.email,
+        brandName: extractedBrand,
+        productName: form.productName || 'Custom Product',
+        orderDate: form.orderDate,
+        totalAmount: parseFloat(form.totalAmount),
+        sellerLess: parseFloat(form.sellerLess) || 0,
+        mediatorName: form.mediatorNameCustom || '',
+        reviewerName: form.reviewerNameCustom || '',
+        orderType: form.orderType,
+        isReplacement: form.isReplacement,
+        isExchange: form.isExchange,
+        exchangeProductName: form.isExchange ? form.exchangeProductName : '',
+        replacementOrderId: form.isReplacement ? form.replacementOrderId : '',
+        mediatorMessage: form.mediatorMessage,
+      });
+      setSubmitted(true);
+      clearDraft();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to submit order');
+    }
     setSubmitting(false);
-    setSubmitted(true);
-    clearDraft();
   };
 
   const handleReset = () => {

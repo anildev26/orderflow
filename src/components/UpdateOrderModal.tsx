@@ -130,7 +130,7 @@ export default function UpdateOrderModal({ order, onClose }: UpdateOrderModalPro
       if (replacementAmount !== order.totalAmount) extras.totalAmount = replacementAmount;
     }
 
-    await updateOrderStatus(order.orderId, newStatus, extras);
+    await updateOrderStatus(order.id, newStatus, extras);
     toast.success(`Order updated to: ${STATUS_LABELS[newStatus]}`);
     onClose();
   };
