@@ -5,6 +5,9 @@ const DEFAULT_PLATFORMS = [
   { value: 'flipkart', label: 'Flipkart' },
   { value: 'amazon', label: 'Amazon' },
   { value: 'myntra', label: 'Myntra' },
+  { value: 'meesho', label: 'Meesho' },
+  { value: 'ajio', label: 'Ajio' },
+  { value: 'blinkit', label: 'Blinkit' },
 ];
 
 const DEFAULT_MEDIATORS: string[] = [];
