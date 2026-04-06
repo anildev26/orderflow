@@ -128,9 +128,10 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     const chatId: number = message.chat.id;
     const text: string = message.text.trim();
 
-    // Handle commands
+    // Handle commands (/start or /start@botname)
     if (text.startsWith('/')) {
-      if (text === '/start') {
+      const command = text.split('@')[0].toLowerCase();
+      if (command === '/start') {
         await sendTelegramMessage(
           chatId,
           `🛒 <b>Welcome to OrderFlow Bot!</b>\n\n` +
@@ -144,7 +145,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
           `/help — How to use this bot\n\n` +
           `Go ahead, send an Order ID to get started! 👇`
         );
-      } else if (text === '/help') {
+      } else if (command === '/help') {
         await sendTelegramMessage(
           chatId,
           `ℹ️ <b>OrderFlow Bot — Help</b>\n\n` +
