@@ -4,6 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase';
+import { checkAuthRateLimit } from '@/lib/auth-rate-limit';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -16,6 +17,13 @@ export default function LoginPage() {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+
+    const { allowed, waitMinutes } = checkAuthRateLimit('rl_login');
+    if (!allowed) {
+      setError(`Too many login attempts. Please wait ${waitMinutes} minute${waitMinutes !== 1 ? 's' : ''} before trying again.`);
+      return;
+    }
+
     setLoading(true);
 
     const supabase = createClient();
@@ -62,6 +70,7 @@ export default function LoginPage() {
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="you@example.com"
                 required
+                maxLength={254}
                 className="w-full px-4 py-2.5 bg-slate-900/50 border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
               />
             </div>
@@ -81,6 +90,7 @@ export default function LoginPage() {
                   placeholder="Enter your password"
                   required
                   minLength={6}
+                  maxLength={128}
                   className="w-full px-4 py-2.5 pr-11 bg-slate-900/50 border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
                 />
                 <button

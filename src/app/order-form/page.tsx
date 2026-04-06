@@ -401,6 +401,7 @@ export default function OrderFormPage() {
                 name="orderId"
                 value={form.orderId}
                 onChange={handleChange}
+                maxLength={100}
                 placeholder="Copy and paste the ORDER ID directly to avoid errors."
                 required
                 className={inputClass}
@@ -418,6 +419,7 @@ export default function OrderFormPage() {
                 name="productName"
                 value={form.productName}
                 onChange={handleChange}
+                maxLength={300}
                 placeholder="Enter product name"
                 className={inputClass}
               />
@@ -554,6 +556,7 @@ export default function OrderFormPage() {
                 name="mediatorNameCustom"
                 value={form.mediatorNameCustom}
                 onChange={handleChange}
+                maxLength={100}
                 placeholder="Type mediator name"
                 className={inputClass}
               />
@@ -568,6 +571,7 @@ export default function OrderFormPage() {
                 type="text"
                 name="reviewerNameCustom"
                 value={form.reviewerNameCustom}
+                maxLength={100}
                 onChange={handleChange}
                 placeholder="Type reviewer name"
                 className={inputClass}
@@ -600,6 +604,7 @@ export default function OrderFormPage() {
                   name="replacementOrderId"
                   value={form.replacementOrderId}
                   onChange={handleChange}
+                  maxLength={100}
                   placeholder="Enter new replacement order ID"
                   className={`${inputClass} bg-form-highlight-bg`}
                 />
@@ -615,6 +620,7 @@ export default function OrderFormPage() {
                 onChange={handleChange}
                 placeholder="Paste the whole mediator given message below. We will fetch the refund form link and you can fill the refund form from dashboard."
                 rows={4}
+                maxLength={5000}
                 className={`${inputClass} resize-none`}
               />
               <p className="text-xs text-form-hint mt-1">
