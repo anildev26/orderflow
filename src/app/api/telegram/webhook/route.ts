@@ -128,12 +128,39 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     const chatId: number = message.chat.id;
     const text: string = message.text.trim();
 
-    // Ignore commands like /start, /help
+    // Handle commands
     if (text.startsWith('/')) {
-      if (text === '/start' || text === '/help') {
+      if (text === '/start') {
         await sendTelegramMessage(
           chatId,
-          `👋 <b>Welcome to OrderFlow Bot!</b>\n\nSend me any <b>Order ID</b> and I'll fetch all the details for it.\n\nExample: <code>MH1234567890</code>`
+          `🛒 <b>Welcome to OrderFlow Bot!</b>\n\n` +
+          `I can instantly look up any order for you — no login needed.\n\n` +
+          `<b>How to use:</b>\n` +
+          `Simply send me an <b>Order ID</b> and I'll show you everything about that order — status, dates, amounts, mediator details, and more.\n\n` +
+          `<b>Example:</b>\n` +
+          `<code>MH1234567890</code>\n\n` +
+          `<b>Commands:</b>\n` +
+          `/start — Show this message\n` +
+          `/help — How to use this bot\n\n` +
+          `Go ahead, send an Order ID to get started! 👇`
+        );
+      } else if (text === '/help') {
+        await sendTelegramMessage(
+          chatId,
+          `ℹ️ <b>OrderFlow Bot — Help</b>\n\n` +
+          `<b>What can this bot do?</b>\n` +
+          `Look up full order details using just an Order ID.\n\n` +
+          `<b>What details will I see?</b>\n` +
+          `• Order status & platform\n` +
+          `• Product & brand name\n` +
+          `• Order & delivery dates\n` +
+          `• Amount & seller less\n` +
+          `• Mediator & reviewer info\n` +
+          `• Refund, payment & review dates\n` +
+          `• Replacement / exchange info\n\n` +
+          `<b>How to search:</b>\n` +
+          `Just type or paste the Order ID and send it.\n\n` +
+          `<code>MH1234567890</code>`
         );
       }
       return NextResponse.json({ ok: true });
