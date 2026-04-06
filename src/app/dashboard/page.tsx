@@ -38,6 +38,12 @@ export default function DashboardPage() {
   };
   const [mounted, setMounted] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
+  const [tgBannerDismissed, setTgBannerDismissed] = useState(false);
+
+  const dismissTgBanner = () => {
+    setTgBannerDismissed(true);
+    localStorage.setItem('tg_banner_dismissed', '1');
+  };
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleExportJSON = () => {
@@ -99,6 +105,9 @@ export default function DashboardPage() {
     setMounted(true);
     fetchOrders();
     fetchSettings();
+    if (localStorage.getItem('tg_banner_dismissed') === '1') {
+      setTgBannerDismissed(true);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -425,6 +434,35 @@ export default function DashboardPage() {
           )}
         </div>
       </div>
+
+      {/* Telegram Bot Banner */}
+      {!tgBannerDismissed && (
+        <div className="mx-6 mb-4 flex items-center justify-between gap-3 px-4 py-3 rounded-xl bg-[#1a2535] border border-[#2d4a7a] text-sm">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <svg className="w-4 h-4 flex-shrink-0 text-[#5ba3e0]" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.894 8.221-1.97 9.28c-.145.658-.537.818-1.084.508l-3-2.21-1.447 1.394c-.16.16-.295.295-.605.295l.213-3.053 5.56-5.023c.242-.213-.054-.333-.373-.12L7.973 13.89l-2.96-.924c-.643-.204-.657-.643.136-.953l11.57-4.461c.537-.194 1.006.131.834.945-.001.001-.001.001.341-.276z"/>
+            </svg>
+            <span className="text-[#8ab4d4]">Track any order instantly on Telegram —</span>
+            <a
+              href="https://t.me/orderflow_orders_bot"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-[#5ba3e0] font-semibold hover:underline flex-shrink-0"
+            >
+              Open OrderFlow Bot
+            </a>
+          </div>
+          <button
+            onClick={dismissTgBanner}
+            className="text-[#4a6a8a] hover:text-[#8ab4d4] transition flex-shrink-0"
+            aria-label="Dismiss"
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+      )}
 
       {/* Orders list */}
       <div className="px-6 pb-8 space-y-3 mt-1">

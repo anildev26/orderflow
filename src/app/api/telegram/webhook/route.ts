@@ -128,10 +128,31 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     const chatId: number = message.chat.id;
     const text: string = message.text.trim();
 
-    // Handle commands (/start or /start@botname)
+    // Handle commands (/start or /start@botname or /start ORDERID deep link)
     if (text.startsWith('/')) {
-      const command = text.split('@')[0].toLowerCase();
-      if (command === '/start') {
+      const parts = text.split(' ');
+      const command = parts[0].split('@')[0].toLowerCase();
+      const deepLinkParam = parts[1]?.trim();
+
+      if (command === '/start' && deepLinkParam) {
+        // Deep link from order card: auto-lookup the order ID
+        const supabase = createClient(
+          process.env.NEXT_PUBLIC_SUPABASE_URL!,
+          process.env.SUPABASE_SERVICE_ROLE_KEY!
+        );
+        const { data: orders } = await supabase
+          .from('orders')
+          .select('*')
+          .ilike('order_id', deepLinkParam);
+
+        if (!orders || orders.length === 0) {
+          await sendTelegramMessage(chatId, `🔍 No order found with ID <code>${deepLinkParam}</code>.\n\nPlease check the Order ID and try again.`);
+        } else {
+          for (const order of orders) {
+            await sendTelegramMessage(chatId, buildOrderMessage(order));
+          }
+        }
+      } else if (command === '/start') {
         await sendTelegramMessage(
           chatId,
           `🛒 <b>Welcome to OrderFlow Bot!</b>\n\n` +
