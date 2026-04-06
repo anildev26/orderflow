@@ -12,6 +12,7 @@ import OrderCard from '@/components/OrderCard';
 import FilterPanel from '@/components/FilterPanel';
 import ThemeToggle from '@/components/ThemeToggle';
 import { useAuth } from '@/hooks/useAuth';
+import WhatsNewModal, { WHATS_NEW_STORAGE_KEY, LATEST_VERSION } from '@/components/WhatsNewModal';
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -38,7 +39,14 @@ export default function DashboardPage() {
   };
   const [mounted, setMounted] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
+  const [whatsNewOpen, setWhatsNewOpen] = useState(false);
+  const [bellHasNew, setBellHasNew] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const seen = localStorage.getItem(WHATS_NEW_STORAGE_KEY);
+    setBellHasNew(seen !== LATEST_VERSION);
+  }, []);
 
   const handleExportJSON = () => {
     const json = exportData();
@@ -245,6 +253,19 @@ export default function DashboardPage() {
       {/* Top bar */}
       <div className="sticky top-0 z-30 bg-dashboard-bg/80 backdrop-blur-xl border-b border-dashboard-border">
         <div className="flex items-center justify-end px-6 h-14 gap-2">
+          {/* Bell / What's New */}
+          <button
+            onClick={() => { setWhatsNewOpen(true); setBellHasNew(false); }}
+            className="relative p-2 rounded-lg text-text-secondary hover:text-text-primary hover:bg-dashboard-card transition"
+            title="What's New"
+          >
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+            </svg>
+            {bellHasNew && (
+              <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-accent-blue rounded-full" />
+            )}
+          </button>
           <ThemeToggle />
           <div className="relative">
             <button
@@ -469,6 +490,8 @@ export default function DashboardPage() {
         </svg>
         <span className="text-sm font-medium">New Order</span>
       </Link>
+
+      <WhatsNewModal open={whatsNewOpen} onClose={() => setWhatsNewOpen(false)} />
     </div>
   );
 }
