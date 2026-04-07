@@ -130,7 +130,7 @@ export default function UpdateOrderModal({ order, onClose }: UpdateOrderModalPro
       if (replacementAmount !== order.totalAmount) extras.totalAmount = replacementAmount;
     }
 
-    await updateOrderStatus(order.orderId, newStatus, extras);
+    await updateOrderStatus(order.id, newStatus, extras);
     toast.success(`Order updated to: ${STATUS_LABELS[newStatus]}`);
     onClose();
   };
@@ -230,16 +230,29 @@ export default function UpdateOrderModal({ order, onClose }: UpdateOrderModalPro
               </span>
             </div>
 
-            {/* Copy button */}
-            <button
-              onClick={handleCopyDetails}
-              className="w-full mt-1 py-2 text-xs font-medium rounded-lg bg-dashboard-card border border-dashboard-border text-text-secondary hover:text-text-primary hover:bg-dashboard-card-hover transition flex items-center justify-center gap-2"
-            >
-              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
-              </svg>
-              Copy Order Details for WhatsApp
-            </button>
+            {/* Copy + Telegram buttons */}
+            <div className="flex gap-2 mt-1">
+              <button
+                onClick={handleCopyDetails}
+                className="flex-1 py-2 text-xs font-medium rounded-lg bg-dashboard-card border border-dashboard-border text-text-secondary hover:text-text-primary hover:bg-dashboard-card-hover transition flex items-center justify-center gap-2"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
+                </svg>
+                Copy for WhatsApp
+              </button>
+              <a
+                href={`https://t.me/orderflow_orders_bot?start=${order.orderId}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex-1 py-2 text-xs font-medium rounded-lg bg-[#1a2535] border border-[#2d4a7a] text-[#5ba3e0] hover:bg-[#1e2e45] transition flex items-center justify-center gap-2"
+              >
+                <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.894 8.221-1.97 9.28c-.145.658-.537.818-1.084.508l-3-2.21-1.447 1.394c-.16.16-.295.295-.605.295l.213-3.053 5.56-5.023c.242-.213-.054-.333-.373-.12L7.973 13.89l-2.96-.924c-.643-.204-.657-.643.136-.953l11.57-4.461c.537-.194 1.006.131.834.945-.001.001-.001.001.341-.276z"/>
+                </svg>
+                Track on Telegram
+              </a>
+            </div>
           </div>
 
           {/* ── Status Date Tracking Pills ── */}

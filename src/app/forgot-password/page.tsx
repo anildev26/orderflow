@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase';
+import { checkAuthRateLimit } from '@/lib/auth-rate-limit';
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('');
@@ -13,6 +14,13 @@ export default function ForgotPasswordPage() {
   const handleReset = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+
+    const { allowed, waitMinutes } = checkAuthRateLimit('rl_forgot');
+    if (!allowed) {
+      setError(`Too many attempts. Please wait ${waitMinutes} minute${waitMinutes !== 1 ? 's' : ''} before trying again.`);
+      return;
+    }
+
     setLoading(true);
 
     const supabase = createClient();

@@ -8,7 +8,7 @@ interface OrderStore {
   initialized: boolean;
   fetchOrders: () => Promise<void>;
   addOrder: (order: Omit<Order, 'id' | 'createdAt' | 'updatedAt' | 'status'>) => Promise<void>;
-  updateOrderStatus: (orderId: string, status: OrderStatus, extras?: Partial<Order>) => Promise<void>;
+  updateOrderStatus: (id: string, status: OrderStatus, extras?: Partial<Order>) => Promise<void>;
   getOrder: (orderId: string) => Order | undefined;
   getActiveOrders: (status?: OrderStatus | 'all', search?: string, searchField?: string, platform?: string, month?: string) => Order[];
   getArchivedOrders: (search?: string, platform?: string) => Order[];
@@ -167,6 +167,11 @@ export const useOrderStore = create<OrderStore>()((set, get) => ({
   },
 
   addOrder: async (orderData) => {
+    const duplicate = get().orders.find((o) => o.orderId === orderData.orderId);
+    if (duplicate) {
+      throw new Error(`Order ID "${orderData.orderId}" already exists`);
+    }
+
     const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
@@ -190,7 +195,7 @@ export const useOrderStore = create<OrderStore>()((set, get) => ({
     }
   },
 
-  updateOrderStatus: async (orderId, status, extras = {}) => {
+  updateOrderStatus: async (id, status, extras = {}) => {
     const supabase = createClient();
     const updateData: Record<string, unknown> = { status };
 
@@ -211,12 +216,12 @@ export const useOrderStore = create<OrderStore>()((set, get) => ({
     const { error } = await supabase
       .from('orders')
       .update(updateData)
-      .eq('order_id', orderId);
+      .eq('id', id);
 
     if (!error) {
       set((state) => ({
         orders: state.orders.map((order) =>
-          order.orderId === orderId
+          order.id === id
             ? { ...order, ...extras, status, updatedAt: new Date().toISOString() }
             : order
         ),

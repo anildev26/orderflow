@@ -163,28 +163,31 @@ export default function OrderFormPage() {
     }
 
     setSubmitting(true);
-    await addOrder({
-      orderId: form.orderId,
-      platform: form.platform as OrderPlatform,
-      email: form.email,
-      brandName: extractedBrand,
-      productName: form.productName || 'Custom Product',
-      orderDate: form.orderDate,
-      totalAmount: parseFloat(form.totalAmount),
-      sellerLess: parseFloat(form.sellerLess) || 0,
-      mediatorName: form.mediatorNameCustom || '',
-      reviewerName: form.reviewerNameCustom || '',
-      orderType: form.orderType,
-      isReplacement: form.isReplacement,
-      isExchange: form.isExchange,
-      exchangeProductName: form.isExchange ? form.exchangeProductName : '',
-      replacementOrderId: form.isReplacement ? form.replacementOrderId : '',
-      mediatorMessage: form.mediatorMessage,
-    });
-
+    try {
+      await addOrder({
+        orderId: form.orderId,
+        platform: form.platform as OrderPlatform,
+        email: form.email,
+        brandName: extractedBrand,
+        productName: form.productName || 'Custom Product',
+        orderDate: form.orderDate,
+        totalAmount: parseFloat(form.totalAmount),
+        sellerLess: parseFloat(form.sellerLess) || 0,
+        mediatorName: form.mediatorNameCustom || '',
+        reviewerName: form.reviewerNameCustom || '',
+        orderType: form.orderType,
+        isReplacement: form.isReplacement,
+        isExchange: form.isExchange,
+        exchangeProductName: form.isExchange ? form.exchangeProductName : '',
+        replacementOrderId: form.isReplacement ? form.replacementOrderId : '',
+        mediatorMessage: form.mediatorMessage,
+      });
+      setSubmitted(true);
+      clearDraft();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to submit order');
+    }
     setSubmitting(false);
-    setSubmitted(true);
-    clearDraft();
   };
 
   const handleReset = () => {
@@ -280,6 +283,25 @@ export default function OrderFormPage() {
                 </svg>
                 Add Another Order
               </button>
+            </div>
+
+            {/* Telegram Bot CTA */}
+            <div className="mt-6 flex items-center gap-3 px-4 py-3 rounded-xl bg-[#1a2535] border border-[#2d4a7a]">
+              <svg className="w-5 h-5 flex-shrink-0 text-[#5ba3e0]" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.894 8.221-1.97 9.28c-.145.658-.537.818-1.084.508l-3-2.21-1.447 1.394c-.16.16-.295.295-.605.295l.213-3.053 5.56-5.023c.242-.213-.054-.333-.373-.12L7.973 13.89l-2.96-.924c-.643-.204-.657-.643.136-.953l11.57-4.461c.537-.194 1.006.131.834.945-.001.001-.001.001.341-.276z"/>
+              </svg>
+              <div className="text-left min-w-0">
+                <p className="text-xs font-semibold text-[#8ab4d4]">Track this order on Telegram</p>
+                <p className="text-[11px] text-[#4a6a8a] mt-0.5">Send your Order ID to our bot for instant details anytime.</p>
+              </div>
+              <a
+                href={`https://t.me/orderflow_orders_bot?start=${form.orderId}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="ml-auto flex-shrink-0 px-3 py-1.5 text-xs font-semibold rounded-lg bg-[#5ba3e0] text-white hover:bg-[#4a92cf] transition"
+              >
+                Open Bot
+              </a>
             </div>
           </div>
         ) : (
@@ -379,6 +401,7 @@ export default function OrderFormPage() {
                 name="orderId"
                 value={form.orderId}
                 onChange={handleChange}
+                maxLength={100}
                 placeholder="Copy and paste the ORDER ID directly to avoid errors."
                 required
                 className={inputClass}
@@ -396,6 +419,7 @@ export default function OrderFormPage() {
                 name="productName"
                 value={form.productName}
                 onChange={handleChange}
+                maxLength={300}
                 placeholder="Enter product name"
                 className={inputClass}
               />
@@ -532,6 +556,7 @@ export default function OrderFormPage() {
                 name="mediatorNameCustom"
                 value={form.mediatorNameCustom}
                 onChange={handleChange}
+                maxLength={100}
                 placeholder="Type mediator name"
                 className={inputClass}
               />
@@ -546,6 +571,7 @@ export default function OrderFormPage() {
                 type="text"
                 name="reviewerNameCustom"
                 value={form.reviewerNameCustom}
+                maxLength={100}
                 onChange={handleChange}
                 placeholder="Type reviewer name"
                 className={inputClass}
@@ -578,6 +604,7 @@ export default function OrderFormPage() {
                   name="replacementOrderId"
                   value={form.replacementOrderId}
                   onChange={handleChange}
+                  maxLength={100}
                   placeholder="Enter new replacement order ID"
                   className={`${inputClass} bg-form-highlight-bg`}
                 />
@@ -593,6 +620,7 @@ export default function OrderFormPage() {
                 onChange={handleChange}
                 placeholder="Paste the whole mediator given message below. We will fetch the refund form link and you can fill the refund form from dashboard."
                 rows={4}
+                maxLength={5000}
                 className={`${inputClass} resize-none`}
               />
               <p className="text-xs text-form-hint mt-1">
