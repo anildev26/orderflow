@@ -76,12 +76,7 @@ export default function LoginPage() {
             </div>
 
             <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <label className="block text-sm font-medium text-slate-300">Password</label>
-                <Link href="/forgot-password" className="text-xs text-blue-400 hover:text-blue-300 transition">
-                  Forgot password?
-                </Link>
-              </div>
+              <label className="block text-sm font-medium text-slate-300 mb-1.5">Password</label>
               <div className="relative">
                 <input
                   type={showPassword ? 'text' : 'password'}
@@ -97,6 +92,7 @@ export default function LoginPage() {
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200 transition"
+                  tabIndex={-1}
                 >
                   {showPassword ? (
                     <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -109,6 +105,11 @@ export default function LoginPage() {
                     </svg>
                   )}
                 </button>
+              </div>
+              <div className="mt-1.5 text-right">
+                <Link href="/forgot-password" className="text-xs text-blue-400 hover:text-blue-300 transition">
+                  Forgot password?
+                </Link>
               </div>
             </div>
 

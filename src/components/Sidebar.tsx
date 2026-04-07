@@ -2,23 +2,28 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useState, useId } from 'react';
+import { useState, useId, useEffect } from 'react';
 import {
   HiOutlineClipboardList,
   HiOutlineDocumentText,
   HiOutlineArchive,
   HiOutlineChartBar,
   HiOutlineMail,
+  HiOutlineBell,
+  HiOutlineLightBulb,
 } from 'react-icons/hi';
+import WhatsNewModal, { WHATS_NEW_STORAGE_KEY, LATEST_VERSION } from './WhatsNewModal';
 
 interface NavItem {
   label: string;
-  href: string;
+  href?: string;
   icon: React.ReactNode;
   desktopOnly?: boolean;
+  onClick?: () => void;
+  badge?: boolean;
 }
 
-const mainNav: NavItem[] = [
+const buildMainNav = (onWhatsNew: () => void, hasNew: boolean): NavItem[] => [
   {
     label: 'Orders Dashboard',
     href: '/dashboard',
@@ -38,13 +43,22 @@ const mainNav: NavItem[] = [
     label: 'My Order Analytics',
     href: '/analytics',
     icon: <HiOutlineChartBar className="w-5 h-5" />,
-    desktopOnly: false,
+  },
+  {
+    label: 'Feature Requests',
+    href: '/feature-requests',
+    icon: <HiOutlineLightBulb className="w-5 h-5" />,
+  },
+  {
+    label: "What's New",
+    icon: <HiOutlineBell className="w-5 h-5" />,
+    onClick: onWhatsNew,
+    badge: hasNew,
   },
   {
     label: 'Contact',
     href: '/contact',
     icon: <HiOutlineMail className="w-5 h-5" />,
-    desktopOnly: false,
   },
 ];
 
@@ -71,6 +85,21 @@ export default function Sidebar() {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [hovered, setHovered] = useState(false);
+  const [whatsNewOpen, setWhatsNewOpen] = useState(false);
+  const [hasNew, setHasNew] = useState(false);
+
+  useEffect(() => {
+    const seen = localStorage.getItem(WHATS_NEW_STORAGE_KEY);
+    setHasNew(seen !== LATEST_VERSION);
+  }, []);
+
+  const handleWhatsNew = () => {
+    setWhatsNewOpen(true);
+    setHasNew(false);
+    setMobileOpen(false);
+  };
+
+  const mainNav = buildMainNav(handleWhatsNew, hasNew);
 
   const isActive = (href: string) => pathname === href;
 
@@ -130,19 +159,36 @@ export default function Sidebar() {
         <nav className="flex-1 overflow-y-auto py-4 px-2">
           <ul className="space-y-1">
             {mainNav.map((item) => (
-              <li key={item.href}>
-                <Link
-                  href={item.href}
-                  onClick={() => setMobileOpen(false)}
-                  className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-smooth ${
-                    isActive(item.href)
-                      ? 'bg-sidebar-active text-white'
-                      : 'text-text-secondary hover:bg-dashboard-card hover:text-text-primary'
-                  }`}
-                >
-                  {item.icon}
-                  <span>{item.label}</span>
-                </Link>
+              <li key={item.label}>
+                {item.href ? (
+                  <Link
+                    href={item.href}
+                    onClick={() => setMobileOpen(false)}
+                    className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-smooth ${
+                      isActive(item.href)
+                        ? 'bg-sidebar-active text-white'
+                        : 'text-text-secondary hover:bg-dashboard-card hover:text-text-primary'
+                    }`}
+                  >
+                    <span className="relative flex-shrink-0">
+                      {item.icon}
+                      {item.badge && <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-accent-blue rounded-full" />}
+                    </span>
+                    <span>{item.label}</span>
+                  </Link>
+                ) : (
+                  <button
+                    onClick={item.onClick}
+                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-smooth text-text-secondary hover:bg-dashboard-card hover:text-text-primary"
+                  >
+                    <span className="relative flex-shrink-0">
+                      {item.icon}
+                      {item.badge && <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-accent-blue rounded-full" />}
+                    </span>
+                    <span>{item.label}</span>
+                    {item.badge && <span className="ml-auto text-[10px] font-semibold bg-accent-blue text-white px-1.5 py-0.5 rounded-full">New</span>}
+                  </button>
+                )}
               </li>
             ))}
           </ul>
@@ -187,19 +233,41 @@ export default function Sidebar() {
           )}
           <ul className="mt-2 space-y-1">
             {mainNav.map((item) => (
-              <li key={item.href}>
-                <Link
-                  href={item.href}
-                  className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-smooth ${
-                    isActive(item.href)
-                      ? 'bg-sidebar-active text-white'
-                      : 'text-text-secondary hover:bg-dashboard-card hover:text-text-primary'
-                  } ${!expanded ? 'justify-center' : ''}`}
-                  title={!expanded ? item.label : undefined}
-                >
-                  {item.icon}
-                  {expanded && <span className="whitespace-nowrap">{item.label}</span>}
-                </Link>
+              <li key={item.label}>
+                {item.href ? (
+                  <Link
+                    href={item.href}
+                    className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-smooth ${
+                      isActive(item.href)
+                        ? 'bg-sidebar-active text-white'
+                        : 'text-text-secondary hover:bg-dashboard-card hover:text-text-primary'
+                    } ${!expanded ? 'justify-center' : ''}`}
+                    title={!expanded ? item.label : undefined}
+                  >
+                    <span className="relative flex-shrink-0">
+                      {item.icon}
+                      {item.badge && <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-accent-blue rounded-full" />}
+                    </span>
+                    {expanded && <span className="whitespace-nowrap flex-1">{item.label}</span>}
+                  </Link>
+                ) : (
+                  <button
+                    onClick={item.onClick}
+                    className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-smooth text-text-secondary hover:bg-dashboard-card hover:text-text-primary ${!expanded ? 'justify-center' : ''}`}
+                    title={!expanded ? item.label : undefined}
+                  >
+                    <span className="relative flex-shrink-0">
+                      {item.icon}
+                      {item.badge && <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-accent-blue rounded-full" />}
+                    </span>
+                    {expanded && (
+                      <>
+                        <span className="whitespace-nowrap flex-1 text-left">{item.label}</span>
+                        {item.badge && <span className="text-[10px] font-semibold bg-accent-blue text-white px-1.5 py-0.5 rounded-full">New</span>}
+                      </>
+                    )}
+                  </button>
+                )}
               </li>
             ))}
           </ul>
@@ -217,6 +285,8 @@ export default function Sidebar() {
 
       {/* Desktop spacer — always collapsed width, content shifts on hover via sidebar overlay */}
       <div className="hidden md:block flex-shrink-0 w-16" />
+
+      <WhatsNewModal open={whatsNewOpen} onClose={() => setWhatsNewOpen(false)} />
     </>
   );
 }

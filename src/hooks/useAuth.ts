@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase';
 
 interface AuthUser {
+  id: string;
   email: string;
   displayName: string;
   initials: string;
@@ -31,7 +32,7 @@ export function useAuth() {
           ? new Date(createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
           : 'N/A';
 
-        setUser({ email, displayName, initials, createdAt, createdAtFormatted });
+        setUser({ id: data.user.id, email, displayName, initials, createdAt, createdAtFormatted });
       }
       setLoading(false);
     });

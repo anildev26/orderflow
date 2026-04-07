@@ -4,6 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase';
 import { checkAuthRateLimit } from '@/lib/auth-rate-limit';
+import { isDisposableEmail } from '@/lib/disposable-email';
 
 export default function SignupPage() {
   const [email, setEmail] = useState('');
@@ -21,6 +22,11 @@ export default function SignupPage() {
     const { allowed, waitMinutes } = checkAuthRateLimit('rl_signup');
     if (!allowed) {
       setError(`Too many attempts. Please wait ${waitMinutes} minute${waitMinutes !== 1 ? 's' : ''} before trying again.`);
+      return;
+    }
+
+    if (isDisposableEmail(email)) {
+      setError('Disposable email addresses are not allowed. Please use a real email.');
       return;
     }
 
