@@ -23,5 +23,15 @@ END;
 $$;
 
 -- Allow authenticated users to update completed and admin_comment (app enforces admin-only)
-CREATE POLICY IF NOT EXISTS "update feature_requests admin fields" ON public.feature_requests
-  FOR UPDATE USING (auth.role() = 'authenticated');
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname = 'public'
+      AND tablename = 'feature_requests'
+      AND policyname = 'update feature_requests admin fields'
+  ) THEN
+    CREATE POLICY "update feature_requests admin fields" ON public.feature_requests
+      FOR UPDATE USING (auth.role() = 'authenticated');
+  END IF;
+END $$;
