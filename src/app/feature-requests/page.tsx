@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useFeatureRequestStore, FeatureRequest } from '@/store/useFeatureRequestStore';
 import { useAuth } from '@/hooks/useAuth';
 import ThemeToggle from '@/components/ThemeToggle';
@@ -126,7 +126,7 @@ export default function FeatureRequestsPage() {
   const [submitError, setSubmitError] = useState('');
   const [voteError, setVoteError] = useState('');
   const [mounted, setMounted] = useState(false);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
 
   useEffect(() => {
     setMounted(true);
@@ -221,7 +221,6 @@ export default function FeatureRequestsPage() {
           <form onSubmit={handleSubmit} className="space-y-3">
             <div className="relative">
               <textarea
-                ref={textareaRef}
                 value={content}
                 onChange={(e) => setContent(e.target.value)}
                 placeholder="e.g. Add bulk status update for multiple orders at once..."
