@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
 import { Order, OrderStatus, STATUS_LABELS, STATUS_COLORS, STATUS_OPTIONS } from '@/types/order';
 import { useOrderStore } from '@/store/useOrderStore';
-import { useSettingsStore } from '@/store/useSettingsStore';
 
 function fmtDate(d?: string) {
   if (!d) return '-';
@@ -20,7 +19,7 @@ interface UpdateOrderModalProps {
 export default function UpdateOrderModal({ order, onClose }: UpdateOrderModalProps) {
   const router = useRouter();
   const updateOrderStatus = useOrderStore((s) => s.updateOrderStatus);
-  const bankOptions = useSettingsStore((s) => s.banks);
+  // Bank is now a free-text field (no longer driven by settings store)
   const _d = new Date();
   const today = `${_d.getFullYear()}-${String(_d.getMonth() + 1).padStart(2, '0')}-${String(_d.getDate()).padStart(2, '0')}`;
   const [showArchiveConfirm, setShowArchiveConfirm] = useState(false);
@@ -35,8 +34,7 @@ export default function UpdateOrderModal({ order, onClose }: UpdateOrderModalPro
   const [refundFormFilledDate, setRefundFormFilledDate] = useState(order.refundFormFilledDate || today);
   const [informedMediatorDate, setInformedMediatorDate] = useState(order.informedMediatorDate || today);
   const [paymentReceivedDate, setPaymentReceivedDate] = useState(order.paymentReceivedDate || today);
-  const [paymentBank, setPaymentBank] = useState(order.paymentBank || (bankOptions.length > 0 ? bankOptions[0] : ''));
-  const [bankInputMode, setBankInputMode] = useState<'select' | 'manual'>(bankOptions.length > 0 ? 'select' : 'manual');
+  const [paymentBank, setPaymentBank] = useState(order.paymentBank || '');
 
   // General fields
   const [mediatorMessage, setMediatorMessage] = useState(order.mediatorMessage || '');
@@ -433,54 +431,13 @@ export default function UpdateOrderModal({ order, onClose }: UpdateOrderModalPro
               </div>
               <div>
                 <label className="block text-xs text-text-muted mb-1">Payment Bank</label>
-                {bankOptions.length > 0 && bankInputMode === 'select' ? (
-                  <>
-                    <select
-                      value={paymentBank}
-                      onChange={(e) => {
-                        if (e.target.value === '__manual__') {
-                          setBankInputMode('manual');
-                          setPaymentBank('');
-                        } else if (e.target.value === '__add_settings__') {
-                          router.push('/account-settings?tab=dropdowns');
-                        } else {
-                          setPaymentBank(e.target.value);
-                        }
-                      }}
-                      className="w-full bg-dashboard-bg border border-dashboard-border rounded-lg px-4 py-2.5 text-sm text-text-primary outline-none"
-                    >
-                      {bankOptions.map((bank) => (
-                        <option key={bank} value={bank}>{bank}</option>
-                      ))}
-                      <option value="__manual__">Other (type manually)</option>
-                      <option value="__add_settings__">+ Add Payment Bank in Settings</option>
-                    </select>
-                  </>
-                ) : (
-                  <>
-                    <input
-                      type="text"
-                      value={paymentBank}
-                      onChange={(e) => setPaymentBank(e.target.value)}
-                      placeholder="Enter payment bank name"
-                      className="w-full bg-dashboard-bg border border-dashboard-border rounded-lg px-4 py-2.5 text-sm text-text-primary outline-none"
-                    />
-                    <div className="flex items-center gap-2 mt-1.5">
-                      {bankOptions.length > 0 && (
-                        <button type="button" onClick={() => { setBankInputMode('select'); setPaymentBank(bankOptions[0]); }} className="text-[11px] text-accent-blue hover:underline">
-                          Back to list
-                        </button>
-                      )}
-                      <button
-                        type="button"
-                        onClick={() => router.push('/account-settings?tab=dropdowns')}
-                        className="text-[11px] text-accent-blue hover:underline"
-                      >
-                        + Add Payment Bank in Settings
-                      </button>
-                    </div>
-                  </>
-                )}
+                <input
+                  type="text"
+                  value={paymentBank}
+                  onChange={(e) => setPaymentBank(e.target.value)}
+                  placeholder="e.g. HDFC, Paytm, PhonePe..."
+                  className="w-full bg-dashboard-bg border border-dashboard-border rounded-lg px-4 py-2.5 text-sm text-text-primary outline-none"
+                />
               </div>
               <p className="text-[11px] text-amber-400">This order will be moved to Archive.</p>
             </div>

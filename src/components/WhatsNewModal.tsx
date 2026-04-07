@@ -9,36 +9,45 @@ interface WhatsNewModalProps {
 
 const CHANGELOG = [
   {
-    version: 'v1.5',
+    version: 'v1.0.5',
     date: 'Apr 2026',
     items: [
       { type: 'new', text: 'Feature Requests board — submit, like, and dislike ideas' },
-      { type: 'new', text: "What's New section with changelog (that's this!)" },
-      { type: 'new', text: 'Telegram bot for order tracking by Order ID (no login needed)' },
+      { type: 'new', text: "What's New section with changelog" },
+      { type: 'new', text: 'Platform checkbox selection in order form (no more settings redirect)' },
+      { type: 'new', text: 'Admin controls on Feature Requests (mark done, dev team comments)' },
     ],
   },
   {
-    version: 'v1.4',
+    version: 'v1.0.4',
     date: 'Mar 2026',
     items: [
-      { type: 'new', text: 'Meesho, Ajio, and Blinkit added as default platforms' },
-      { type: 'fix', text: 'Fixed duplicate order bug — cancelling one order no longer affects others with same Order ID' },
-      { type: 'fix', text: 'Fixed date picker showing wrong "today" date in IST timezone' },
+      { type: 'new', text: 'Telegram bot for order tracking by Order ID (no login needed)' },
       { type: 'security', text: 'Rate limiting on all auth routes (max 5 attempts / 15 min)' },
+      { type: 'security', text: 'Disposable email domains blocked at signup' },
     ],
   },
   {
-    version: 'v1.3',
+    version: 'v1.0.3',
     date: 'Feb 2026',
+    items: [
+      { type: 'new', text: 'Meesho, Ajio, Blinkit, Shopsy, Nykaa added as default platforms' },
+      { type: 'fix', text: 'Fixed duplicate order bug — cancelling one no longer affects others with same Order ID' },
+      { type: 'fix', text: 'Fixed date picker showing wrong "today" date in IST timezone' },
+    ],
+  },
+  {
+    version: 'v1.0.2',
+    date: 'Jan 2026',
     items: [
       { type: 'new', text: 'Archive page for completed/paid orders' },
       { type: 'new', text: 'Analytics page with order insights and charts' },
-      { type: 'new', text: 'Excel/CSV export for all orders' },
+      { type: 'new', text: 'Excel/CSV and JSON export' },
     ],
   },
   {
-    version: 'v1.2',
-    date: 'Jan 2026',
+    version: 'v1.0.1',
+    date: 'Dec 2025',
     items: [
       { type: 'new', text: 'Copy order details for WhatsApp sharing' },
       { type: 'new', text: 'Import/export JSON backup' },
@@ -55,7 +64,7 @@ const TYPE_STYLES: Record<string, { label: string; cls: string }> = {
 };
 
 export const WHATS_NEW_STORAGE_KEY = 'whatsNew_lastSeen';
-export const LATEST_VERSION = CHANGELOG[0].version;
+export const LATEST_VERSION = CHANGELOG[0].version; // v1.0.5 — bump this when adding a new entry
 
 export default function WhatsNewModal({ open, onClose }: WhatsNewModalProps) {
   useEffect(() => {

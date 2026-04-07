@@ -1,17 +1,13 @@
 'use client';
 
-import { useState, useEffect, useRef, Suspense } from 'react';
+import { useState, useRef, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import toast from 'react-hot-toast';
 import { createClient } from '@/lib/supabase';
-import { useSettingsStore } from '@/store/useSettingsStore';
 import { useAuth } from '@/hooks/useAuth';
 import { useTheme } from '@/context/ThemeContext';
 import ThemeToggle from '@/components/ThemeToggle';
-
-type SettingsTab = 'account' | 'dropdowns';
-type DropdownCategory = 'platforms' | 'mediators' | 'reviewers' | 'banks' | 'orderTypes';
 
 /* ─── Draggable List (reusable) ─── */
 function DraggableList<T>({
@@ -342,277 +338,6 @@ function AccountSection() {
   );
 }
 
-/* ─── Dropdown Settings Tab Content ─── */
-function DropdownsSection() {
-  const { platforms, mediators, reviewers, banks, orderTypes, fetchSettings, saveSettings, initialized } = useSettingsStore();
-  const [localPlatforms, setLocalPlatforms] = useState<{ value: string; label: string }[]>([]);
-  const [localMediators, setLocalMediators] = useState<string[]>([]);
-  const [localReviewers, setLocalReviewers] = useState<string[]>([]);
-  const [localBanks, setLocalBanks] = useState<string[]>([]);
-  const [localOrderTypes, setLocalOrderTypes] = useState<string[]>([]);
-  const [newItem, setNewItem] = useState('');
-  const [searchQ, setSearchQ] = useState('');
-  const [saving, setSaving] = useState(false);
-  const [activeCategory, setActiveCategory] = useState<DropdownCategory>('platforms');
-
-  useEffect(() => { fetchSettings(); }, [fetchSettings]);
-  useEffect(() => {
-    if (initialized) {
-      setLocalPlatforms([...platforms]);
-      setLocalMediators([...mediators]);
-      setLocalReviewers([...reviewers]);
-      setLocalBanks([...banks]);
-      setLocalOrderTypes([...orderTypes]);
-    }
-  }, [initialized, platforms, mediators, reviewers, banks, orderTypes]);
-
-  const addItem = () => {
-    const val = newItem.trim();
-    if (!val) return;
-    if (activeCategory === 'platforms') {
-      const value = val.toLowerCase().replace(/\s+/g, '_');
-      if (localPlatforms.some((p) => p.value === value)) { toast.error('Already exists!'); return; }
-      setLocalPlatforms([...localPlatforms, { value, label: val }]);
-    } else if (activeCategory === 'mediators') {
-      if (localMediators.includes(val)) { toast.error('Already exists!'); return; }
-      setLocalMediators([...localMediators, val]);
-    } else if (activeCategory === 'reviewers') {
-      if (localReviewers.includes(val)) { toast.error('Already exists!'); return; }
-      setLocalReviewers([...localReviewers, val]);
-    } else if (activeCategory === 'banks') {
-      if (localBanks.includes(val)) { toast.error('Already exists!'); return; }
-      setLocalBanks([...localBanks, val]);
-    } else {
-      if (localOrderTypes.includes(val)) { toast.error('Already exists!'); return; }
-      setLocalOrderTypes([...localOrderTypes, val]);
-    }
-    setNewItem('');
-  };
-
-  const handleSave = async () => {
-    setSaving(true);
-    await saveSettings(localPlatforms, localMediators, localReviewers, localBanks, localOrderTypes);
-    setSaving(false);
-    toast.success('Settings saved!');
-  };
-
-  const hasChanges = JSON.stringify(localPlatforms) !== JSON.stringify(platforms) ||
-    JSON.stringify(localMediators) !== JSON.stringify(mediators) ||
-    JSON.stringify(localReviewers) !== JSON.stringify(reviewers) ||
-    JSON.stringify(localBanks) !== JSON.stringify(banks) ||
-    JSON.stringify(localOrderTypes) !== JSON.stringify(orderTypes);
-
-  const categories: { key: DropdownCategory; label: string; count: number; icon: React.ReactNode }[] = [
-    {
-      key: 'platforms',
-      label: 'Platforms',
-      count: localPlatforms.length,
-      icon: <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>,
-    },
-    {
-      key: 'mediators',
-      label: 'Mediators',
-      count: localMediators.length,
-      icon: <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" /></svg>,
-    },
-    {
-      key: 'reviewers',
-      label: 'Reviewers',
-      count: localReviewers.length,
-      icon: <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>,
-    },
-    {
-      key: 'banks',
-      label: 'Payment Banks',
-      count: localBanks.length,
-      icon: <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" /></svg>,
-    },
-    {
-      key: 'orderTypes' as DropdownCategory,
-      label: 'Order Types',
-      count: localOrderTypes.length,
-      icon: <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" /></svg>,
-    },
-  ];
-
-  const getFilteredItems = () => {
-    const q = searchQ.toLowerCase().trim();
-    if (activeCategory === 'platforms') {
-      return q ? localPlatforms.filter((p) => p.label.toLowerCase().includes(q)) : localPlatforms;
-    }
-    if (activeCategory === 'mediators') {
-      return q ? localMediators.filter((m) => m.toLowerCase().includes(q)) : localMediators;
-    }
-    if (activeCategory === 'banks') {
-      return q ? localBanks.filter((b) => b.toLowerCase().includes(q)) : localBanks;
-    }
-    if (activeCategory === 'orderTypes') {
-      return q ? localOrderTypes.filter((t) => t.toLowerCase().includes(q)) : localOrderTypes;
-    }
-    return q ? localReviewers.filter((r) => r.toLowerCase().includes(q)) : localReviewers;
-  };
-
-  if (!initialized) {
-    return (
-      <div className="flex items-center justify-center py-20">
-        <div className="w-8 h-8 border-2 border-accent-blue border-t-transparent rounded-full animate-spin" />
-      </div>
-    );
-  }
-
-  const placeholders: Record<DropdownCategory, string> = {
-    platforms: 'Add new platform...',
-    mediators: 'Add new mediator name...',
-    reviewers: 'Add new reviewer name...',
-    banks: 'Add new payment bank...',
-    orderTypes: 'Add new order type...',
-  };
-
-  return (
-    <div className="space-y-5">
-      {/* Category Tabs */}
-      <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
-        {categories.map((cat) => (
-          <button
-            key={cat.key}
-            onClick={() => { setActiveCategory(cat.key); setSearchQ(''); setNewItem(''); }}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition flex-shrink-0 ${
-              activeCategory === cat.key
-                ? 'bg-accent-blue text-white shadow-lg shadow-accent-blue/20'
-                : 'bg-dashboard-card border border-dashboard-border text-text-secondary hover:text-text-primary hover:bg-dashboard-card-hover'
-            }`}
-          >
-            {cat.icon}
-            {cat.label}
-            <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${
-              activeCategory === cat.key ? 'bg-white/20' : 'bg-dashboard-bg'
-            }`}>{cat.count}</span>
-          </button>
-        ))}
-      </div>
-
-      {/* Search + Add */}
-      <div className="flex gap-2">
-        <div className="relative flex-1">
-          <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-          </svg>
-          <input
-            type="text"
-            value={searchQ}
-            onChange={(e) => setSearchQ(e.target.value)}
-            placeholder="Search..."
-            className="w-full pl-9 pr-3 py-2.5 bg-dashboard-bg border border-dashboard-border rounded-lg text-sm text-text-primary placeholder-text-muted focus:ring-2 focus:ring-accent-blue outline-none"
-          />
-        </div>
-      </div>
-
-      <div className="flex gap-2">
-        <input
-          type="text"
-          value={newItem}
-          onChange={(e) => setNewItem(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && addItem()}
-          placeholder={placeholders[activeCategory]}
-          className="flex-1 bg-dashboard-bg border border-dashboard-border rounded-lg px-3 py-2.5 text-sm text-text-primary placeholder-text-muted focus:ring-2 focus:ring-accent-blue outline-none"
-        />
-        <button
-          onClick={addItem}
-          disabled={!newItem.trim()}
-          className="px-4 py-2.5 bg-accent-blue text-white text-sm font-medium rounded-lg hover:bg-blue-600 transition disabled:opacity-50 flex items-center gap-1.5"
-        >
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-          </svg>
-          Add
-        </button>
-      </div>
-
-      {/* List */}
-      <div className="bg-dashboard-card border border-dashboard-border rounded-xl p-4">
-        {activeCategory === 'platforms' ? (
-          <DraggableList
-            items={getFilteredItems() as { value: string; label: string }[]}
-            getKey={(p) => (p as { value: string; label: string }).value}
-            getLabel={(p) => (p as { value: string; label: string }).label}
-            onReorder={(items) => setLocalPlatforms(items as { value: string; label: string }[])}
-            onRemove={(p) => setLocalPlatforms(localPlatforms.filter((x) => x.value !== (p as { value: string; label: string }).value))}
-            onEdit={(p, newLabel) => {
-              setLocalPlatforms(localPlatforms.map((x) =>
-                x.value === (p as { value: string; label: string }).value
-                  ? { ...x, label: newLabel }
-                  : x
-              ));
-            }}
-          />
-        ) : activeCategory === 'mediators' ? (
-          <DraggableList
-            items={getFilteredItems() as string[]}
-            getKey={(m) => m as string}
-            getLabel={(m) => m as string}
-            onReorder={(items) => setLocalMediators(items as string[])}
-            onRemove={(m) => setLocalMediators(localMediators.filter((x) => x !== m))}
-            onEdit={(oldName, newName) => {
-              setLocalMediators(localMediators.map((x) => x === oldName ? newName : x));
-            }}
-          />
-        ) : activeCategory === 'reviewers' ? (
-          <DraggableList
-            items={getFilteredItems() as string[]}
-            getKey={(r) => r as string}
-            getLabel={(r) => r as string}
-            onReorder={(items) => setLocalReviewers(items as string[])}
-            onRemove={(r) => setLocalReviewers(localReviewers.filter((x) => x !== r))}
-            onEdit={(oldName, newName) => {
-              setLocalReviewers(localReviewers.map((x) => x === oldName ? newName : x));
-            }}
-          />
-        ) : activeCategory === 'banks' ? (
-          <DraggableList
-            items={getFilteredItems() as string[]}
-            getKey={(b) => b as string}
-            getLabel={(b) => b as string}
-            onReorder={(items) => setLocalBanks(items as string[])}
-            onRemove={(b) => setLocalBanks(localBanks.filter((x) => x !== b))}
-            onEdit={(oldName, newName) => {
-              setLocalBanks(localBanks.map((x) => x === oldName ? newName : x));
-            }}
-          />
-        ) : (
-          <DraggableList
-            items={getFilteredItems() as string[]}
-            getKey={(t) => t as string}
-            getLabel={(t) => t as string}
-            onReorder={(items) => setLocalOrderTypes(items as string[])}
-            onRemove={(t) => setLocalOrderTypes(localOrderTypes.filter((x) => x !== t))}
-            onEdit={(oldName, newName) => {
-              setLocalOrderTypes(localOrderTypes.map((x) => x === oldName ? newName : x));
-            }}
-          />
-        )}
-
-        {getFilteredItems().length === 0 && (
-          <p className="text-sm text-text-muted text-center py-8">
-            {searchQ ? 'No matches found' : 'No items yet. Add one above.'}
-          </p>
-        )}
-      </div>
-
-      {/* Save / Discard */}
-      {hasChanges && (
-        <div className="flex items-center gap-2">
-          <button onClick={handleSave} disabled={saving} className="px-5 py-2.5 bg-accent-blue text-white text-sm font-medium rounded-lg hover:bg-blue-600 transition disabled:opacity-50">
-            {saving ? 'Saving...' : 'Save Changes'}
-          </button>
-          <button onClick={() => { setLocalPlatforms([...platforms]); setLocalMediators([...mediators]); setLocalReviewers([...reviewers]); setLocalBanks([...banks]); setLocalOrderTypes([...orderTypes]); }} className="px-5 py-2.5 bg-dashboard-card text-text-primary text-sm font-medium rounded-lg border border-dashboard-border hover:bg-dashboard-border transition">
-            Discard
-          </button>
-        </div>
-      )}
-    </div>
-  );
-}
-
 /* ─── Main Page ─── */
 export default function AccountSettingsPage() {
   return (
@@ -623,31 +348,9 @@ export default function AccountSettingsPage() {
 }
 
 function AccountSettingsInner() {
-  const searchParams = useSearchParams();
-  const initialTab = searchParams.get('tab') === 'dropdowns' ? 'dropdowns' : 'account';
-  const [activeTab, setActiveTab] = useState<SettingsTab>(initialTab);
+  // searchParams kept for backward compat (old links with ?tab=dropdowns still work)
+  useSearchParams();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-
-  const tabs: { key: SettingsTab; label: string; icon: React.ReactNode }[] = [
-    {
-      key: 'account',
-      label: 'Account',
-      icon: (
-        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-        </svg>
-      ),
-    },
-    {
-      key: 'dropdowns',
-      label: 'Dropdown Settings',
-      icon: (
-        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
-        </svg>
-      ),
-    },
-  ];
 
   return (
     <div className="flex min-h-screen bg-dashboard-bg">
@@ -681,13 +384,14 @@ function AccountSettingsInner() {
         <div className="px-5 pt-2 pb-1"><span className="text-[10px] font-semibold uppercase tracking-wider text-text-muted">Settings</span></div>
         <nav className="flex-1 overflow-y-auto px-3">
           <ul className="space-y-1">
-            {tabs.map((tab) => (
-              <li key={tab.key}>
-                <button onClick={() => { setActiveTab(tab.key); setMobileMenuOpen(false); }} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition ${activeTab === tab.key ? 'bg-sidebar-active text-white' : 'text-text-secondary hover:bg-dashboard-card hover:text-text-primary'}`}>
-                  {tab.icon}<span>{tab.label}</span>
-                </button>
-              </li>
-            ))}
+            <li>
+              <span className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium bg-sidebar-active text-white">
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                </svg>
+                Account
+              </span>
+            </li>
           </ul>
         </nav>
         <div className="p-3 border-t border-dashboard-border"><p className="text-[10px] text-text-muted text-center">OrderFlow</p></div>
@@ -710,13 +414,14 @@ function AccountSettingsInner() {
         <div className="px-5 pt-2 pb-1"><span className="text-[10px] font-semibold uppercase tracking-wider text-text-muted">Settings</span></div>
         <nav className="flex-1 overflow-y-auto px-3">
           <ul className="space-y-1">
-            {tabs.map((tab) => (
-              <li key={tab.key}>
-                <button onClick={() => setActiveTab(tab.key)} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition ${activeTab === tab.key ? 'bg-sidebar-active text-white' : 'text-text-secondary hover:bg-dashboard-card hover:text-text-primary'}`}>
-                  {tab.icon}<span>{tab.label}</span>
-                </button>
-              </li>
-            ))}
+            <li>
+              <span className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium bg-sidebar-active text-white">
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                </svg>
+                Account
+              </span>
+            </li>
           </ul>
         </nav>
         <div className="p-3 border-t border-dashboard-border"><p className="text-[10px] text-text-muted text-center">OrderFlow</p></div>
@@ -729,14 +434,12 @@ function AccountSettingsInner() {
       <main className="flex-1 overflow-auto">
         <div className="sticky top-0 z-30 bg-dashboard-bg/80 backdrop-blur-xl border-b border-dashboard-border">
           <div className="flex items-center justify-between px-6 h-14 md:pl-6 pl-14">
-            <h1 className="text-lg font-bold text-text-primary">
-              {activeTab === 'account' ? 'Account' : 'Dropdown Settings'}
-            </h1>
+            <h1 className="text-lg font-bold text-text-primary">Account Settings</h1>
             <ThemeToggle />
           </div>
         </div>
         <div className="px-6 py-6 max-w-4xl">
-          {activeTab === 'account' ? <AccountSection /> : <DropdownsSection />}
+          <AccountSection />
         </div>
       </main>
     </div>
