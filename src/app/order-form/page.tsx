@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import toast from 'react-hot-toast';
 import { useOrderStore } from '@/store/useOrderStore';
-import { useSettingsStore, ALL_PLATFORMS } from '@/store/useSettingsStore';
+import { useSettingsStore } from '@/store/useSettingsStore';
 import { useAuth } from '@/hooks/useAuth';
 import { OrderPlatform } from '@/types/order';
 import ThemeToggle from '@/components/ThemeToggle';
@@ -14,7 +14,6 @@ const ORDER_TYPES = ['Rating', 'Review', 'Empty Box'];
 export default function OrderFormPage() {
   const addOrder = useOrderStore((s) => s.addOrder);
   const settingsPlatforms = useSettingsStore((s) => s.platforms);
-  const savePlatforms = useSettingsStore((s) => s.savePlatforms);
   const fetchSettings = useSettingsStore((s) => s.fetchSettings);
   const { user: authUser } = useAuth();
 
@@ -22,8 +21,6 @@ export default function OrderFormPage() {
   const today = `${_d.getFullYear()}-${String(_d.getMonth() + 1).padStart(2, '0')}-${String(_d.getDate()).padStart(2, '0')}`;
 
   const [submitted, setSubmitted] = useState(false);
-  const [managePlatformsOpen, setManagePlatformsOpen] = useState(false);
-  const [platformDraft, setPlatformDraft] = useState<string[]>([]);
 
   const [form, setForm] = useState({
     platform: '' as OrderPlatform | '',
@@ -41,6 +38,7 @@ export default function OrderFormPage() {
     isReplacement: false,
     replacementOrderId: '',
     mediatorMessage: '',
+    refundFormLink: '',
     confirmed: false,
   });
 
@@ -56,18 +54,6 @@ export default function OrderFormPage() {
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authUser?.email]);
-
-  // Extract refund form link from mediator message
-  const extractRefundLink = (message: string): string | null => {
-    // Try to find a URL with "refund" or "form" in it
-    const refundUrl = message.match(/(https?:\/\/[^\s]*(?:refund|form)[^\s]*)/i);
-    if (refundUrl) return refundUrl[1];
-    // Fall back to any URL
-    const anyUrl = message.match(/(https?:\/\/[^\s]+)/i);
-    return anyUrl ? anyUrl[1] : null;
-  };
-
-  const refundLink = form.mediatorMessage ? extractRefundLink(form.mediatorMessage) : null;
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value, type } = e.target;
@@ -119,6 +105,7 @@ export default function OrderFormPage() {
         exchangeProductName: form.isExchange ? form.exchangeProductName : '',
         replacementOrderId: form.isReplacement ? form.replacementOrderId : '',
         mediatorMessage: form.mediatorMessage,
+        refundFormLink: form.refundFormLink.trim() || undefined,
       });
       setSubmitted(true);
     } catch (err) {
@@ -145,20 +132,10 @@ export default function OrderFormPage() {
       isReplacement: false,
       replacementOrderId: '',
       mediatorMessage: '',
+      refundFormLink: '',
       confirmed: false,
     });
     setSubmitted(false);
-  };
-
-  const openManagePlatforms = () => {
-    setPlatformDraft(settingsPlatforms.map((p) => p.value));
-    setManagePlatformsOpen(true);
-  };
-
-  const saveManagedPlatforms = async () => {
-    const selected = ALL_PLATFORMS.filter((p) => platformDraft.includes(p.value));
-    await savePlatforms(selected.length > 0 ? selected : ALL_PLATFORMS);
-    setManagePlatformsOpen(false);
   };
 
   const inputClass = "w-full bg-form-input-bg border border-form-border rounded-lg px-4 py-2.5 text-form-text placeholder-form-placeholder focus:ring-2 focus:ring-accent-blue focus:border-accent-blue outline-none transition";
@@ -194,38 +171,6 @@ export default function OrderFormPage() {
           </div>
         </div>
       </header>
-
-      {/* Manage Platforms modal */}
-      {managePlatformsOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/60" onClick={() => setManagePlatformsOpen(false)} />
-          <div className="relative bg-dashboard-card border border-dashboard-border rounded-2xl p-5 w-full max-w-sm shadow-2xl max-h-[85vh] overflow-y-auto">
-            <h3 className="text-base font-semibold text-text-primary mb-1">Manage Platforms</h3>
-            <p className="text-xs text-text-muted mb-4">Select which platforms appear in the order form.</p>
-            <div className="space-y-2 mb-5">
-              {ALL_PLATFORMS.map((p) => (
-                <label key={p.value} className="flex items-center gap-3 cursor-pointer p-2.5 rounded-lg hover:bg-dashboard-bg transition">
-                  <input
-                    type="checkbox"
-                    checked={platformDraft.includes(p.value)}
-                    onChange={(e) => {
-                      setPlatformDraft((prev) =>
-                        e.target.checked ? [...prev, p.value] : prev.filter((v) => v !== p.value)
-                      );
-                    }}
-                    className="w-4 h-4 rounded text-accent-blue"
-                  />
-                  <span className="text-sm text-text-primary">{p.label}</span>
-                </label>
-              ))}
-            </div>
-            <div className="flex gap-2">
-              <button onClick={() => setManagePlatformsOpen(false)} className="flex-1 py-2 text-sm text-text-muted hover:text-text-primary border border-dashboard-border rounded-lg transition">Cancel</button>
-              <button onClick={saveManagedPlatforms} className="flex-1 py-2 text-sm bg-accent-blue text-white rounded-lg hover:bg-blue-600 transition">Save</button>
-            </div>
-          </div>
-        </div>
-      )}
 
       <div className="max-w-2xl mx-auto px-4 py-8">
         {submitted ? (
@@ -280,41 +225,27 @@ export default function OrderFormPage() {
             <form onSubmit={handleSubmit} className="space-y-5">
               {/* 1. Platform */}
               <div>
-                <div className="flex items-center justify-between mb-2">
-                  <label className={labelClass}>
-                    Order Platform <span className="text-accent-red">*</span>
-                  </label>
-                  <button
-                    type="button"
-                    onClick={openManagePlatforms}
-                    className="text-xs text-accent-blue hover:underline flex items-center gap-1"
-                  >
-                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                    </svg>
-                    Manage
-                  </button>
-                </div>
-                <div className="flex flex-wrap gap-2">
+                <label className={labelClass}>
+                  Order Platform <span className="text-accent-red">*</span>
+                </label>
+                <select
+                  name="platform"
+                  value={form.platform}
+                  onChange={handleChange}
+                  required
+                  className={inputClass}
+                >
+                  <option value="">Select a platform</option>
                   {settingsPlatforms.map((opt) => (
-                    <button
-                      key={opt.value}
-                      type="button"
-                      onClick={() => setForm((prev) => ({ ...prev, platform: opt.value as OrderPlatform }))}
-                      className={`px-3 py-1.5 rounded-lg text-sm font-medium border transition ${
-                        form.platform === opt.value
-                          ? 'bg-accent-blue text-white border-accent-blue'
-                          : 'bg-form-input-bg border-form-border text-form-text hover:border-accent-blue/60'
-                      }`}
-                    >
-                      {opt.label}
-                    </button>
+                    <option key={opt.value} value={opt.value}>{opt.label}</option>
                   ))}
-                </div>
-                {!form.platform && (
-                  <p className="text-xs text-form-hint mt-1.5">Select the platform this order is from.</p>
-                )}
+                </select>
+                <p className="text-xs text-form-hint mt-1">
+                  Can&apos;t find your platform?{' '}
+                  <Link href="/account-settings" className="text-form-link hover:underline">
+                    Manage Platform Settings
+                  </Link>
+                </p>
               </div>
 
               {/* 2. Email */}
@@ -354,28 +285,22 @@ export default function OrderFormPage() {
                 <p className="text-xs text-form-hint mt-1">Defaults to today. Pick a past date if backfilling an older order.</p>
               </div>
 
-              {/* 6. Order Type — checkbox style (single select) */}
+              {/* 6. Order Type — radio buttons */}
               <div>
                 <label className={`${labelClass} mb-2`}>Order Type <span className="text-accent-red">*</span></label>
-                <div className="flex flex-wrap gap-2">
+                <div className="flex gap-6 flex-wrap">
                   {ORDER_TYPES.map((type) => (
-                    <button
-                      key={type}
-                      type="button"
-                      onClick={() => setForm((prev) => ({ ...prev, orderType: type }))}
-                      className={`px-3 py-1.5 rounded-lg text-sm font-medium border transition flex items-center gap-1.5 ${
-                        form.orderType === type
-                          ? 'bg-accent-blue text-white border-accent-blue'
-                          : 'bg-form-input-bg border-form-border text-form-text hover:border-accent-blue/60'
-                      }`}
-                    >
-                      {form.orderType === type && (
-                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                        </svg>
-                      )}
-                      {type}
-                    </button>
+                    <label key={type} className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="orderType"
+                        value={type}
+                        checked={form.orderType === type}
+                        onChange={handleChange}
+                        className="w-4 h-4 text-accent-blue"
+                      />
+                      <span className="text-text-primary">{type}</span>
+                    </label>
                   ))}
                 </div>
               </div>
@@ -464,29 +389,36 @@ export default function OrderFormPage() {
                   name="mediatorMessage"
                   value={form.mediatorMessage}
                   onChange={handleChange}
-                  placeholder="Paste the full mediator message here. We will automatically detect the refund form link."
+                  placeholder="Paste the full mediator message here (optional)."
                   rows={4}
                   maxLength={5000}
                   className={`${inputClass} resize-none`}
                 />
-                <p className="text-xs text-form-hint mt-1">
-                  Paste the complete message — the refund form link will be extracted automatically and shown on your dashboard.
-                </p>
-                {refundLink && (
-                  <div className="mt-2 p-3 bg-form-success-bg border border-form-success-border rounded-lg">
-                    <p className="text-xs font-semibold text-form-success-text mb-1">Refund Form Link Detected:</p>
-                    <a href={refundLink} target="_blank" rel="noopener noreferrer" className="text-xs text-form-link hover:underline break-all">{refundLink}</a>
-                  </div>
-                )}
               </div>
 
-              {/* 14. Confirm */}
+              {/* 14. Refund Form Link */}
+              <div>
+                <label className={labelClass}>Refund Form Link</label>
+                <input
+                  type="url"
+                  name="refundFormLink"
+                  value={form.refundFormLink}
+                  onChange={handleChange}
+                  placeholder="https://... (optional — paste the refund form link)"
+                  className={inputClass}
+                />
+                <p className="text-xs text-form-hint mt-1">
+                  If you have a dedicated refund form link, paste it here. It will show as a button on your dashboard.
+                </p>
+              </div>
+
+              {/* 15. Confirm */}
               <div className="flex items-start gap-3 p-4 rounded-lg bg-form-confirm-bg border border-form-confirm-border">
                 <input type="checkbox" name="confirmed" checked={form.confirmed} onChange={handleChange} className="w-4 h-4 mt-0.5 text-accent-blue rounded" />
                 <label className="text-sm text-form-confirm-text">I confirm that all the details provided by me are correct.</label>
               </div>
 
-              {/* 15. Buttons */}
+              {/* 16. Buttons */}
               <div className="space-y-3 pt-2">
                 <button type="submit" disabled={submitting} className="w-full py-3 bg-accent-blue text-white font-semibold rounded-lg hover:bg-blue-600 active:scale-[0.98] transition-all shadow-lg shadow-accent-blue/20 disabled:opacity-50">
                   {submitting ? 'Submitting...' : 'Submit form'}

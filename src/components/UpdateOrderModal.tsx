@@ -38,6 +38,7 @@ export default function UpdateOrderModal({ order, onClose }: UpdateOrderModalPro
 
   // General fields
   const [mediatorMessage, setMediatorMessage] = useState(order.mediatorMessage || '');
+  const [refundFormLink, setRefundFormLink] = useState(order.refundFormLink || '');
   const [sellerLess, setSellerLess] = useState(order.sellerLess);
   const [isReplacement, setIsReplacement] = useState(order.isReplacement);
   const [replacementOrderId, setReplacementOrderId] = useState(order.replacementOrderId || '');
@@ -121,6 +122,7 @@ export default function UpdateOrderModal({ order, onClose }: UpdateOrderModalPro
     }
 
     if (mediatorMessage !== (order.mediatorMessage || '')) extras.mediatorMessage = mediatorMessage;
+    if (refundFormLink !== (order.refundFormLink || '')) extras.refundFormLink = refundFormLink.trim() || undefined;
     if (sellerLess !== order.sellerLess) extras.sellerLess = sellerLess;
     if (isReplacement !== order.isReplacement) extras.isReplacement = isReplacement;
     if (isReplacement) {
@@ -144,6 +146,7 @@ export default function UpdateOrderModal({ order, onClose }: UpdateOrderModalPro
   const hasChanges =
     newStatus !== order.status ||
     mediatorMessage !== (order.mediatorMessage || '') ||
+    refundFormLink !== (order.refundFormLink || '') ||
     sellerLess !== order.sellerLess ||
     isReplacement !== order.isReplacement ||
     (isReplacement && replacementOrderId !== (order.replacementOrderId || '')) ||
@@ -348,17 +351,26 @@ export default function UpdateOrderModal({ order, onClose }: UpdateOrderModalPro
               rows={3}
               className="w-full bg-dashboard-bg border border-dashboard-border rounded-lg px-4 py-2.5 text-sm text-text-primary placeholder-text-muted focus:ring-2 focus:ring-accent-blue outline-none resize-none"
             />
-            {mediatorMessage && (() => {
-              const urlMatch = mediatorMessage.match(/(https?:\/\/[^\s]+)/i);
-              return urlMatch ? (
-                <div className="mt-2 p-2.5 rounded-lg bg-blue-500/10 border border-blue-500/30 flex items-center gap-2">
-                  <svg className="w-4 h-4 text-blue-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
-                  </svg>
-                  <span className="text-xs text-blue-400 truncate">Link detected</span>
-                </div>
-              ) : null;
-            })()}
+          </div>
+
+          {/* Refund Form Link */}
+          <div>
+            <label className="block text-sm font-semibold text-text-primary mb-2">Refund Form Link</label>
+            <input
+              type="url"
+              value={refundFormLink}
+              onChange={(e) => setRefundFormLink(e.target.value)}
+              placeholder="https://... (paste refund form link)"
+              className="w-full bg-dashboard-bg border border-dashboard-border rounded-lg px-4 py-2.5 text-sm text-text-primary placeholder-text-muted focus:ring-2 focus:ring-accent-blue outline-none"
+            />
+            {refundFormLink && (
+              <a href={refundFormLink} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 mt-2 text-xs text-green-400 hover:underline">
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                </svg>
+                Open Refund Form
+              </a>
+            )}
           </div>
 
           {/* Status Update */}

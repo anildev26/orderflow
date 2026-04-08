@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, Suspense } from 'react';
+import { useState, useRef, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import toast from 'react-hot-toast';
@@ -8,6 +8,7 @@ import { createClient } from '@/lib/supabase';
 import { useAuth } from '@/hooks/useAuth';
 import { useTheme } from '@/context/ThemeContext';
 import ThemeToggle from '@/components/ThemeToggle';
+import { useSettingsStore, ALL_PLATFORMS } from '@/store/useSettingsStore';
 
 /* ─── Draggable List (reusable) ─── */
 function DraggableList<T>({
@@ -338,6 +339,82 @@ function AccountSection() {
   );
 }
 
+/* ─── Platform Section ─── */
+function PlatformSection() {
+  const platforms = useSettingsStore((s) => s.platforms);
+  const savePlatforms = useSettingsStore((s) => s.savePlatforms);
+  const fetchSettings = useSettingsStore((s) => s.fetchSettings);
+  const [saving, setSaving] = useState(false);
+  const [draft, setDraft] = useState<string[] | null>(null);
+
+  // Initialize draft from store
+  const enabledValues = draft ?? platforms.map((p) => p.value);
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { fetchSettings(); }, []);
+
+  const toggle = (value: string) => {
+    setDraft((prev) => {
+      const current = prev ?? platforms.map((p) => p.value);
+      return current.includes(value)
+        ? current.filter((v) => v !== value)
+        : [...current, value];
+    });
+  };
+
+  const handleSave = async () => {
+    const selected = ALL_PLATFORMS.filter((p) => enabledValues.includes(p.value));
+    if (selected.length === 0) {
+      toast.error('Select at least one platform');
+      return;
+    }
+    setSaving(true);
+    try {
+      await savePlatforms(selected);
+      setDraft(null);
+      toast.success('Platform settings saved!');
+    } catch {
+      toast.error('Failed to save settings');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="space-y-6 max-w-lg">
+      <div className="p-5 rounded-xl bg-dashboard-card border border-dashboard-border">
+        <h3 className="text-sm font-semibold text-text-secondary mb-1">Platform Settings</h3>
+        <p className="text-xs text-text-muted mb-4">
+          Choose which platforms appear in the Order Form dropdown and dashboard filters.
+        </p>
+        <div className="space-y-2 mb-5">
+          {ALL_PLATFORMS.map((p) => (
+            <label key={p.value} className="flex items-center gap-3 cursor-pointer p-2.5 rounded-lg hover:bg-dashboard-bg transition">
+              <input
+                type="checkbox"
+                checked={enabledValues.includes(p.value)}
+                onChange={() => toggle(p.value)}
+                className="w-4 h-4 rounded text-accent-blue"
+              />
+              <span className="text-sm text-text-primary">{p.label}</span>
+            </label>
+          ))}
+        </div>
+        <button
+          onClick={handleSave}
+          disabled={saving || draft === null}
+          className="px-5 py-2.5 bg-accent-blue text-white text-sm font-medium rounded-lg hover:bg-blue-600 transition disabled:opacity-50"
+        >
+          {saving ? 'Saving...' : 'Save Platforms'}
+        </button>
+        {draft === null && (
+          <p className="text-xs text-text-muted mt-2">No unsaved changes.</p>
+        )}
+      </div>
+    </div>
+  );
+}
+
 /* ─── Main Page ─── */
 export default function AccountSettingsPage() {
   return (
@@ -351,6 +428,7 @@ function AccountSettingsInner() {
   // searchParams kept for backward compat (old links with ?tab=dropdowns still work)
   useSearchParams();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<'account' | 'platforms'>('account');
 
   return (
     <div className="flex min-h-screen bg-dashboard-bg">
@@ -385,12 +463,26 @@ function AccountSettingsInner() {
         <nav className="flex-1 overflow-y-auto px-3">
           <ul className="space-y-1">
             <li>
-              <span className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium bg-sidebar-active text-white">
+              <button
+                onClick={() => { setActiveTab('account'); setMobileMenuOpen(false); }}
+                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition ${activeTab === 'account' ? 'bg-sidebar-active text-white' : 'text-text-secondary hover:bg-dashboard-card hover:text-text-primary'}`}
+              >
                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                 </svg>
                 Account
-              </span>
+              </button>
+            </li>
+            <li>
+              <button
+                onClick={() => { setActiveTab('platforms'); setMobileMenuOpen(false); }}
+                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition ${activeTab === 'platforms' ? 'bg-sidebar-active text-white' : 'text-text-secondary hover:bg-dashboard-card hover:text-text-primary'}`}
+              >
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2" />
+                </svg>
+                Platforms
+              </button>
             </li>
           </ul>
         </nav>
@@ -415,12 +507,26 @@ function AccountSettingsInner() {
         <nav className="flex-1 overflow-y-auto px-3">
           <ul className="space-y-1">
             <li>
-              <span className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium bg-sidebar-active text-white">
+              <button
+                onClick={() => setActiveTab('account')}
+                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition ${activeTab === 'account' ? 'bg-sidebar-active text-white' : 'text-text-secondary hover:bg-dashboard-card hover:text-text-primary'}`}
+              >
                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                 </svg>
                 Account
-              </span>
+              </button>
+            </li>
+            <li>
+              <button
+                onClick={() => setActiveTab('platforms')}
+                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition ${activeTab === 'platforms' ? 'bg-sidebar-active text-white' : 'text-text-secondary hover:bg-dashboard-card hover:text-text-primary'}`}
+              >
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2" />
+                </svg>
+                Platforms
+              </button>
             </li>
           </ul>
         </nav>
@@ -434,12 +540,14 @@ function AccountSettingsInner() {
       <main className="flex-1 overflow-auto">
         <div className="sticky top-0 z-30 bg-dashboard-bg/80 backdrop-blur-xl border-b border-dashboard-border">
           <div className="flex items-center justify-between px-6 h-14 md:pl-6 pl-14">
-            <h1 className="text-lg font-bold text-text-primary">Account Settings</h1>
+            <h1 className="text-lg font-bold text-text-primary">
+              {activeTab === 'account' ? 'Account Settings' : 'Platform Settings'}
+            </h1>
             <ThemeToggle />
           </div>
         </div>
         <div className="px-6 py-6 max-w-4xl">
-          <AccountSection />
+          {activeTab === 'account' ? <AccountSection /> : <PlatformSection />}
         </div>
       </main>
     </div>

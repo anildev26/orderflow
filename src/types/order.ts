@@ -1,4 +1,4 @@
-export type OrderPlatform = 'flipkart' | 'amazon' | 'meesho' | 'myntra' | 'jio' | 'blinkit' | 'ajio' | 'other';
+export type OrderPlatform = 'flipkart' | 'amazon' | 'meesho' | 'myntra' | 'jio' | 'blinkit' | 'ajio' | 'shopsy' | 'nykaa' | 'other';
 
 export type OrderStatus =
   | 'ordered'
@@ -28,6 +28,7 @@ export interface Order {
   exchangeProductName: string;
   replacementOrderId: string;
   mediatorMessage: string;
+  refundFormLink?: string;
   status: OrderStatus;
   // Dedicated date fields per status
   deliveredDate?: string;
@@ -57,6 +58,7 @@ export interface OrderFormData {
   replacementOrderId: string;
   totalAmount: number;
   mediatorMessage: string;
+  refundFormLink?: string;
 }
 
 export const STATUS_LABELS: Record<OrderStatus, string> = {
@@ -101,6 +103,8 @@ export const PLATFORM_OPTIONS: { value: OrderPlatform; label: string }[] = [
   { value: 'jio', label: 'Jio' },
   { value: 'blinkit', label: 'Blinkit' },
   { value: 'ajio', label: 'Ajio' },
+  { value: 'shopsy', label: 'Shopsy' },
+  { value: 'nykaa', label: 'Nykaa' },
   { value: 'other', label: 'Other' },
 ];
 

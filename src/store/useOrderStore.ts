@@ -51,6 +51,7 @@ function dbToOrder(row: Record<string, unknown>): Order {
     exchangeProductName: (row.exchange_product_name as string) || '',
     replacementOrderId: (row.replacement_order_id as string) || '',
     mediatorMessage: (row.mediator_message as string) || '',
+    refundFormLink: (row.refund_form_link as string) || undefined,
     status: status as OrderStatus,
     deliveredDate: (row.delivered_date as string) || undefined,
     returnPeriodDays: row.return_period_days != null ? Number(row.return_period_days) : undefined,
@@ -85,6 +86,7 @@ function orderToDb(order: Partial<Order> & { userId?: string }) {
   if (order.exchangeProductName !== undefined) result.exchange_product_name = order.exchangeProductName;
   if (order.replacementOrderId !== undefined) result.replacement_order_id = order.replacementOrderId;
   if (order.mediatorMessage !== undefined) result.mediator_message = order.mediatorMessage;
+  if (order.refundFormLink !== undefined) result.refund_form_link = order.refundFormLink || null;
   if (order.status !== undefined) result.status = order.status;
   if (order.deliveredDate !== undefined) result.delivered_date = order.deliveredDate;
   if (order.returnPeriodDays !== undefined) result.return_period_days = order.returnPeriodDays;
@@ -208,6 +210,7 @@ export const useOrderStore = create<OrderStore>()((set, get) => ({
     if (extras.paymentReceivedDate !== undefined) updateData.payment_received_date = extras.paymentReceivedDate;
     if (extras.paymentBank !== undefined) updateData.payment_bank = extras.paymentBank;
     if (extras.mediatorMessage !== undefined) updateData.mediator_message = extras.mediatorMessage;
+    if (extras.refundFormLink !== undefined) updateData.refund_form_link = extras.refundFormLink || null;
     if (extras.sellerLess !== undefined) updateData.seller_less = extras.sellerLess;
     if (extras.isReplacement !== undefined) updateData.is_replacement = extras.isReplacement;
     if (extras.replacementOrderId !== undefined) updateData.replacement_order_id = extras.replacementOrderId;

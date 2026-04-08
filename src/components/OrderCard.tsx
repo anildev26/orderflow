@@ -13,6 +13,8 @@ const PLATFORM_BADGE_COLORS: Record<OrderPlatform, string> = {
   jio: 'bg-indigo-500/20 text-indigo-400 border-indigo-500/30',
   blinkit: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30',
   ajio: 'bg-teal-500/20 text-teal-400 border-teal-500/30',
+  shopsy: 'bg-orange-500/20 text-orange-400 border-orange-500/30',
+  nykaa: 'bg-pink-500/20 text-pink-400 border-pink-500/30',
   other: 'bg-gray-500/20 text-gray-400 border-gray-500/30',
 };
 
@@ -57,10 +59,17 @@ export default function OrderCard({ order }: OrderCardProps) {
     ? Math.ceil((returnPeriodEnd.getTime() - Date.now()) / (1000 * 60 * 60 * 24))
     : null;
 
-  // Refund form link from mediator message
-  const refundFormUrl = order.mediatorMessage
-    ? (order.mediatorMessage.match(/(https?:\/\/[^\s]+)/i)?.[1] || null)
-    : null;
+  // Smart display: dedicated link > single clean URL in message > complex message
+  const mediatorUrls = order.mediatorMessage
+    ? [...order.mediatorMessage.matchAll(/(https?:\/\/[^\s]+)/gi)].map((m) => m[1])
+    : [];
+  const isCleanUrl = mediatorUrls.length === 1 && order.mediatorMessage?.trim() === mediatorUrls[0].trim();
+  const hasComplexMessage = mediatorUrls.length > 0 && !isCleanUrl;
+
+  const refundFormUrl: string | null = order.refundFormLink || (isCleanUrl ? mediatorUrls[0] : null);
+  const showViewMessage = !refundFormUrl && hasComplexMessage;
+
+  const [showMessageModal, setShowMessageModal] = useState(false);
 
   const borderColor = BORDER_COLORS[order.status] || 'border-l-blue-500';
 
@@ -164,9 +173,20 @@ export default function OrderCard({ order }: OrderCardProps) {
               Refund Form
             </a>
           )}
+          {showViewMessage && (
+            <button
+              onClick={() => setShowMessageModal(true)}
+              className="flex-1 py-2 text-center text-xs font-medium rounded-lg bg-purple-500/10 border border-purple-500/30 text-purple-400 hover:bg-purple-500/20 transition inline-flex items-center justify-center gap-1.5"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+              </svg>
+              Full Message
+            </button>
+          )}
           <button
             onClick={() => setShowModal(true)}
-            className={`${refundFormUrl ? 'flex-1' : 'w-full'} py-2 text-center text-xs font-medium rounded-lg bg-accent-blue/10 border border-accent-blue/30 text-blue-400 hover:bg-accent-blue/20 transition`}
+            className={`${refundFormUrl || showViewMessage ? 'flex-1' : 'w-full'} py-2 text-center text-xs font-medium rounded-lg bg-accent-blue/10 border border-accent-blue/30 text-blue-400 hover:bg-accent-blue/20 transition`}
           >
             Update Order - {STATUS_LABELS[order.status]}
           </button>
@@ -175,6 +195,32 @@ export default function OrderCard({ order }: OrderCardProps) {
 
       {showModal && (
         <UpdateOrderModal order={order} onClose={() => setShowModal(false)} />
+      )}
+
+      {showMessageModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60" onClick={() => setShowMessageModal(false)}>
+          <div className="bg-dashboard-card rounded-2xl w-full max-w-md mx-4 max-h-[70vh] overflow-auto" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between p-5 border-b border-dashboard-border">
+              <h2 className="text-base font-semibold text-text-primary">Mediator Message</h2>
+              <button onClick={() => setShowMessageModal(false)} className="p-1 rounded-lg hover:bg-dashboard-bg text-text-secondary hover:text-text-primary">
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="p-5">
+              <p className="text-sm text-text-primary whitespace-pre-wrap break-words">{order.mediatorMessage}</p>
+              {mediatorUrls.length > 0 && (
+                <div className="mt-4 space-y-2">
+                  <p className="text-xs font-semibold text-text-muted">Links in message:</p>
+                  {mediatorUrls.map((url, i) => (
+                    <a key={i} href={url} target="_blank" rel="noopener noreferrer" className="block text-xs text-accent-blue hover:underline break-all">{url}</a>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
       )}
     </>
   );
