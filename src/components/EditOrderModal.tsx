@@ -28,8 +28,6 @@ export default function EditOrderModal({ order, onClose }: EditOrderModalProps) 
     sellerLess: String(order.sellerLess),
     mediatorName: order.mediatorName,
     reviewerName: order.reviewerName,
-    mediatorMessage: order.mediatorMessage || '',
-    refundFormLink: order.refundFormLink || '',
   });
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
@@ -67,8 +65,6 @@ export default function EditOrderModal({ order, onClose }: EditOrderModalProps) 
         sellerLess,
         mediatorName: form.mediatorName,
         reviewerName: form.reviewerName,
-        mediatorMessage: form.mediatorMessage,
-        refundFormLink: form.refundFormLink.trim() || undefined,
       });
       toast.success('Order updated!');
       onClose();
@@ -82,7 +78,7 @@ export default function EditOrderModal({ order, onClose }: EditOrderModalProps) 
   const ic = "w-full bg-dashboard-bg border border-dashboard-border rounded-lg px-3 py-2.5 text-sm text-text-primary placeholder-text-muted focus:ring-2 focus:ring-accent-blue outline-none transition";
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={onClose}>
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60" onClick={onClose}>
       <div
         className="bg-dashboard-card rounded-2xl w-full max-w-md mx-4 max-h-[90vh] overflow-auto"
         onClick={(e) => e.stopPropagation()}
@@ -132,9 +128,17 @@ export default function EditOrderModal({ order, onClose }: EditOrderModalProps) 
           {/* Order Type */}
           <div>
             <label className="block text-xs font-semibold text-text-secondary mb-1.5">Order Type</label>
-            <div className="flex gap-5 flex-wrap">
+            <div className="space-y-2">
               {ORDER_TYPES.map((t) => (
-                <label key={t} className="flex items-center gap-2 cursor-pointer">
+                <label
+                  key={t}
+                  className={`flex items-center justify-between px-3 py-2.5 rounded-lg border cursor-pointer transition ${
+                    form.orderType === t
+                      ? 'bg-accent-blue/10 border-accent-blue/50'
+                      : 'bg-dashboard-bg border-dashboard-border hover:border-accent-blue/30'
+                  }`}
+                >
+                  <span className={`text-sm font-medium ${form.orderType === t ? 'text-accent-blue' : 'text-text-primary'}`}>{t}</span>
                   <input
                     type="radio"
                     name="orderType"
@@ -143,7 +147,6 @@ export default function EditOrderModal({ order, onClose }: EditOrderModalProps) 
                     onChange={handleChange}
                     className="w-4 h-4 text-accent-blue"
                   />
-                  <span className="text-sm text-text-primary">{t}</span>
                 </label>
               ))}
             </div>
@@ -189,24 +192,6 @@ export default function EditOrderModal({ order, onClose }: EditOrderModalProps) 
             <input type="text" name="reviewerName" value={form.reviewerName} onChange={handleChange} maxLength={100} className={ic} />
           </div>
 
-          {/* Mediator Message */}
-          <div>
-            <label className="block text-xs font-semibold text-text-secondary mb-1.5">Mediator Message</label>
-            <textarea
-              name="mediatorMessage"
-              value={form.mediatorMessage}
-              onChange={handleChange}
-              rows={3}
-              maxLength={5000}
-              className={`${ic} resize-none`}
-            />
-          </div>
-
-          {/* Refund Form Link */}
-          <div>
-            <label className="block text-xs font-semibold text-text-secondary mb-1.5">Refund Form Link</label>
-            <input type="url" name="refundFormLink" value={form.refundFormLink} onChange={handleChange} placeholder="https://..." className={ic} />
-          </div>
         </div>
 
         {/* Footer */}

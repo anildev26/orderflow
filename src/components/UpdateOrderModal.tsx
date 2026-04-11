@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
 import { Order, OrderStatus, STATUS_LABELS, STATUS_COLORS, STATUS_OPTIONS } from '@/types/order';
 import { useOrderStore } from '@/store/useOrderStore';
+import EditOrderModal from './EditOrderModal';
 
 function fmtDate(d?: string) {
   if (!d) return '-';
@@ -24,6 +25,7 @@ export default function UpdateOrderModal({ order, onClose }: UpdateOrderModalPro
   const today = `${_d.getFullYear()}-${String(_d.getMonth() + 1).padStart(2, '0')}-${String(_d.getDate()).padStart(2, '0')}`;
   const [showArchiveConfirm, setShowArchiveConfirm] = useState(false);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+  const [showEdit, setShowEdit] = useState(false);
 
   const [newStatus, setNewStatus] = useState<OrderStatus>(order.status);
 
@@ -161,6 +163,7 @@ export default function UpdateOrderModal({ order, onClose }: UpdateOrderModalPro
   const refundAmount = order.totalAmount - order.sellerLess;
 
   return (
+    <>
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={onClose}>
       <div
         className="bg-dashboard-card rounded-2xl w-full max-w-md mx-4 max-h-[85vh] overflow-auto"
@@ -182,6 +185,18 @@ export default function UpdateOrderModal({ order, onClose }: UpdateOrderModalPro
         <div className="p-5 space-y-4">
           {/* ── Full Order Details Card ── */}
           <div className="p-4 rounded-xl bg-dashboard-bg space-y-3">
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-xs font-semibold text-text-secondary">Order Details</span>
+              <button
+                onClick={() => setShowEdit(true)}
+                className="flex items-center gap-1.5 text-xs font-medium text-accent-blue hover:text-blue-400 transition"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                </svg>
+                Edit Details
+              </button>
+            </div>
             <div className="flex items-center justify-between">
               <span className="text-xs text-text-muted">Order ID</span>
               <span className="text-sm font-mono font-bold text-text-primary">{order.orderId}</span>
@@ -534,5 +549,8 @@ export default function UpdateOrderModal({ order, onClose }: UpdateOrderModalPro
         </div>
       </div>
     </div>
+
+    {showEdit && <EditOrderModal order={order} onClose={() => setShowEdit(false)} />}
+    </>
   );
 }
