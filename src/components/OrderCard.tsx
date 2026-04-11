@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import toast from 'react-hot-toast';
 import { Order, STATUS_LABELS, STATUS_COLORS, OrderPlatform } from '@/types/order';
 import UpdateOrderModal from './UpdateOrderModal';
+import EditOrderModal from './EditOrderModal';
 
 const PLATFORM_BADGE_COLORS: Record<OrderPlatform, string> = {
   amazon: 'bg-amber-500/20 text-amber-400 border-amber-500/30',
@@ -27,6 +28,12 @@ function daysAgo(dateStr: string): number {
   return Math.floor(diff / (1000 * 60 * 60 * 24));
 }
 
+function fmtDate(d: string): string {
+  if (!d) return '';
+  const [y, m, day] = d.split('-');
+  return `${day}-${m}-${y}`;
+}
+
 const BORDER_COLORS: Record<string, string> = {
   ordered: 'border-l-blue-500',
   delivered: 'border-l-cyan-500',
@@ -39,6 +46,7 @@ const BORDER_COLORS: Record<string, string> = {
 
 export default function OrderCard({ order }: OrderCardProps) {
   const [showModal, setShowModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => { setMounted(true); }, []);
@@ -91,9 +99,20 @@ export default function OrderCard({ order }: OrderCardProps) {
                 Copy
               </button>
             </div>
-            <span className={`text-[10px] font-semibold px-2 py-1 rounded-md text-white flex-shrink-0 ${STATUS_COLORS[order.status]}`}>
-              {STATUS_LABELS[order.status]}
-            </span>
+            <div className="flex items-center gap-1.5 flex-shrink-0">
+              <button
+                onClick={() => setShowEditModal(true)}
+                className="p-1 rounded-md text-text-muted hover:text-text-primary hover:bg-dashboard-bg transition"
+                title="Edit order details"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                </svg>
+              </button>
+              <span className={`text-[10px] font-semibold px-2 py-1 rounded-md text-white ${STATUS_COLORS[order.status]}`}>
+                {STATUS_LABELS[order.status]}
+              </span>
+            </div>
           </div>
 
           {/* Row 2: Product + Amount + Date + Reviewer + Mediator */}
@@ -102,7 +121,7 @@ export default function OrderCard({ order }: OrderCardProps) {
             <div className="flex items-center gap-3 text-xs text-text-muted">
               <span className="text-sm font-bold text-green-400">&#8377;{order.totalAmount.toLocaleString('en-IN')}</span>
               {order.sellerLess > 0 && <span>Less: &#8377;{order.sellerLess}</span>}
-              <span>{order.orderDate} ({days}d)</span>
+              <span>{fmtDate(order.orderDate)} ({days}d)</span>
             </div>
             <div className="flex items-center gap-4 text-xs text-text-muted">
               <span className="flex items-center gap-1">
@@ -195,6 +214,10 @@ export default function OrderCard({ order }: OrderCardProps) {
 
       {showModal && (
         <UpdateOrderModal order={order} onClose={() => setShowModal(false)} />
+      )}
+
+      {showEditModal && (
+        <EditOrderModal order={order} onClose={() => setShowEditModal(false)} />
       )}
 
       {showMessageModal && (

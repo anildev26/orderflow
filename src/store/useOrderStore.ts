@@ -20,6 +20,7 @@ interface OrderStore {
     refundFormFilled: number;
     archivedOrders: number;
   };
+  editOrder: (id: string, updates: Partial<Omit<Order, 'id' | 'createdAt' | 'updatedAt'>>) => Promise<void>;
   exportData: () => string;
   importData: (jsonString: string) => Promise<boolean>;
 }
@@ -194,6 +195,24 @@ export const useOrderStore = create<OrderStore>()((set, get) => ({
     if (!error && data) {
       const newOrder = dbToOrder(data);
       set((state) => ({ orders: [newOrder, ...state.orders] }));
+    }
+  },
+
+  editOrder: async (id, updates) => {
+    const supabase = createClient();
+    const dbRow = orderToDb(updates as Partial<Order>);
+
+    const { error } = await supabase
+      .from('orders')
+      .update(dbRow)
+      .eq('id', id);
+
+    if (!error) {
+      set((state) => ({
+        orders: state.orders.map((o) =>
+          o.id === id ? { ...o, ...updates, updatedAt: new Date().toISOString() } : o
+        ),
+      }));
     }
   },
 

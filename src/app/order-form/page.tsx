@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import toast from 'react-hot-toast';
 import { useOrderStore } from '@/store/useOrderStore';
-import { useSettingsStore } from '@/store/useSettingsStore';
+import { ALL_PLATFORMS } from '@/store/useSettingsStore';
 import { useAuth } from '@/hooks/useAuth';
 import { OrderPlatform } from '@/types/order';
 import ThemeToggle from '@/components/ThemeToggle';
@@ -13,8 +13,6 @@ const ORDER_TYPES = ['Rating', 'Review', 'Empty Box'];
 
 export default function OrderFormPage() {
   const addOrder = useOrderStore((s) => s.addOrder);
-  const settingsPlatforms = useSettingsStore((s) => s.platforms);
-  const fetchSettings = useSettingsStore((s) => s.fetchSettings);
   const { user: authUser } = useAuth();
 
   const _d = new Date();
@@ -41,11 +39,6 @@ export default function OrderFormPage() {
     refundFormLink: '',
     confirmed: false,
   });
-
-  useEffect(() => {
-    fetchSettings();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   // Auto-fill only registered email
   useEffect(() => {
@@ -236,14 +229,14 @@ export default function OrderFormPage() {
                   className={inputClass}
                 >
                   <option value="">Select a platform</option>
-                  {settingsPlatforms.map((opt) => (
+                  {ALL_PLATFORMS.map((opt) => (
                     <option key={opt.value} value={opt.value}>{opt.label}</option>
                   ))}
                 </select>
                 <p className="text-xs text-form-hint mt-1">
-                  Can&apos;t find your platform?{' '}
-                  <Link href="/account-settings" className="text-form-link hover:underline">
-                    Manage Platform Settings
+                  Platform not listed?{' '}
+                  <Link href="/contact" className="text-form-link hover:underline">
+                    Request it here
                   </Link>
                 </p>
               </div>

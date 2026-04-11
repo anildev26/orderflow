@@ -42,7 +42,7 @@ export default function UpdateOrderModal({ order, onClose }: UpdateOrderModalPro
   const [sellerLess, setSellerLess] = useState(order.sellerLess);
   const [isReplacement, setIsReplacement] = useState(order.isReplacement);
   const [replacementOrderId, setReplacementOrderId] = useState(order.replacementOrderId || '');
-  const [replacementAmount, setReplacementAmount] = useState(order.totalAmount);
+  const [replacementAmount, setReplacementAmount] = useState(String(order.totalAmount || ''));
 
   // Copy all details for WhatsApp
   const handleCopyDetails = () => {
@@ -127,7 +127,8 @@ export default function UpdateOrderModal({ order, onClose }: UpdateOrderModalPro
     if (isReplacement !== order.isReplacement) extras.isReplacement = isReplacement;
     if (isReplacement) {
       if (replacementOrderId !== (order.replacementOrderId || '')) extras.replacementOrderId = replacementOrderId;
-      if (replacementAmount !== order.totalAmount) extras.totalAmount = replacementAmount;
+      const parsedAmt = parseFloat(replacementAmount);
+      if (!isNaN(parsedAmt) && parsedAmt !== order.totalAmount) extras.totalAmount = parsedAmt;
     }
 
     await updateOrderStatus(order.id, newStatus, extras);
@@ -150,7 +151,7 @@ export default function UpdateOrderModal({ order, onClose }: UpdateOrderModalPro
     sellerLess !== order.sellerLess ||
     isReplacement !== order.isReplacement ||
     (isReplacement && replacementOrderId !== (order.replacementOrderId || '')) ||
-    (isReplacement && replacementAmount !== order.totalAmount) ||
+    (isReplacement && parseFloat(replacementAmount) !== order.totalAmount) ||
     (newStatus === 'delivered' && (deliveredDate !== (order.deliveredDate || today) || returnPeriodDays !== (order.returnPeriodDays || 7))) ||
     (newStatus === 'review_rating_submitted' && reviewRatingDate !== (order.reviewRatingDate || today)) ||
     (newStatus === 'refund_form_filled' && refundFormFilledDate !== (order.refundFormFilledDate || today)) ||
@@ -335,7 +336,17 @@ export default function UpdateOrderModal({ order, onClose }: UpdateOrderModalPro
                 </div>
                 <div>
                   <label className="block text-xs text-text-muted mb-1">New Amount</label>
-                  <input type="number" value={replacementAmount} onChange={(e) => setReplacementAmount(Number(e.target.value) || 0)} min={0} className="w-full bg-dashboard-bg border border-dashboard-border rounded-lg px-4 py-2.5 text-sm text-text-primary focus:ring-2 focus:ring-accent-blue outline-none" />
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    value={replacementAmount}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      if (v === '' || /^\d*\.?\d*$/.test(v)) setReplacementAmount(v);
+                    }}
+                    placeholder="0"
+                    className="w-full bg-dashboard-bg border border-dashboard-border rounded-lg px-4 py-2.5 text-sm text-text-primary focus:ring-2 focus:ring-accent-blue outline-none"
+                  />
                 </div>
               </div>
             )}
