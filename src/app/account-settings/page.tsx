@@ -412,15 +412,6 @@ function AdminPlatformSection() {
         )}
         {platforms.map((p) => (
           <div key={p.id} className={`flex items-center gap-3 px-3 py-2.5 rounded-lg border transition ${p.active ? 'bg-dashboard-bg border-dashboard-border' : 'bg-dashboard-bg/40 border-dashed border-dashboard-border opacity-60'}`}>
-            {/* Toggle */}
-            <button
-              onClick={() => handleToggle(p.id, !p.active)}
-              className={`relative w-9 h-5 rounded-full flex-shrink-0 transition-colors ${p.active ? 'bg-accent-blue' : 'bg-dashboard-border'}`}
-              title={p.active ? 'Deactivate' : 'Activate'}
-            >
-              <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow-sm transition-transform ${p.active ? 'translate-x-4' : 'translate-x-0.5'}`} />
-            </button>
-
             {/* Label / edit */}
             <div className="flex-1 min-w-0">
               {editingId === p.id ? (
@@ -441,9 +432,10 @@ function AdminPlatformSection() {
               )}
             </div>
 
-            {/* Edit + Delete */}
+            {/* Edit + Delete + Toggle */}
+            <div className="flex items-center gap-2 flex-shrink-0">
             {editingId !== p.id && (
-              <div className="flex items-center gap-1 flex-shrink-0">
+              <div className="flex items-center gap-1">
                 <button
                   onClick={() => { setEditingId(p.id); setEditLabel(p.label); }}
                   className="p-1 text-text-muted hover:text-accent-blue transition"
@@ -471,6 +463,15 @@ function AdminPlatformSection() {
                 )}
               </div>
             )}
+            {/* Toggle at far right */}
+            <button
+              onClick={() => handleToggle(p.id, !p.active)}
+              className={`relative w-9 h-5 rounded-full flex-shrink-0 transition-colors ${p.active ? 'bg-accent-blue' : 'bg-dashboard-border'}`}
+              title={p.active ? 'Deactivate' : 'Activate'}
+            >
+              <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow-sm transition-transform ${p.active ? 'translate-x-4' : 'translate-x-0.5'}`} />
+            </button>
+            </div>
           </div>
         ))}
       </div>
