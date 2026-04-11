@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
 import { createClient } from '@/lib/supabase';
 import { useOrderStore } from '@/store/useOrderStore';
-import { useSettingsStore } from '@/store/useSettingsStore';
+import { usePlatformStore } from '@/store/usePlatformStore';
 import ThemeToggle from '@/components/ThemeToggle';
 import { useAuth } from '@/hooks/useAuth';
 
@@ -28,8 +28,8 @@ export default function ArchivePage() {
   const exportData = useOrderStore((s) => s.exportData);
   const importData = useOrderStore((s) => s.importData);
   const initialized = useOrderStore((s) => s.initialized);
-  const settingsPlatforms = useSettingsStore((s) => s.platforms);
-  const fetchSettings = useSettingsStore((s) => s.fetchSettings);
+  const dbPlatforms = usePlatformStore((s) => s.platforms);
+  const fetchPlatforms = usePlatformStore((s) => s.fetchPlatforms);
   const [mounted, setMounted] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const { user: authUser } = useAuth();
@@ -37,7 +37,7 @@ export default function ArchivePage() {
 
   const ALL_PLATFORMS: { value: string; label: string }[] = [
     { value: 'all', label: 'All' },
-    ...settingsPlatforms,
+    ...dbPlatforms.filter((p) => p.active),
   ];
 
   const handleLogout = async () => {
@@ -83,7 +83,7 @@ export default function ArchivePage() {
   useEffect(() => {
     setMounted(true);
     if (!initialized) fetchOrders();
-    fetchSettings();
+    fetchPlatforms();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
 import { createClient } from '@/lib/supabase';
 import { useOrderStore } from '@/store/useOrderStore';
-import { useSettingsStore } from '@/store/useSettingsStore';
+import { usePlatformStore } from '@/store/usePlatformStore';
 import { OrderStatus } from '@/types/order';
 import OrderCard from '@/components/OrderCard';
 import FilterPanel from '@/components/FilterPanel';
@@ -22,13 +22,13 @@ export default function DashboardPage() {
   const exportData = useOrderStore((s) => s.exportData);
   const importData = useOrderStore((s) => s.importData);
 
-  const settingsPlatforms = useSettingsStore((s) => s.platforms);
-  const fetchSettings = useSettingsStore((s) => s.fetchSettings);
+  const dbPlatforms = usePlatformStore((s) => s.platforms);
+  const fetchPlatforms = usePlatformStore((s) => s.fetchPlatforms);
   const { user: authUser } = useAuth();
 
   const ALL_PLATFORMS: { value: string; label: string }[] = [
     { value: 'all', label: 'All' },
-    ...settingsPlatforms,
+    ...dbPlatforms.filter((p) => p.active),
   ];
 
   const handleLogout = async () => {
@@ -111,7 +111,7 @@ export default function DashboardPage() {
   useEffect(() => {
     setMounted(true);
     fetchOrders();
-    fetchSettings();
+    fetchPlatforms();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

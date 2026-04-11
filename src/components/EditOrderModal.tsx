@@ -4,7 +4,7 @@ import { useState } from 'react';
 import toast from 'react-hot-toast';
 import { Order, OrderPlatform } from '@/types/order';
 import { useOrderStore } from '@/store/useOrderStore';
-import { ALL_PLATFORMS } from '@/store/useSettingsStore';
+import { usePlatformStore } from '@/store/usePlatformStore';
 
 const ORDER_TYPES = ['Rating', 'Review', 'Empty Box'];
 
@@ -15,6 +15,7 @@ interface EditOrderModalProps {
 
 export default function EditOrderModal({ order, onClose }: EditOrderModalProps) {
   const editOrder = useOrderStore((s) => s.editOrder);
+  const platforms = usePlatformStore((s) => s.platforms);
 
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({
@@ -104,7 +105,7 @@ export default function EditOrderModal({ order, onClose }: EditOrderModalProps) 
           <div>
             <label className="block text-xs font-semibold text-text-secondary mb-1.5">Platform</label>
             <select name="platform" value={form.platform} onChange={handleChange} className={ic}>
-              {ALL_PLATFORMS.map((p) => (
+              {platforms.map((p) => (
                 <option key={p.value} value={p.value}>{p.label}</option>
               ))}
             </select>

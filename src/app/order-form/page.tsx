@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import toast from 'react-hot-toast';
 import { useOrderStore } from '@/store/useOrderStore';
-import { ALL_PLATFORMS } from '@/store/useSettingsStore';
+import { usePlatformStore } from '@/store/usePlatformStore';
 import { useAuth } from '@/hooks/useAuth';
 import { OrderPlatform } from '@/types/order';
 import ThemeToggle from '@/components/ThemeToggle';
@@ -13,7 +13,11 @@ const ORDER_TYPES = ['Rating', 'Review', 'Empty Box'];
 
 export default function OrderFormPage() {
   const addOrder = useOrderStore((s) => s.addOrder);
+  const platforms = usePlatformStore((s) => s.platforms);
+  const fetchPlatforms = usePlatformStore((s) => s.fetchPlatforms);
   const { user: authUser } = useAuth();
+
+  useEffect(() => { fetchPlatforms(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const _d = new Date();
   const today = `${_d.getFullYear()}-${String(_d.getMonth() + 1).padStart(2, '0')}-${String(_d.getDate()).padStart(2, '0')}`;
@@ -229,7 +233,7 @@ export default function OrderFormPage() {
                   className={inputClass}
                 >
                   <option value="">Select a platform</option>
-                  {ALL_PLATFORMS.map((opt) => (
+                  {platforms.filter((p) => p.active).map((opt) => (
                     <option key={opt.value} value={opt.value}>{opt.label}</option>
                   ))}
                 </select>
