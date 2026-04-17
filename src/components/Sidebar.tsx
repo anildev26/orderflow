@@ -248,13 +248,22 @@ export default function Sidebar() {
                         ? 'bg-sidebar-active text-white'
                         : 'text-text-secondary hover:bg-dashboard-card hover:text-text-primary'
                     } ${!expanded ? 'justify-center' : ''}`}
-                    title={!expanded ? item.label : undefined}
+                    title={!expanded ? (item.newTab ? `${item.label} (opens in new tab)` : item.label) : undefined}
                   >
                     <span className="relative flex-shrink-0">
                       {item.icon}
                       {item.badge && <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-accent-blue rounded-full" />}
                     </span>
-                    {expanded && <span className="whitespace-nowrap flex-1">{item.label}</span>}
+                    {expanded && (
+                      <span className="whitespace-nowrap flex-1 flex items-center gap-1.5">
+                        {item.label}
+                        {item.newTab && (
+                          <svg className="w-3 h-3 opacity-60" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                          </svg>
+                        )}
+                      </span>
+                    )}
                   </Link>
                 ) : (
                   <button

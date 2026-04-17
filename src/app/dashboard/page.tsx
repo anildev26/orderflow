@@ -190,11 +190,12 @@ export default function DashboardPage() {
     setStatusFilter(status);
   };
 
+  const hasPending = stats.refundFormPending > 0;
   const kpiCards = [
     {
       label: 'Active Orders',
       value: stats.totalOrders.toString(),
-      sub: 'Non-archived orders',
+      sub: 'Tap to view all',
       color: 'text-yellow-400',
       filterStatus: 'all' as OrderStatus | 'all',
       clickable: true,
@@ -205,15 +206,16 @@ export default function DashboardPage() {
       sub: 'Active order value',
       color: 'text-green-400',
       filterStatus: 'all' as OrderStatus | 'all',
-      clickable: true,
+      clickable: false,
     },
     {
       label: 'Refund Form Pending',
       value: stats.refundFormPending.toString(),
-      sub: 'Form not yet filled',
-      color: 'text-red-400',
+      sub: hasPending ? 'Needs your action' : 'All caught up',
+      color: hasPending ? 'text-red-400' : 'text-text-muted',
       filterStatus: 'refund_form_pending' as OrderStatus | 'all',
       clickable: true,
+      urgent: hasPending,
     },
     {
       label: 'Refund Form Filled',
@@ -226,7 +228,7 @@ export default function DashboardPage() {
     {
       label: 'Archived (Paid)',
       value: stats.archivedOrders.toString(),
-      sub: 'Payment received',
+      sub: 'Open archive →',
       color: 'text-emerald-400',
       filterStatus: 'payment_received' as OrderStatus | 'all',
       clickable: false,
@@ -330,21 +332,38 @@ export default function DashboardPage() {
 
       {/* Page header */}
       <div className="px-6 pt-5">
-        <div className="flex items-center justify-between mb-4">
-          <h1 className="text-2xl font-bold text-text-primary">OrderFlow</h1>
-          <div className="flex items-center gap-2">
+        <div className="flex items-start justify-between mb-4 gap-3">
+          <div className="min-w-0">
+            <h1 className="text-2xl font-bold text-text-primary leading-tight">Your Orders</h1>
+            <p className="text-xs text-text-muted mt-1 hidden sm:block">Track, filter, and manage every order across platforms.</p>
+          </div>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <Link
+              href="/order-form"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hidden md:inline-flex items-center gap-2 px-3.5 py-2 bg-accent-blue hover:bg-blue-600 text-white rounded-lg text-sm font-semibold shadow-sm shadow-accent-blue/20 transition"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+              </svg>
+              New Order
+            </Link>
             <button
               onClick={() => setFiltersOpen(true)}
               className="inline-flex items-center gap-2 px-3 py-2 bg-dashboard-card border border-dashboard-border rounded-lg text-sm font-medium text-text-secondary hover:text-text-primary hover:bg-dashboard-card-hover transition"
+              aria-label="Open filters"
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
               </svg>
-              Filters
+              <span className="hidden sm:inline">Filters</span>
             </button>
             <button
               onClick={handleResetFilters}
-              className="inline-flex items-center gap-2 px-3 py-2 bg-dashboard-card border border-dashboard-border rounded-lg text-sm font-medium text-text-secondary hover:text-text-primary hover:bg-dashboard-card-hover transition"
+              title="Reset all filters"
+              aria-label="Reset all filters"
+              className="inline-flex items-center gap-2 px-3 py-2 bg-transparent border border-dashboard-border rounded-lg text-sm font-medium text-text-muted hover:text-text-primary hover:bg-dashboard-card transition"
             >
               Reset
             </button>
@@ -389,6 +408,7 @@ export default function DashboardPage() {
           <select
             value={monthFilter}
             onChange={(e) => setMonthFilter(e.target.value)}
+            aria-label="Filter by month"
             className="bg-dashboard-card border border-dashboard-border rounded-lg px-2.5 py-1.5 text-xs text-text-secondary outline-none"
           >
             <option value="all">All Months</option>
@@ -401,6 +421,7 @@ export default function DashboardPage() {
           <select
             value={sortOption}
             onChange={(e) => setSortOption(e.target.value)}
+            aria-label="Sort orders"
             className="bg-dashboard-card border border-dashboard-border rounded-lg px-2.5 py-1.5 text-xs text-text-secondary outline-none"
           >
             <option value="newest">Newest First</option>
@@ -420,9 +441,10 @@ export default function DashboardPage() {
               <button
                 key={i}
                 onClick={() => handleKpiClick(kpi.filterStatus)}
-                className={`text-left p-4 rounded-xl bg-dashboard-card border border-dashboard-border hover:bg-dashboard-card-hover transition cursor-pointer ${
-                  appliedStatus === kpi.filterStatus ? 'ring-2 ring-accent-blue' : ''
-                }`}
+                aria-pressed={appliedStatus === kpi.filterStatus}
+                className={`text-left p-4 rounded-xl bg-dashboard-card border hover:bg-dashboard-card-hover transition cursor-pointer ${
+                  appliedStatus === kpi.filterStatus ? 'ring-2 ring-accent-blue border-accent-blue' : 'border-dashboard-border'
+                } ${kpi.urgent ? 'border-red-500/40' : ''}`}
               >
                 <p className="text-xs text-text-muted">{kpi.label}</p>
                 <p className={`text-xl font-bold mt-1 ${kpi.color}`}>{kpi.value}</p>
