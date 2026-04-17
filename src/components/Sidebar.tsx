@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import dynamic from 'next/dynamic';
 import { usePathname } from 'next/navigation';
 import { useState, useId, useEffect } from 'react';
 import {
@@ -12,7 +13,9 @@ import {
   HiOutlineBell,
   HiOutlineLightBulb,
 } from 'react-icons/hi';
-import WhatsNewModal, { WHATS_NEW_STORAGE_KEY, LATEST_VERSION } from './WhatsNewModal';
+import { WHATS_NEW_STORAGE_KEY, LATEST_VERSION } from './whatsNewConstants';
+
+const WhatsNewModal = dynamic(() => import('./WhatsNewModal'), { ssr: false });
 
 interface NavItem {
   label: string;

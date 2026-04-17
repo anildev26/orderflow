@@ -1,11 +1,13 @@
 'use client';
 
 import { useState } from 'react';
+import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
 import { Order, OrderStatus, STATUS_LABELS, STATUS_COLORS, STATUS_OPTIONS } from '@/types/order';
 import { useOrderStore } from '@/store/useOrderStore';
-import EditOrderModal from './EditOrderModal';
+
+const EditOrderModal = dynamic(() => import('./EditOrderModal'), { ssr: false });
 
 function fmtDate(d?: string) {
   if (!d) return '-';

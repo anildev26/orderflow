@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useEffect, useRef } from 'react';
 import Link from 'next/link';
+import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
 import { createClient } from '@/lib/supabase';
@@ -9,10 +10,12 @@ import { useOrderStore } from '@/store/useOrderStore';
 import { usePlatformStore } from '@/store/usePlatformStore';
 import { OrderStatus } from '@/types/order';
 import OrderCard from '@/components/OrderCard';
-import FilterPanel from '@/components/FilterPanel';
 import ThemeToggle from '@/components/ThemeToggle';
 import { useAuth } from '@/hooks/useAuth';
-import WhatsNewModal, { WHATS_NEW_STORAGE_KEY, LATEST_VERSION } from '@/components/WhatsNewModal';
+import { WHATS_NEW_STORAGE_KEY, LATEST_VERSION } from '@/components/whatsNewConstants';
+
+const FilterPanel = dynamic(() => import('@/components/FilterPanel'), { ssr: false });
+const WhatsNewModal = dynamic(() => import('@/components/WhatsNewModal'), { ssr: false });
 
 export default function DashboardPage() {
   const router = useRouter();

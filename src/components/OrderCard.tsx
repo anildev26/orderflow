@@ -1,9 +1,11 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import dynamic from 'next/dynamic';
 import toast from 'react-hot-toast';
 import { Order, STATUS_LABELS, STATUS_COLORS, OrderPlatform } from '@/types/order';
-import UpdateOrderModal from './UpdateOrderModal';
+
+const UpdateOrderModal = dynamic(() => import('./UpdateOrderModal'), { ssr: false });
 
 const PLATFORM_BADGE_COLORS: Record<OrderPlatform, string> = {
   amazon: 'bg-amber-500/20 text-amber-400 border-amber-500/30',

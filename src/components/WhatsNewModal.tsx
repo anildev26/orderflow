@@ -1,6 +1,9 @@
 'use client';
 
 import { useEffect } from 'react';
+import { WHATS_NEW_STORAGE_KEY, LATEST_VERSION } from './whatsNewConstants';
+
+export { WHATS_NEW_STORAGE_KEY, LATEST_VERSION };
 
 interface WhatsNewModalProps {
   open: boolean;
@@ -62,9 +65,6 @@ const TYPE_STYLES: Record<string, { label: string; cls: string }> = {
   improvement: { label: 'Improved', cls: 'bg-purple-500/20 text-purple-400 border border-purple-500/30' },
   security: { label: 'Security', cls: 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30' },
 };
-
-export const WHATS_NEW_STORAGE_KEY = 'whatsNew_lastSeen';
-export const LATEST_VERSION = CHANGELOG[0].version; // v1.0.5 — bump this when adding a new entry
 
 export default function WhatsNewModal({ open, onClose }: WhatsNewModalProps) {
   useEffect(() => {
