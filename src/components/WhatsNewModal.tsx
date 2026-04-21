@@ -12,6 +12,18 @@ interface WhatsNewModalProps {
 
 const CHANGELOG = [
   {
+    version: 'v1.0.6',
+    date: 'Apr 2026',
+    items: [
+      { type: 'new', text: 'Excel import template — download from profile menu, fill old orders offline, then import in one go' },
+      { type: 'improvement', text: 'Import now accepts both Excel template (.xlsx) and JSON backup — auto-detects the file type' },
+      { type: 'improvement', text: 'Row-level validation on Excel import: errors tell you the exact row and field to fix' },
+      { type: 'improvement', text: 'Duplicate Order IDs are skipped safely on import — existing orders are never overwritten' },
+      { type: 'improvement', text: 'Faster dashboard load — heavy modals (Filters, What\u2019s New, Update/Edit Order) now load on-demand' },
+      { type: 'fix', text: 'Mobile sidebar now shows the open-in-new-tab icon next to Order Form, matching desktop' },
+    ],
+  },
+  {
     version: 'v1.0.5',
     date: 'Apr 2026',
     items: [

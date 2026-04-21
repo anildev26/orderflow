@@ -24,6 +24,7 @@ export default function DashboardPage() {
   const getStats = useOrderStore((s) => s.getStats);
   const exportData = useOrderStore((s) => s.exportData);
   const importData = useOrderStore((s) => s.importData);
+  const importFromTemplate = useOrderStore((s) => s.importFromTemplate);
 
   const dbPlatforms = usePlatformStore((s) => s.platforms);
   const fetchPlatforms = usePlatformStore((s) => s.fetchPlatforms);
@@ -84,20 +85,86 @@ export default function DashboardPage() {
     toast.success('Excel/CSV exported successfully!');
   };
 
-  const handleImport = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleDownloadTemplate = async () => {
+    try {
+      const { downloadOrderTemplate } = await import('@/lib/orderTemplate');
+      await downloadOrderTemplate(dbPlatforms);
+      toast.success('Excel template downloaded. Open it and start filling orders.');
+    } catch (err) {
+      toast.error('Could not build the template. Please try again.');
+      console.error(err);
+    }
+    setProfileOpen(false);
+  };
+
+  const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error('File too large. Maximum size is 5MB.');
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error('File too large. Maximum size is 10MB.');
       e.target.value = '';
       return;
     }
+
+    const lower = file.name.toLowerCase();
+    const isExcel = lower.endsWith('.xlsx') || lower.endsWith('.xls');
+    const isJson = lower.endsWith('.json');
+
+    if (!isExcel && !isJson) {
+      toast.error('Unsupported file. Please upload the Excel template (.xlsx) or a JSON backup.');
+      e.target.value = '';
+      setProfileOpen(false);
+      return;
+    }
+
+    if (isExcel) {
+      const loadingId = toast.loading('Reading template…');
+      try {
+        const { parseTemplateFile } = await import('@/lib/orderTemplate');
+        const { orders: parsed, errors } = await parseTemplateFile(file, dbPlatforms);
+        if (errors.length) {
+          toast.dismiss(loadingId);
+          const preview = errors.slice(0, 3).join('\n');
+          const more = errors.length > 3 ? `\n…and ${errors.length - 3} more.` : '';
+          toast.error(`Fix these errors and re-upload:\n${preview}${more}`, { duration: 8000 });
+          e.target.value = '';
+          setProfileOpen(false);
+          return;
+        }
+        if (parsed.length === 0) {
+          toast.dismiss(loadingId);
+          toast.error('No orders found in the template. Fill in the Orders sheet before importing.');
+          e.target.value = '';
+          setProfileOpen(false);
+          return;
+        }
+        const result = await importFromTemplate(parsed);
+        toast.dismiss(loadingId);
+        if (result.error) {
+          toast.error(`Import failed: ${result.error}`);
+        } else if (result.inserted === 0 && result.skipped.length > 0) {
+          toast.error(`All ${result.skipped.length} order IDs already exist. No new orders were imported.`);
+        } else {
+          const extra = result.skipped.length ? ` ${result.skipped.length} already existed — skipped.` : '';
+          toast.success(`Imported ${result.inserted} new order${result.inserted !== 1 ? 's' : ''}.${extra}`);
+        }
+      } catch (err) {
+        toast.dismiss(loadingId);
+        console.error(err);
+        toast.error('Could not read the Excel file. Make sure it is the OrderFlow template.');
+      }
+      e.target.value = '';
+      setProfileOpen(false);
+      return;
+    }
+
+    // JSON backup path
     const reader = new FileReader();
     reader.onload = async (ev) => {
       const text = ev.target?.result as string;
       const success = await importData(text);
       if (success) {
-        toast.success('Data imported successfully!');
+        toast.success('Backup imported successfully!');
       } else {
         toast.error('Invalid backup file. Please use a valid JSON export.');
       }
@@ -304,13 +371,26 @@ export default function DashboardPage() {
                     </svg>
                     Backup Data (JSON)
                   </button>
+                  <div className="my-1 border-t border-dashboard-border" />
+                  <button onClick={handleDownloadTemplate} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-text-secondary hover:bg-dashboard-bg hover:text-text-primary transition">
+                    <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-6a2 2 0 012-2h2a2 2 0 012 2v6m-7 0h8m-8 0a2 2 0 01-2-2v-2a2 2 0 012-2h.01M17 17a2 2 0 002-2v-2a2 2 0 00-2-2h-.01M7 7h10a2 2 0 002-2V4H5v1a2 2 0 002 2z" />
+                    </svg>
+                    <span className="flex-1 text-left leading-tight">
+                      Download Excel Template
+                      <span className="block text-[10px] text-text-muted mt-0.5">Fill old orders offline, then import</span>
+                    </span>
+                  </button>
                   <button onClick={() => { fileInputRef.current?.click(); }} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-text-secondary hover:bg-dashboard-bg hover:text-text-primary transition">
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
                     </svg>
-                    Import Backup
+                    <span className="flex-1 text-left leading-tight">
+                      Import Data
+                      <span className="block text-[10px] text-text-muted mt-0.5">Excel template or JSON backup</span>
+                    </span>
                   </button>
-                  <input ref={fileInputRef} type="file" accept=".json" onChange={handleImport} className="hidden" />
+                  <input ref={fileInputRef} type="file" accept=".json,.xlsx,.xls" onChange={handleImport} className="hidden" />
                   <div className="border-t border-dashboard-border mt-1 pt-1">
                     <button onClick={() => { setProfileOpen(false); router.push('/account-settings'); }} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-text-secondary hover:bg-dashboard-bg hover:text-text-primary transition">
                       <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">

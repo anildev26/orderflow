@@ -23,6 +23,11 @@ interface OrderStore {
   editOrder: (id: string, updates: Partial<Omit<Order, 'id' | 'createdAt' | 'updatedAt'>>) => Promise<void>;
   exportData: () => string;
   importData: (jsonString: string) => Promise<boolean>;
+  importFromTemplate: (rows: Array<Partial<Order> & { orderId: string }>) => Promise<{
+    inserted: number;
+    skipped: string[];
+    error?: string;
+  }>;
 }
 
 // Map DB row (snake_case) to Order (camelCase)
@@ -340,5 +345,37 @@ export const useOrderStore = create<OrderStore>()((set, get) => ({
     } catch {
       return false;
     }
+  },
+
+  importFromTemplate: async (rows) => {
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { inserted: 0, skipped: [], error: 'Not signed in.' };
+
+    const existingIds = new Set(get().orders.map((o) => o.orderId));
+    const skipped: string[] = [];
+    const toInsert: Array<Partial<Order>> = [];
+    for (const r of rows) {
+      if (existingIds.has(r.orderId)) {
+        skipped.push(r.orderId);
+      } else {
+        toInsert.push(r);
+      }
+    }
+
+    if (toInsert.length === 0) {
+      return { inserted: 0, skipped };
+    }
+
+    const dbRows = toInsert.map((o) => ({
+      ...orderToDb({ ...o, isNewOrder: true, userId: user.id } as Order & { userId: string }),
+      user_id: user.id,
+    }));
+
+    const { error } = await supabase.from('orders').insert(dbRows);
+    if (error) return { inserted: 0, skipped, error: error.message };
+
+    await get().fetchOrders();
+    return { inserted: toInsert.length, skipped };
   },
 }));
