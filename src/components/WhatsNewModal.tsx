@@ -16,11 +16,13 @@ const CHANGELOG = [
     date: 'Apr 2026',
     items: [
       { type: 'new', text: 'Excel import template — download from profile menu, fill old orders offline, then import in one go' },
-      { type: 'improvement', text: 'Import now accepts both Excel template (.xlsx) and JSON backup — auto-detects the file type' },
-      { type: 'improvement', text: 'Row-level validation on Excel import: errors tell you the exact row and field to fix' },
-      { type: 'improvement', text: 'Duplicate Order IDs are skipped safely on import — existing orders are never overwritten' },
+      { type: 'new', text: 'Template mirrors the order form: platform, email, product, date, amount, deal type, plus a single Status Date that adapts to the status you pick (Delivered / Review / Refund Form Filled / Informed Mediator / Payment Received)' },
+      { type: 'improvement', text: 'Date cells use the real Excel date type — double-click for a calendar in Excel Online / Google Sheets, or type DD/MM/YYYY in Excel desktop' },
+      { type: 'improvement', text: 'Mediator and Reviewer are free-text columns so you can use your own names' },
+      { type: 'improvement', text: 'Import auto-detects Excel template (.xlsx) vs JSON backup; row-level validation tells you the exact row to fix' },
+      { type: 'improvement', text: 'Duplicate Order IDs are skipped — existing orders are never overwritten' },
       { type: 'improvement', text: 'Faster dashboard load — heavy modals (Filters, What\u2019s New, Update/Edit Order) now load on-demand' },
-      { type: 'fix', text: 'Mobile sidebar now shows the open-in-new-tab icon next to Order Form, matching desktop' },
+      { type: 'fix', text: 'Mobile sidebar shows the open-in-new-tab icon next to Order Form, matching desktop' },
     ],
   },
   {

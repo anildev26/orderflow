@@ -1,5 +1,5 @@
 import type { Workbook, Worksheet, CellValue } from 'exceljs';
-import { STATUS_OPTIONS, MEDIATOR_NAMES, REVIEWER_NAMES, OrderStatus, OrderPlatform } from '@/types/order';
+import { STATUS_OPTIONS, OrderStatus, OrderPlatform } from '@/types/order';
 import type { GlobalPlatform } from '@/store/usePlatformStore';
 
 const ORDER_TYPES = ['Rating', 'Review', 'Empty Box'];
@@ -17,33 +17,28 @@ export interface TemplateColumn {
   example?: string;
 }
 
+// Columns mirror the order-form fields only. Everything else can be filled
+// inside the app after the order is imported.
 function buildColumns(platformLabels: string[]): TemplateColumn[] {
   return [
-    { key: 'orderId', header: 'Order ID', hint: 'Platform order ID. Must be unique — duplicates will be rejected.', width: 22, required: true, type: 'text', example: 'OD123456789' },
-    { key: 'platform', header: 'Platform', hint: `Choose one: ${platformLabels.join(', ')}`, width: 14, required: true, type: 'dropdown', source: 'Platforms' },
+    { key: 'orderId', header: 'Order ID', hint: 'Platform order ID. Must be unique — duplicates will be skipped.', width: 22, required: true, type: 'text', example: 'OD123456789' },
+    { key: 'platform', header: 'Platform', hint: `Pick one from the dropdown: ${platformLabels.join(', ')}.`, width: 14, required: true, type: 'dropdown', source: 'Platforms' },
     { key: 'email', header: 'Email', hint: 'Email you used to fill the order form for this product.', width: 28, required: true, type: 'email', example: 'you@example.com' },
-    { key: 'brandName', header: 'Brand Name', hint: 'Brand name (optional).', width: 18, required: false, type: 'text' },
     { key: 'productName', header: 'Product Name', hint: 'Name of the product ordered.', width: 30, required: true, type: 'text' },
-    { key: 'orderDate', header: 'Order Date', hint: 'Date the order was placed. Use the date format — click the cell and pick a date.', width: 14, required: true, type: 'date' },
-    { key: 'totalAmount', header: 'Total Amount (INR)', hint: 'Total order amount in rupees.', width: 16, required: true, type: 'number', example: '1299' },
-    { key: 'sellerLess', header: 'Seller Less (INR)', hint: 'Your actual cost after seller discount / refund (0 if none).', width: 16, required: false, type: 'number' },
-    { key: 'orderType', header: 'Deal Type', hint: `Choose one: ${ORDER_TYPES.join(', ')}`, width: 14, required: true, type: 'dropdown', source: 'DealTypes' },
-    { key: 'status', header: 'Order Status', hint: 'Leave blank to default to "Ordered". Pick a later status if this is an old / completed order.', width: 22, required: false, type: 'dropdown', source: 'Statuses' },
-    { key: 'mediatorName', header: 'Mediator Name', hint: 'Pick from list, or choose "Other" and write the name in Mediator Message.', width: 22, required: false, type: 'dropdown', source: 'Mediators' },
-    { key: 'reviewerName', header: 'Reviewer Name', hint: `Choose one: ${REVIEWER_NAMES.join(', ')}`, width: 20, required: false, type: 'dropdown', source: 'Reviewers' },
+    { key: 'orderDate', header: 'Order Date', hint: 'Date the order was placed. Double-click the cell — a calendar opens in Excel Online / Google Sheets. In Excel desktop, type DD/MM/YYYY.', width: 14, required: true, type: 'date' },
+    { key: 'totalAmount', header: 'Total Amount (INR)', hint: 'Total order amount in rupees (numbers only, no ₹ or commas).', width: 16, required: true, type: 'number', example: '1299' },
+    { key: 'orderType', header: 'Deal Type', hint: `Pick one: ${ORDER_TYPES.join(', ')}.`, width: 14, required: true, type: 'dropdown', source: 'DealTypes' },
+    { key: 'status', header: 'Order Status', hint: 'Leave blank for new orders (defaults to "Ordered"). Pick a later status only if this is an old/completed order.', width: 22, required: false, type: 'dropdown', source: 'Statuses' },
+    { key: 'statusDate', header: 'Status Date', hint: 'Date that matches the Order Status you picked: Delivered → delivery date · Review/Rating Submitted → review date · Refund Form Filled → form date · Informed Mediator → informed date · Payment Received → payment date. Leave blank for Ordered.', width: 16, required: false, type: 'date' },
+    { key: 'sellerLess', header: 'Seller Less (INR)', hint: 'Your net cost after seller discount / refund (leave 0 if none).', width: 16, required: false, type: 'number' },
+    { key: 'mediatorName', header: 'Mediator Name', hint: 'Free text — write the mediator\u2019s name.', width: 22, required: false, type: 'text' },
+    { key: 'reviewerName', header: 'Reviewer Name', hint: 'Free text — write the reviewer\u2019s name.', width: 20, required: false, type: 'text' },
     { key: 'isReplacement', header: 'Is Replacement?', hint: 'Yes if this order replaces an earlier one.', width: 14, required: false, type: 'yesno' },
-    { key: 'replacementOrderId', header: 'Replacement Order ID', hint: 'The original Order ID that this one replaces (only if Is Replacement = Yes).', width: 22, required: false, type: 'text' },
+    { key: 'replacementOrderId', header: 'Replacement Order ID', hint: 'Original Order ID that this one replaces (only if Is Replacement = Yes).', width: 22, required: false, type: 'text' },
     { key: 'isExchange', header: 'Is Exchange?', hint: 'Yes if this was an exchange order.', width: 14, required: false, type: 'yesno' },
     { key: 'exchangeProductName', header: 'Exchange Product Name', hint: 'Product exchanged for (only if Is Exchange = Yes).', width: 26, required: false, type: 'text' },
     { key: 'mediatorMessage', header: 'Mediator Message', hint: 'Any message or note from/to the mediator.', width: 32, required: false, type: 'text' },
-    { key: 'refundFormLink', header: 'Refund Form Link', hint: 'Link to refund form (https://...).', width: 32, required: false, type: 'url' },
-    { key: 'deliveredDate', header: 'Delivered Date', hint: 'Date the order was delivered (only if Status is Delivered or later).', width: 14, required: false, type: 'date' },
-    { key: 'returnPeriodDays', header: 'Return Period (Days)', hint: 'Return window in days (defaults to 7 if blank).', width: 14, required: false, type: 'number' },
-    { key: 'reviewRatingDate', header: 'Review/Rating Date', hint: 'Date review/rating was submitted.', width: 14, required: false, type: 'date' },
-    { key: 'refundFormFilledDate', header: 'Refund Form Filled Date', hint: 'Date the refund form was submitted.', width: 16, required: false, type: 'date' },
-    { key: 'informedMediatorDate', header: 'Informed Mediator Date', hint: 'Date you informed the mediator.', width: 16, required: false, type: 'date' },
-    { key: 'paymentReceivedDate', header: 'Payment Received Date', hint: 'Date payment was received.', width: 16, required: false, type: 'date' },
-    { key: 'paymentBank', header: 'Payment Bank', hint: 'Bank that received the payment.', width: 16, required: false, type: 'text' },
+    { key: 'refundFormLink', header: 'Refund Form Link', hint: 'Link to the refund form (https://...).', width: 32, required: false, type: 'url' },
   ];
 }
 
@@ -67,8 +62,6 @@ export async function buildTemplateWorkbook({ platforms }: TemplateOptions): Pro
     { name: 'Platforms', values: platformLabels.length ? platformLabels : ['Flipkart', 'Amazon', 'Myntra', 'Meesho'] },
     { name: 'DealTypes', values: ORDER_TYPES },
     { name: 'Statuses', values: STATUS_OPTIONS.map((s) => s.label) },
-    { name: 'Mediators', values: MEDIATOR_NAMES },
-    { name: 'Reviewers', values: REVIEWER_NAMES },
     { name: 'YesNo', values: YES_NO },
   ];
 
@@ -129,12 +122,14 @@ export async function buildTemplateWorkbook({ platforms }: TemplateOptions): Pro
   notesTitle.font = { bold: true, size: 13 };
 
   const notes = [
-    'Dates must be entered as real dates (click the cell, then pick from the calendar or type DD/MM/YYYY).',
-    'Amounts are numbers only — no currency symbols, no commas.',
-    'Dropdown columns show a small arrow; pick from the list so spelling matches the app exactly.',
-    'Duplicate Order IDs will be rejected on import. Each order ID must be unique in your account.',
-    'You can leave the first empty sample row in place — blank rows are ignored on import.',
-    'Only new orders are created on import; existing orders are never overwritten.',
+    'Dates: double-click the cell. Excel Online and Google Sheets show a calendar picker; in Excel desktop, just type DD/MM/YYYY — the cell is already formatted as a date.',
+    'Status Date is ONE column that adapts to the Order Status you pick: Delivered → delivery date, Review/Rating Submitted → review date, Refund Form Filled → form-filled date, Informed Mediator → informed date, Payment Received → payment date. Leave blank for Ordered / Refund Form Pending / Cancelled.',
+    'Amounts are numbers only — no ₹ symbol, no commas.',
+    'Dropdown columns show a small arrow — pick from the list so spelling matches the app.',
+    'Mediator Name and Reviewer Name are free text — write them exactly how you want them to show up in the dashboard.',
+    'Duplicate Order IDs are skipped on import. Existing orders are never overwritten — only new ones are inserted.',
+    'Optional fields you leave blank can be filled inside the app after the order is imported.',
+    'Row 3 is a sample — you can type over it or delete it. Blank rows are ignored on import.',
   ];
   notes.forEach((n, i) => {
     const r = instructionsSheet.getRow(notesRowIdx + 1 + i);
@@ -183,18 +178,14 @@ export async function buildTemplateWorkbook({ platforms }: TemplateOptions): Pro
     orderId: 'OD123456789',
     platform: platformLabels[0] || 'Flipkart',
     email: 'you@example.com',
-    brandName: 'ACME',
     productName: 'Sample Product',
     orderDate: new Date(),
     totalAmount: 1299,
-    sellerLess: 0,
     orderType: 'Rating',
     status: 'Ordered',
-    mediatorName: 'Other',
-    reviewerName: 'Other',
+    sellerLess: 0,
     isReplacement: 'No',
     isExchange: 'No',
-    returnPeriodDays: 7,
   };
   columns.forEach((c, i) => {
     const cell = example.getCell(i + 1);
@@ -205,7 +196,7 @@ export async function buildTemplateWorkbook({ platforms }: TemplateOptions): Pro
     if (c.type === 'number') cell.numFmt = '#,##0';
   });
   example.height = 18;
-  orders.getCell('A3').note = 'This row is a sample. You can delete it or type over it.';
+  orders.getCell('A3').note = 'This row is a sample. Type over it or delete it — blank rows are ignored on import.';
 
   // Add data validation + formatting to empty rows (rows 4..503 → 500 rows capacity)
   const DATA_START = 4;
@@ -268,6 +259,11 @@ function applyColumnFormatting(
         showErrorMessage: true,
         errorTitle: 'Invalid date',
         error: 'Enter a valid date (e.g. 15-Apr-2026).',
+        // Prompt shows when the cell is selected — nudges Excel Online /
+        // Google Sheets users to use the calendar picker.
+        showInputMessage: true,
+        promptTitle: 'Pick a date',
+        prompt: 'Double-click for a calendar picker (Excel Online / Google Sheets). In Excel desktop, type DD/MM/YYYY.',
       });
     } else if (c.type === 'number') {
       validations.add(colRef, {
@@ -306,13 +302,13 @@ export interface ParsedOrderRow {
   exchangeProductName: string;
   mediatorMessage: string;
   refundFormLink?: string;
+  // Status-specific date fields — the importer derives these from the single
+  // "Status Date" column based on which status was picked.
   deliveredDate?: string;
-  returnPeriodDays?: number;
   reviewRatingDate?: string;
   refundFormFilledDate?: string;
   informedMediatorDate?: string;
   paymentReceivedDate?: string;
-  paymentBank?: string;
 }
 
 export interface ParseResult {
@@ -408,13 +404,13 @@ export async function parseTemplateFile(
     orderId: col('Order ID'),
     platform: col('Platform'),
     email: col('Email'),
-    brandName: col('Brand Name'),
     productName: col('Product Name'),
     orderDate: col('Order Date'),
     totalAmount: col('Total Amount (INR)'),
-    sellerLess: col('Seller Less (INR)'),
     orderType: col('Deal Type'),
     status: col('Order Status'),
+    statusDate: col('Status Date'),
+    sellerLess: col('Seller Less (INR)'),
     mediatorName: col('Mediator Name'),
     reviewerName: col('Reviewer Name'),
     isReplacement: col('Is Replacement?'),
@@ -423,18 +419,10 @@ export async function parseTemplateFile(
     exchangeProductName: col('Exchange Product Name'),
     mediatorMessage: col('Mediator Message'),
     refundFormLink: col('Refund Form Link'),
-    deliveredDate: col('Delivered Date'),
-    returnPeriodDays: col('Return Period (Days)'),
-    reviewRatingDate: col('Review/Rating Date'),
-    refundFormFilledDate: col('Refund Form Filled Date'),
-    informedMediatorDate: col('Informed Mediator Date'),
-    paymentReceivedDate: col('Payment Received Date'),
-    paymentBank: col('Payment Bank'),
   };
 
-  const missingCols: string[] = [];
-  Object.entries(cols).forEach(([k, v]) => { if (v < 0) missingCols.push(k); });
   if (cols.orderId < 0 || cols.platform < 0 || cols.email < 0 || cols.productName < 0 || cols.orderDate < 0 || cols.totalAmount < 0 || cols.orderType < 0) {
+    const missingCols = Object.entries(cols).filter(([, v]) => v < 0).map(([k]) => k);
     errors.push(`Template is missing required columns: ${missingCols.join(', ')}. Please download a fresh template.`);
     return { orders, errors };
   }
@@ -511,13 +499,42 @@ export async function parseTemplateFile(
     const exchangeProductName = cellText(row.getCell(cols.exchangeProductName).value);
     const mediatorMessage = cellText(row.getCell(cols.mediatorMessage).value);
     const refundFormLink = cellText(row.getCell(cols.refundFormLink).value);
-    const brandName = cellText(row.getCell(cols.brandName).value);
+
+    // Single "Status Date" column — route to the right field by status.
+    const statusDate = cols.statusDate > 0 ? toIsoDate(row.getCell(cols.statusDate).value) : undefined;
+    const statusDates: Partial<Record<
+      'deliveredDate' | 'reviewRatingDate' | 'refundFormFilledDate' | 'informedMediatorDate' | 'paymentReceivedDate',
+      string
+    >> = {};
+    if (statusDate) {
+      switch (status) {
+        case 'delivered':
+          statusDates.deliveredDate = statusDate;
+          break;
+        case 'review_rating_submitted':
+          statusDates.reviewRatingDate = statusDate;
+          break;
+        case 'refund_form_filled':
+          statusDates.refundFormFilledDate = statusDate;
+          break;
+        case 'informed_mediator':
+          statusDates.informedMediatorDate = statusDate;
+          break;
+        case 'payment_received':
+          statusDates.paymentReceivedDate = statusDate;
+          break;
+        default:
+          // For ordered / refund_form_pending / order_cancelled the Status
+          // Date has no target field — silently ignore.
+          break;
+      }
+    }
 
     orders.push({
       orderId,
       platform,
       email,
-      brandName,
+      brandName: '',
       productName,
       orderDate,
       totalAmount,
@@ -532,13 +549,7 @@ export async function parseTemplateFile(
       exchangeProductName: isExchange ? exchangeProductName : '',
       mediatorMessage,
       refundFormLink: refundFormLink || undefined,
-      deliveredDate: toIsoDate(row.getCell(cols.deliveredDate).value),
-      returnPeriodDays: toNumber(row.getCell(cols.returnPeriodDays).value),
-      reviewRatingDate: toIsoDate(row.getCell(cols.reviewRatingDate).value),
-      refundFormFilledDate: toIsoDate(row.getCell(cols.refundFormFilledDate).value),
-      informedMediatorDate: toIsoDate(row.getCell(cols.informedMediatorDate).value),
-      paymentReceivedDate: toIsoDate(row.getCell(cols.paymentReceivedDate).value),
-      paymentBank: cellText(row.getCell(cols.paymentBank).value) || undefined,
+      ...statusDates,
     });
   }
 
