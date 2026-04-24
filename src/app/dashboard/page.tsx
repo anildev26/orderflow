@@ -260,6 +260,13 @@ export default function DashboardPage() {
     setStatusFilter(status);
   };
 
+  const hasActiveFilters =
+    searchQuery !== '' ||
+    appliedStatus !== 'all' ||
+    platformFilter !== 'all' ||
+    monthFilter !== 'all' ||
+    sortOption !== 'newest';
+
   const hasPending = stats.refundFormPending > 0;
   const kpiCards = [
     {
@@ -444,9 +451,14 @@ export default function DashboardPage() {
             </button>
             <button
               onClick={handleResetFilters}
-              title="Reset all filters"
+              disabled={!hasActiveFilters}
+              title={hasActiveFilters ? 'Reset all filters' : 'No filters to reset'}
               aria-label="Reset all filters"
-              className="inline-flex items-center gap-2 px-3 py-2 bg-transparent border border-dashboard-border rounded-lg text-sm font-medium text-text-muted hover:text-text-primary hover:bg-dashboard-card transition"
+              className={`inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition border ${
+                hasActiveFilters
+                  ? 'bg-dashboard-card border-dashboard-border text-text-secondary hover:text-text-primary hover:bg-dashboard-card-hover cursor-pointer'
+                  : 'bg-transparent border-dashboard-border text-text-muted opacity-60 cursor-not-allowed'
+              }`}
             >
               Reset
             </button>
