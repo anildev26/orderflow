@@ -25,6 +25,7 @@ interface NavItem {
   onClick?: () => void;
   badge?: boolean;
   newTab?: boolean;
+  tourId?: string;
 }
 
 const buildMainNav = (onWhatsNew: () => void, hasNew: boolean): NavItem[] => [
@@ -43,16 +44,19 @@ const buildMainNav = (onWhatsNew: () => void, hasNew: boolean): NavItem[] => [
     label: 'Archive',
     href: '/archive',
     icon: <HiOutlineArchive className="w-5 h-5" />,
+    tourId: 'sidebar-archive',
   },
   {
     label: 'My Order Analytics',
     href: '/analytics',
     icon: <HiOutlineChartBar className="w-5 h-5" />,
+    tourId: 'sidebar-analytics',
   },
   {
     label: 'Feature Requests',
     href: '/feature-requests',
     icon: <HiOutlineLightBulb className="w-5 h-5" />,
+    tourId: 'sidebar-features',
   },
   {
     label: "What's New",
@@ -164,7 +168,7 @@ export default function Sidebar() {
         <nav className="flex-1 overflow-y-auto py-4 px-2">
           <ul className="space-y-1">
             {mainNav.map((item) => (
-              <li key={item.label}>
+              <li key={item.label} data-tour={item.tourId}>
                 {item.href ? (
                   <Link
                     href={item.href}
@@ -247,7 +251,7 @@ export default function Sidebar() {
           )}
           <ul className="mt-2 space-y-1">
             {mainNav.map((item) => (
-              <li key={item.label}>
+              <li key={item.label} data-tour={item.tourId}>
                 {item.href ? (
                   <Link
                     href={item.href}

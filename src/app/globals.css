@@ -282,3 +282,52 @@ body {
   color: #0f172a !important;
   border-color: #cbd5e1 !important;
 }
+
+/* ─── driver.js tour overrides ─── */
+.orderflow-tour-popover {
+  background: var(--color-dashboard-card) !important;
+  border: 1px solid var(--color-dashboard-border) !important;
+  border-radius: 12px !important;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4) !important;
+  max-width: 320px !important;
+}
+.orderflow-tour-popover .driver-popover-title {
+  color: var(--color-text-primary) !important;
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  margin-bottom: 6px !important;
+}
+.orderflow-tour-popover .driver-popover-description {
+  color: var(--color-text-secondary) !important;
+  font-size: 13px !important;
+  line-height: 1.5 !important;
+}
+.orderflow-tour-popover .driver-popover-progress-text {
+  color: var(--color-text-muted) !important;
+  font-size: 11px !important;
+}
+.orderflow-tour-popover .driver-popover-prev-btn,
+.orderflow-tour-popover .driver-popover-next-btn,
+.orderflow-tour-popover .driver-popover-close-btn {
+  border-radius: 8px !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  padding: 6px 14px !important;
+  border: 1px solid var(--color-dashboard-border) !important;
+  background: var(--color-dashboard-bg) !important;
+  color: var(--color-text-secondary) !important;
+}
+.orderflow-tour-popover .driver-popover-next-btn {
+  background: #3b82f6 !important;
+  color: white !important;
+  border-color: #3b82f6 !important;
+}
+.orderflow-tour-popover .driver-popover-next-btn:hover {
+  background: #2563eb !important;
+}
+.orderflow-tour-popover .driver-popover-close-btn {
+  background: transparent !important;
+  border: none !important;
+  color: var(--color-text-muted) !important;
+  padding: 4px !important;
+}

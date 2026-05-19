@@ -9,6 +9,8 @@ import { useAuth } from '@/hooks/useAuth';
 import { useTheme } from '@/context/ThemeContext';
 import ThemeToggle from '@/components/ThemeToggle';
 import { usePlatformStore, ADMIN_EMAIL } from '@/store/usePlatformStore';
+import { useDemoOrderStore, DemoOrder, DemoOrderFormData } from '@/store/useDemoOrderStore';
+import { STATUS_OPTIONS, PLATFORM_OPTIONS } from '@/types/order';
 
 /* ─── Draggable List (reusable) ─── */
 function DraggableList<T>({
@@ -513,6 +515,496 @@ function AdminPlatformSection() {
   );
 }
 
+/* ─── Admin: Demo Order Management ─── */
+const EMPTY_FORM: DemoOrderFormData = {
+  platform: 'flipkart',
+  orderId: '',
+  brandName: '',
+  productName: '',
+  orderDate: new Date().toISOString().split('T')[0],
+  totalAmount: 0,
+  sellerLess: 0,
+  mediatorName: '',
+  reviewerName: '',
+  orderType: 'Review',
+  isReplacement: false,
+  isExchange: false,
+  exchangeProductName: '',
+  replacementOrderId: '',
+  mediatorMessage: '',
+  refundFormLink: '',
+  status: 'ordered',
+  deliveredDate: undefined,
+  returnPeriodDays: 7,
+  reviewRatingDate: undefined,
+  refundFormFilledDate: undefined,
+  informedMediatorDate: undefined,
+  paymentReceivedDate: undefined,
+  paymentBank: '',
+  isVisible: true,
+  sortOrder: 0,
+};
+
+function AdminDemoOrderSection() {
+  const { orders, loading, fetchAll, create, update, remove } = useDemoOrderStore();
+  const [form, setForm] = useState<DemoOrderFormData>(EMPTY_FORM);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [showForm, setShowForm] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+
+  useEffect(() => { fetchAll(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const setF = (key: keyof DemoOrderFormData, value: unknown) =>
+    setForm((prev) => ({ ...prev, [key]: value }));
+
+  const startNew = () => {
+    setForm(EMPTY_FORM);
+    setEditingId(null);
+    setShowForm(true);
+  };
+
+  const startEdit = (order: DemoOrder) => {
+    setForm({
+      platform: order.platform,
+      orderId: order.orderId,
+      brandName: order.brandName,
+      productName: order.productName,
+      orderDate: order.orderDate,
+      totalAmount: order.totalAmount,
+      sellerLess: order.sellerLess,
+      mediatorName: order.mediatorName,
+      reviewerName: order.reviewerName,
+      orderType: order.orderType,
+      isReplacement: order.isReplacement,
+      isExchange: order.isExchange,
+      exchangeProductName: order.exchangeProductName,
+      replacementOrderId: order.replacementOrderId,
+      mediatorMessage: order.mediatorMessage,
+      refundFormLink: order.refundFormLink,
+      status: order.status,
+      deliveredDate: order.deliveredDate,
+      returnPeriodDays: order.returnPeriodDays,
+      reviewRatingDate: order.reviewRatingDate,
+      refundFormFilledDate: order.refundFormFilledDate,
+      informedMediatorDate: order.informedMediatorDate,
+      paymentReceivedDate: order.paymentReceivedDate,
+      paymentBank: order.paymentBank,
+      isVisible: order.isVisible,
+      sortOrder: order.sortOrder,
+    });
+    setEditingId(order.id);
+    setShowForm(true);
+  };
+
+  const handleSave = async () => {
+    if (!form.orderId.trim() || !form.productName.trim()) {
+      toast.error('Order ID and Product Name are required.');
+      return;
+    }
+    setSaving(true);
+    try {
+      if (editingId) {
+        await update(editingId, form);
+        toast.success('Demo order updated.');
+      } else {
+        await create(form);
+        toast.success('Demo order created.');
+      }
+      setShowForm(false);
+      setEditingId(null);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Unknown error';
+      toast.error(`Failed to save: ${msg}`);
+    }
+    setSaving(false);
+  };
+
+  const handleDelete = async (id: string) => {
+    try {
+      await remove(id);
+      toast.success('Demo order deleted.');
+      setDeleteConfirm(null);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Unknown error';
+      toast.error(`Failed to delete: ${msg}`);
+    }
+  };
+
+  const handleToggleVisibility = async (order: DemoOrder) => {
+    try {
+      await update(order.id, { isVisible: !order.isVisible });
+      toast.success(order.isVisible ? 'Hidden from demo.' : 'Visible in demo.');
+    } catch {
+      toast.error('Failed to update visibility.');
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-base font-semibold text-text-primary">Demo Order Management</h2>
+          <p className="text-xs text-text-muted mt-0.5">
+            Manage the sample orders shown on the public demo dashboard at{' '}
+            <a href="/demo" target="_blank" className="text-accent-blue hover:underline">/demo</a>.
+            Changes appear immediately.
+          </p>
+        </div>
+        <button
+          onClick={startNew}
+          className="flex items-center gap-2 px-4 py-2 rounded-lg bg-accent-blue text-white text-sm font-medium hover:bg-blue-600 transition"
+        >
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+          </svg>
+          Add Demo Order
+        </button>
+      </div>
+
+      {/* Form (create / edit) */}
+      {showForm && (
+        <div className="rounded-xl border border-dashboard-border bg-dashboard-card p-5 space-y-4">
+          <div className="flex items-center justify-between mb-1">
+            <h3 className="text-sm font-semibold text-text-primary">
+              {editingId ? 'Edit Demo Order' : 'New Demo Order'}
+            </h3>
+            <button onClick={() => setShowForm(false)} className="text-text-muted hover:text-text-primary">
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {/* Platform */}
+            <div>
+              <label className="text-xs text-text-muted mb-1 block">Platform *</label>
+              <select
+                value={form.platform}
+                onChange={(e) => setF('platform', e.target.value)}
+                className="w-full px-3 py-2 text-sm rounded-lg border border-dashboard-border bg-dashboard-bg text-text-primary focus:outline-none focus:border-accent-blue/50"
+              >
+                {PLATFORM_OPTIONS.map((p) => (
+                  <option key={p.value} value={p.value}>{p.label}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Order ID */}
+            <div>
+              <label className="text-xs text-text-muted mb-1 block">Order ID *</label>
+              <input
+                type="text"
+                placeholder="e.g. FK-DEMO-001"
+                value={form.orderId}
+                onChange={(e) => setF('orderId', e.target.value)}
+                className="w-full px-3 py-2 text-sm rounded-lg border border-dashboard-border bg-dashboard-bg text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent-blue/50"
+              />
+            </div>
+
+            {/* Brand */}
+            <div>
+              <label className="text-xs text-text-muted mb-1 block">Brand Name</label>
+              <input
+                type="text"
+                placeholder="e.g. Noise"
+                value={form.brandName}
+                onChange={(e) => setF('brandName', e.target.value)}
+                className="w-full px-3 py-2 text-sm rounded-lg border border-dashboard-border bg-dashboard-bg text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent-blue/50"
+              />
+            </div>
+
+            {/* Product */}
+            <div>
+              <label className="text-xs text-text-muted mb-1 block">Product Name *</label>
+              <input
+                type="text"
+                placeholder="e.g. Noise Buds N1 Earphones"
+                value={form.productName}
+                onChange={(e) => setF('productName', e.target.value)}
+                className="w-full px-3 py-2 text-sm rounded-lg border border-dashboard-border bg-dashboard-bg text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent-blue/50"
+              />
+            </div>
+
+            {/* Order Date */}
+            <div>
+              <label className="text-xs text-text-muted mb-1 block">Order Date</label>
+              <input
+                type="date"
+                value={form.orderDate}
+                onChange={(e) => setF('orderDate', e.target.value)}
+                className="w-full px-3 py-2 text-sm rounded-lg border border-dashboard-border bg-dashboard-bg text-text-primary focus:outline-none focus:border-accent-blue/50"
+              />
+            </div>
+
+            {/* Status */}
+            <div>
+              <label className="text-xs text-text-muted mb-1 block">Status</label>
+              <select
+                value={form.status}
+                onChange={(e) => setF('status', e.target.value)}
+                className="w-full px-3 py-2 text-sm rounded-lg border border-dashboard-border bg-dashboard-bg text-text-primary focus:outline-none focus:border-accent-blue/50"
+              >
+                {STATUS_OPTIONS.map((s) => (
+                  <option key={s.value} value={s.value}>{s.label}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Total Amount */}
+            <div>
+              <label className="text-xs text-text-muted mb-1 block">Total Amount (₹)</label>
+              <input
+                type="number"
+                min={0}
+                value={form.totalAmount}
+                onChange={(e) => setF('totalAmount', parseFloat(e.target.value) || 0)}
+                className="w-full px-3 py-2 text-sm rounded-lg border border-dashboard-border bg-dashboard-bg text-text-primary focus:outline-none focus:border-accent-blue/50"
+              />
+            </div>
+
+            {/* Seller Less */}
+            <div>
+              <label className="text-xs text-text-muted mb-1 block">Seller Less (₹)</label>
+              <input
+                type="number"
+                min={0}
+                value={form.sellerLess}
+                onChange={(e) => setF('sellerLess', parseFloat(e.target.value) || 0)}
+                className="w-full px-3 py-2 text-sm rounded-lg border border-dashboard-border bg-dashboard-bg text-text-primary focus:outline-none focus:border-accent-blue/50"
+              />
+            </div>
+
+            {/* Mediator Name */}
+            <div>
+              <label className="text-xs text-text-muted mb-1 block">Mediator Name</label>
+              <input
+                type="text"
+                placeholder="e.g. Yash"
+                value={form.mediatorName}
+                onChange={(e) => setF('mediatorName', e.target.value)}
+                className="w-full px-3 py-2 text-sm rounded-lg border border-dashboard-border bg-dashboard-bg text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent-blue/50"
+              />
+            </div>
+
+            {/* Reviewer Name */}
+            <div>
+              <label className="text-xs text-text-muted mb-1 block">Reviewer Name</label>
+              <input
+                type="text"
+                placeholder="e.g. Aaditya"
+                value={form.reviewerName}
+                onChange={(e) => setF('reviewerName', e.target.value)}
+                className="w-full px-3 py-2 text-sm rounded-lg border border-dashboard-border bg-dashboard-bg text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent-blue/50"
+              />
+            </div>
+
+            {/* Order Type */}
+            <div>
+              <label className="text-xs text-text-muted mb-1 block">Order Type</label>
+              <select
+                value={form.orderType}
+                onChange={(e) => setF('orderType', e.target.value)}
+                className="w-full px-3 py-2 text-sm rounded-lg border border-dashboard-border bg-dashboard-bg text-text-primary focus:outline-none focus:border-accent-blue/50"
+              >
+                <option>Review</option>
+                <option>Rating</option>
+                <option>Empty Box</option>
+              </select>
+            </div>
+
+            {/* Payment Bank */}
+            <div>
+              <label className="text-xs text-text-muted mb-1 block">Payment Bank</label>
+              <input
+                type="text"
+                placeholder="e.g. PhonePe"
+                value={form.paymentBank}
+                onChange={(e) => setF('paymentBank', e.target.value)}
+                className="w-full px-3 py-2 text-sm rounded-lg border border-dashboard-border bg-dashboard-bg text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent-blue/50"
+              />
+            </div>
+
+            {/* Sort Order */}
+            <div>
+              <label className="text-xs text-text-muted mb-1 block">Sort Order</label>
+              <input
+                type="number"
+                min={0}
+                value={form.sortOrder}
+                onChange={(e) => setF('sortOrder', parseInt(e.target.value) || 0)}
+                className="w-full px-3 py-2 text-sm rounded-lg border border-dashboard-border bg-dashboard-bg text-text-primary focus:outline-none focus:border-accent-blue/50"
+              />
+            </div>
+
+            {/* Refund Form Link */}
+            <div className="sm:col-span-2">
+              <label className="text-xs text-text-muted mb-1 block">Refund Form Link</label>
+              <input
+                type="url"
+                placeholder="https://forms.gle/…"
+                value={form.refundFormLink}
+                onChange={(e) => setF('refundFormLink', e.target.value)}
+                className="w-full px-3 py-2 text-sm rounded-lg border border-dashboard-border bg-dashboard-bg text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent-blue/50"
+              />
+            </div>
+
+            {/* Mediator Message */}
+            <div className="sm:col-span-2">
+              <label className="text-xs text-text-muted mb-1 block">Mediator Message</label>
+              <textarea
+                rows={3}
+                placeholder="Paste the mediator message here…"
+                value={form.mediatorMessage}
+                onChange={(e) => setF('mediatorMessage', e.target.value)}
+                className="w-full px-3 py-2 text-sm rounded-lg border border-dashboard-border bg-dashboard-bg text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent-blue/50 resize-none"
+              />
+            </div>
+          </div>
+
+          {/* Checkboxes */}
+          <div className="flex flex-wrap gap-4">
+            <label className="flex items-center gap-2 text-sm text-text-secondary cursor-pointer">
+              <input
+                type="checkbox"
+                checked={form.isVisible}
+                onChange={(e) => setF('isVisible', e.target.checked)}
+                className="rounded"
+              />
+              Visible in public demo
+            </label>
+            <label className="flex items-center gap-2 text-sm text-text-secondary cursor-pointer">
+              <input
+                type="checkbox"
+                checked={form.isReplacement}
+                onChange={(e) => setF('isReplacement', e.target.checked)}
+                className="rounded"
+              />
+              Is Replacement
+            </label>
+            <label className="flex items-center gap-2 text-sm text-text-secondary cursor-pointer">
+              <input
+                type="checkbox"
+                checked={form.isExchange}
+                onChange={(e) => setF('isExchange', e.target.checked)}
+                className="rounded"
+              />
+              Is Exchange
+            </label>
+          </div>
+
+          <div className="flex justify-end gap-2 pt-2">
+            <button
+              onClick={() => setShowForm(false)}
+              className="px-4 py-2 rounded-lg border border-dashboard-border text-sm text-text-secondary hover:text-text-primary transition"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleSave}
+              disabled={saving}
+              className="px-4 py-2 rounded-lg bg-accent-blue text-white text-sm font-medium hover:bg-blue-600 disabled:opacity-50 transition"
+            >
+              {saving ? 'Saving…' : editingId ? 'Save Changes' : 'Create Order'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Demo orders list */}
+      {loading ? (
+        <div className="flex justify-center py-10">
+          <div className="w-7 h-7 rounded-full border-2 border-accent-blue border-t-transparent animate-spin" />
+        </div>
+      ) : orders.length === 0 ? (
+        <div className="rounded-xl border border-dashed border-dashboard-border p-10 text-center text-text-muted">
+          <p className="text-sm">No demo orders yet. Add your first one above.</p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {orders.map((order) => (
+            <div
+              key={order.id}
+              className={`rounded-xl border bg-dashboard-card p-4 flex items-start gap-4 ${order.isVisible ? 'border-dashboard-border' : 'border-dashboard-border opacity-60'}`}
+            >
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap mb-1">
+                  <span className="text-xs font-semibold capitalize px-2 py-0.5 rounded bg-dashboard-bg border border-dashboard-border text-text-secondary">
+                    {order.platform}
+                  </span>
+                  <span className="text-sm font-mono font-bold text-text-primary">{order.orderId}</span>
+                  {!order.isVisible && (
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-gray-500/10 border border-gray-500/20 text-gray-400">
+                      Hidden
+                    </span>
+                  )}
+                </div>
+                <p className="text-sm text-text-primary truncate">{order.productName}</p>
+                <p className="text-xs text-text-muted mt-0.5">
+                  {order.mediatorName} · {order.reviewerName} · ₹{order.totalAmount.toLocaleString('en-IN')} · {order.status.replace(/_/g, ' ')}
+                </p>
+              </div>
+              <div className="flex items-center gap-1.5 flex-shrink-0">
+                <button
+                  onClick={() => handleToggleVisibility(order)}
+                  title={order.isVisible ? 'Hide from demo' : 'Show in demo'}
+                  className="p-1.5 rounded-lg border border-dashboard-border bg-dashboard-bg text-text-muted hover:text-text-primary transition"
+                >
+                  {order.isVisible ? (
+                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                    </svg>
+                  ) : (
+                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+                    </svg>
+                  )}
+                </button>
+                <button
+                  onClick={() => startEdit(order)}
+                  className="p-1.5 rounded-lg border border-dashboard-border bg-dashboard-bg text-text-muted hover:text-text-primary transition"
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                  </svg>
+                </button>
+                {deleteConfirm === order.id ? (
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => handleDelete(order.id)}
+                      className="px-2 py-1 text-[10px] rounded bg-red-500/10 border border-red-500/30 text-red-400 hover:bg-red-500/20 transition"
+                    >
+                      Confirm
+                    </button>
+                    <button
+                      onClick={() => setDeleteConfirm(null)}
+                      className="px-2 py-1 text-[10px] rounded border border-dashboard-border text-text-muted hover:text-text-primary transition"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => setDeleteConfirm(order.id)}
+                    className="p-1.5 rounded-lg border border-dashboard-border bg-dashboard-bg text-text-muted hover:text-red-400 transition"
+                  >
+                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                  </button>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ─── Main Page ─── */
 export default function AccountSettingsPage() {
   return (
@@ -527,7 +1019,7 @@ function AccountSettingsInner() {
   const { user: authUser } = useAuth();
   const isAdmin = authUser?.email === ADMIN_EMAIL;
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<'account' | 'admin'>('account');
+  const [activeTab, setActiveTab] = useState<'account' | 'admin' | 'demo'>('account');
 
   return (
     <div className="flex min-h-screen bg-dashboard-bg">
@@ -578,7 +1070,19 @@ function AccountSettingsInner() {
                     <path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
                     <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                   </svg>
-                  Admin
+                  Platforms
+                </button>
+              </li>
+            )}
+            {isAdmin && (
+              <li>
+                <button onClick={() => { setActiveTab('demo'); setMobileMenuOpen(false); }}
+                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition ${activeTab === 'demo' ? 'bg-sidebar-active text-white' : 'text-text-secondary hover:bg-dashboard-card hover:text-text-primary'}`}>
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  Demo Orders
                 </button>
               </li>
             )}
@@ -621,7 +1125,19 @@ function AccountSettingsInner() {
                     <path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
                     <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                   </svg>
-                  Admin
+                  Platforms
+                </button>
+              </li>
+            )}
+            {isAdmin && (
+              <li>
+                <button onClick={() => setActiveTab('demo')}
+                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition ${activeTab === 'demo' ? 'bg-sidebar-active text-white' : 'text-text-secondary hover:bg-dashboard-card hover:text-text-primary'}`}>
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  Demo Orders
                 </button>
               </li>
             )}
@@ -638,13 +1154,19 @@ function AccountSettingsInner() {
         <div className="sticky top-0 z-30 bg-dashboard-bg/80 backdrop-blur-xl border-b border-dashboard-border">
           <div className="flex items-center justify-between px-6 h-14 md:pl-6 pl-14">
             <h1 className="text-lg font-bold text-text-primary">
-              {activeTab === 'admin' ? 'Admin Panel' : 'Account Settings'}
+              {activeTab === 'admin' ? 'Platform Management' : activeTab === 'demo' ? 'Demo Order Management' : 'Account Settings'}
             </h1>
             <ThemeToggle />
           </div>
         </div>
         <div className="px-6 py-6 max-w-4xl">
-          {activeTab === 'admin' && isAdmin ? <AdminPlatformSection /> : <AccountSection />}
+          {activeTab === 'admin' && isAdmin ? (
+            <AdminPlatformSection />
+          ) : activeTab === 'demo' && isAdmin ? (
+            <AdminDemoOrderSection />
+          ) : (
+            <AccountSection />
+          )}
         </div>
       </main>
     </div>

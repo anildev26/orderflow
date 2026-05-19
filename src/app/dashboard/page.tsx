@@ -16,6 +16,8 @@ import { WHATS_NEW_STORAGE_KEY, LATEST_VERSION } from '@/components/whatsNewCons
 
 const FilterPanel = dynamic(() => import('@/components/FilterPanel'), { ssr: false });
 const WhatsNewModal = dynamic(() => import('@/components/WhatsNewModal'), { ssr: false });
+const PostSignupTour = dynamic(() => import('@/components/PostSignupTour'), { ssr: false });
+const DemoWalkthrough = dynamic(() => import('@/components/DemoWalkthrough'), { ssr: false });
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -334,8 +336,11 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen">
+      {/* Onboarding */}
+      {mounted && authUser && <DemoWalkthrough />}
+      {mounted && authUser && <PostSignupTour userCreatedAt={authUser.createdAt} />}
       {/* Top bar */}
-      <div className="sticky top-0 z-30 bg-dashboard-bg/80 backdrop-blur-xl border-b border-dashboard-border">
+      <div data-tour="welcome" className="sticky top-0 z-30 bg-dashboard-bg/80 backdrop-blur-xl border-b border-dashboard-border">
         <div className="flex items-center justify-end px-6 h-14 gap-2">
           {/* Bell / What's New */}
           <button
@@ -366,7 +371,7 @@ export default function DashboardPage() {
                     <p className="text-sm font-semibold text-text-primary">{authUser?.displayName || 'User'}</p>
                     <p className="text-xs text-text-muted truncate">{authUser?.email || ''}</p>
                   </div>
-                  <button onClick={handleExportExcel} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-text-secondary hover:bg-dashboard-bg hover:text-text-primary transition">
+                  <button data-tour="export-data" onClick={handleExportExcel} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-text-secondary hover:bg-dashboard-bg hover:text-text-primary transition">
                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                     </svg>
@@ -379,7 +384,7 @@ export default function DashboardPage() {
                     Backup Data (JSON)
                   </button>
                   <div className="my-1 border-t border-dashboard-border" />
-                  <button onClick={handleDownloadTemplate} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-text-secondary hover:bg-dashboard-bg hover:text-text-primary transition">
+                  <button data-tour="import-orders" onClick={handleDownloadTemplate} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-text-secondary hover:bg-dashboard-bg hover:text-text-primary transition">
                     <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-6a2 2 0 012-2h2a2 2 0 012 2v6m-7 0h8m-8 0a2 2 0 01-2-2v-2a2 2 0 012-2h.01M17 17a2 2 0 002-2v-2a2 2 0 00-2-2h-.01M7 7h10a2 2 0 002-2V4H5v1a2 2 0 002 2z" />
                     </svg>
@@ -429,6 +434,7 @@ export default function DashboardPage() {
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
             <Link
+              data-tour="add-order"
               href="/order-form"
               target="_blank"
               rel="noopener noreferrer"
@@ -466,7 +472,7 @@ export default function DashboardPage() {
         </div>
 
         {/* Always-visible Search Bar */}
-        <div className="mb-3">
+        <div data-tour="search-filter" className="mb-3">
           <div className="relative">
             <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -530,7 +536,7 @@ export default function DashboardPage() {
         </div>
 
         {/* KPI Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 pb-4">
+        <div data-tour="kpi-cards" className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 pb-4">
           {kpiCards.map((kpi, i) =>
             kpi.clickable ? (
               <button
@@ -570,7 +576,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Orders list */}
-      <div className="px-6 pb-8 space-y-3 mt-1">
+      <div data-tour="order-list" className="px-6 pb-8 space-y-3 mt-1">
         {sortedOrders.length === 0 ? (
           <div className="text-center py-16">
             <svg className="w-16 h-16 mx-auto text-text-muted mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">

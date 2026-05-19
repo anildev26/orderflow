@@ -29,8 +29,12 @@ export async function proxy(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const publicPaths = ['/login', '/signup', '/forgot-password', '/auth/callback'];
-  const isPublicPath = publicPaths.some((path) => request.nextUrl.pathname.startsWith(path));
+  const publicPaths = ['/', '/demo', '/login', '/signup', '/forgot-password', '/auth/callback'];
+  const isPublicPath = publicPaths.some((path) =>
+    path === '/'
+      ? request.nextUrl.pathname === '/'
+      : request.nextUrl.pathname.startsWith(path)
+  );
 
   // If not logged in and trying to access protected route, redirect to login
   if (!user && !isPublicPath) {
