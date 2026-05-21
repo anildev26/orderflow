@@ -10,6 +10,7 @@ import { STATUS_LABELS, STATUS_COLORS } from '@/types/order';
 
 const DemoWalkthrough = dynamic(() => import('@/components/DemoWalkthrough'), { ssr: false });
 const DemoModeBanner = dynamic(() => import('@/components/DemoModeBanner'), { ssr: false });
+const DemoOrderModal = dynamic(() => import('@/components/DemoOrderModal'), { ssr: false });
 
 /* ─── helpers ─── */
 function fmtDate(d: string): string {
@@ -61,7 +62,7 @@ function DisabledAction({ children, label }: { children: React.ReactNode; label:
 }
 
 /* ─── Demo Order Card ─── */
-function DemoOrderCard({ order }: { order: DemoOrder }) {
+function DemoOrderCard({ order, onUpdateClick }: { order: DemoOrder; onUpdateClick?: () => void }) {
   const [showMessage, setShowMessage] = useState(false);
   const border = BORDER_COLOR[order.status] || 'border-l-blue-500';
   const badge = PLATFORM_BADGE[order.platform] || PLATFORM_BADGE.other;
@@ -120,7 +121,6 @@ function DemoOrderCard({ order }: { order: DemoOrder }) {
         {/* Mediator message preview */}
         {order.mediatorMessage && (
           <div
-            data-tour="mediator-message"
             className="mt-2 px-3 py-2 rounded-lg bg-dashboard-bg border border-dashboard-border"
           >
             <p className="text-[10px] text-text-muted mb-0.5">Mediator message</p>
@@ -152,11 +152,20 @@ function DemoOrderCard({ order }: { order: DemoOrder }) {
             Refund Form
           </a>
         )}
-        <DisabledAction label="Sign up to update order status">
-          <button className="w-full py-2 text-center text-xs font-medium rounded-lg bg-accent-blue/10 border border-accent-blue/30 text-blue-400">
+        {onUpdateClick ? (
+          <button
+            onClick={onUpdateClick}
+            className="flex-1 py-2 text-center text-xs font-medium rounded-lg bg-accent-blue/10 border border-accent-blue/30 text-blue-400 hover:bg-accent-blue/20 transition"
+          >
             Update Status
           </button>
-        </DisabledAction>
+        ) : (
+          <DisabledAction label="Sign up to update order status">
+            <button className="w-full py-2 text-center text-xs font-medium rounded-lg bg-accent-blue/10 border border-accent-blue/30 text-blue-400">
+              Update Status
+            </button>
+          </DisabledAction>
+        )}
         <DisabledAction label="Sign up to edit orders">
           <button className="p-2 rounded-lg border border-dashboard-border bg-dashboard-bg text-text-muted">
             <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -213,18 +222,22 @@ export default function DemoPage() {
   const [platformFilter, setPlatformFilter] = useState('all');
   const [mounted, setMounted] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [demoModal, setDemoModal] = useState<{ open: boolean; tourMode: boolean }>({ open: false, tourMode: false });
 
   useEffect(() => {
     setMounted(true);
     fetchVisible();
   }, [fetchVisible]);
 
-  // Expose sidebar toggle so DemoWalkthrough can open/close it during the tour
+  // Expose sidebar + modal controls so DemoWalkthrough can drive them during the tour
   useEffect(() => {
-    (window as unknown as Record<string, unknown>).__orderflow_open_sidebar__ = (open: boolean) =>
-      setMobileOpen(open);
+    const w = window as unknown as Record<string, unknown>;
+    w.__orderflow_open_sidebar__ = (open: boolean) => setMobileOpen(open);
+    w.__orderflow_show_demo_modal__ = (open: boolean, tourMode = true) =>
+      setDemoModal({ open, tourMode: open ? tourMode : false });
     return () => {
-      delete (window as unknown as Record<string, unknown>).__orderflow_open_sidebar__;
+      delete w.__orderflow_open_sidebar__;
+      delete w.__orderflow_show_demo_modal__;
     };
   }, []);
 
@@ -263,6 +276,15 @@ export default function DemoPage() {
 
       {/* Demo banner */}
       {mounted && <DemoModeBanner />}
+
+      {/* Demo order modal (shown during mediator-message tour step or on card click) */}
+      {mounted && demoModal.open && orders.length > 0 && (
+        <DemoOrderModal
+          order={orders[0]}
+          tourMode={demoModal.tourMode}
+          onClose={() => setDemoModal({ open: false, tourMode: false })}
+        />
+      )}
 
       {/* ── Mobile sidebar overlay ── */}
       {mobileOpen && (
@@ -567,7 +589,10 @@ export default function DemoPage() {
               <div className="space-y-3">
                 {filtered.map((order, idx) => (
                   <div key={order.id} data-tour={idx === 0 ? 'order-card-status' : undefined}>
-                    <DemoOrderCard order={order} />
+                    <DemoOrderCard
+                      order={order}
+                      onUpdateClick={idx === 0 ? () => setDemoModal({ open: true, tourMode: false }) : undefined}
+                    />
                   </div>
                 ))}
               </div>

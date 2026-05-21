@@ -142,6 +142,8 @@ interface DemoWalkthroughProps {
 
 // Indices (0-based) in TOUR_STEPS that require the sidebar to be open on mobile
 const SIDEBAR_STEP_INDICES = new Set([10, 11, 14]);
+// Indices that require the demo order modal to be open
+const MODAL_STEP_INDICES = new Set([8]);
 
 type DriverInstance = {
   getActiveIndex: () => number;
@@ -153,6 +155,11 @@ type DriverInstance = {
 function setSidebarOpen(open: boolean) {
   const fn = (window as unknown as Record<string, unknown>).__orderflow_open_sidebar__;
   if (typeof fn === 'function') (fn as (v: boolean) => void)(open);
+}
+
+function setDemoModalOpen(open: boolean) {
+  const fn = (window as unknown as Record<string, unknown>).__orderflow_show_demo_modal__;
+  if (typeof fn === 'function') (fn as (v: boolean, tourMode: boolean) => void)(open, true);
 }
 
 export default function DemoWalkthrough({ autoStart = false, onComplete }: DemoWalkthroughProps) {
@@ -187,41 +194,32 @@ export default function DemoWalkthrough({ autoStart = false, onComplete }: DemoW
 
     const getDriver = () => driverRef.current as DriverInstance | null;
 
-    const handleNext = isMobile
-      ? () => {
-          const d = getDriver();
-          if (!d) return;
-          const cur = d.getActiveIndex() ?? 0;
-          const next = cur + 1;
-          if (SIDEBAR_STEP_INDICES.has(next) && !SIDEBAR_STEP_INDICES.has(cur)) {
-            setSidebarOpen(true);
-            setTimeout(() => d.moveNext(), 300);
-          } else {
-            if (!SIDEBAR_STEP_INDICES.has(next) && SIDEBAR_STEP_INDICES.has(cur)) {
-              setSidebarOpen(false);
-            }
-            d.moveNext();
-          }
-        }
-      : undefined;
+    function navigate(dir: 'next' | 'prev') {
+      const d = getDriver();
+      if (!d) return;
+      const cur = d.getActiveIndex() ?? 0;
+      const dest = dir === 'next' ? cur + 1 : cur - 1;
 
-    const handlePrev = isMobile
-      ? () => {
-          const d = getDriver();
-          if (!d) return;
-          const cur = d.getActiveIndex() ?? 0;
-          const prev = cur - 1;
-          if (SIDEBAR_STEP_INDICES.has(prev) && !SIDEBAR_STEP_INDICES.has(cur)) {
-            setSidebarOpen(true);
-            setTimeout(() => d.movePrevious(), 300);
-          } else {
-            if (!SIDEBAR_STEP_INDICES.has(prev) && SIDEBAR_STEP_INDICES.has(cur)) {
-              setSidebarOpen(false);
-            }
-            d.movePrevious();
-          }
-        }
-      : undefined;
+      const openModal = MODAL_STEP_INDICES.has(dest) && !MODAL_STEP_INDICES.has(cur);
+      const closeModal = MODAL_STEP_INDICES.has(cur) && !MODAL_STEP_INDICES.has(dest);
+      const openSidebar = isMobile && SIDEBAR_STEP_INDICES.has(dest) && !SIDEBAR_STEP_INDICES.has(cur);
+      const closeSidebar = isMobile && SIDEBAR_STEP_INDICES.has(cur) && !SIDEBAR_STEP_INDICES.has(dest);
+
+      if (openModal) setDemoModalOpen(true);
+      if (closeModal) setDemoModalOpen(false);
+      if (openSidebar) setSidebarOpen(true);
+      if (closeSidebar) setSidebarOpen(false);
+
+      const needsDelay = openModal || openSidebar;
+      if (needsDelay) {
+        setTimeout(() => dir === 'next' ? d.moveNext() : d.movePrevious(), 300);
+      } else {
+        dir === 'next' ? d.moveNext() : d.movePrevious();
+      }
+    }
+
+    const handleNext = () => navigate('next');
+    const handlePrev = () => navigate('prev');
 
     const d = driver({
       showProgress: true,
@@ -241,6 +239,7 @@ export default function DemoWalkthrough({ autoStart = false, onComplete }: DemoW
       onPrevClick: handlePrev,
       onDestroyStarted: () => {
         if (isMobile) setSidebarOpen(false);
+        setDemoModalOpen(false);
         localStorage.setItem(WALKTHROUGH_STORAGE_KEY, 'completed');
         d.destroy();
         onComplete?.();
