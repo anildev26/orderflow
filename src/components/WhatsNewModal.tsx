@@ -12,6 +12,18 @@ interface WhatsNewModalProps {
 
 const CHANGELOG = [
   {
+    version: 'v1.0.7',
+    date: 'May 2026',
+    items: [
+      { type: 'new', text: 'Public landing page — a full feature overview of OrderFlow at a glance, with platform badges, workflow steps, and a direct link to try the demo. Share it with anyone curious about what OrderFlow does.' },
+      { type: 'new', text: 'Live demo dashboard — explore the complete OrderFlow interface with real sample orders, no sign-up required. See KPI cards, filters, order cards, and status badges exactly as they appear in your real account.' },
+      { type: 'new', text: '16-step guided walkthrough — an interactive spotlight tour takes you through every feature: KPI cards, search & filters, adding orders, importing history, updating status, the mediator message panel, archive, analytics, and more. Auto-starts on your first demo visit.' },
+      { type: 'new', text: 'Demo order modal — during the walkthrough, step into a read-only order and see how the mediator message, refund form link, WhatsApp copy, Telegram tracking, and status update flow all work together in one place.' },
+      { type: 'improvement', text: 'Tour auto-opens the mobile sidebar when reaching Archive, Analytics, and Feature Requests steps — no dead popups on small screens.' },
+      { type: 'improvement', text: 'Restart tour anytime from the demo banner — the walkthrough remembers where you left off via localStorage and can be replayed without refreshing.' },
+    ],
+  },
+  {
     version: 'v1.0.6',
     date: 'Apr 2026',
     items: [

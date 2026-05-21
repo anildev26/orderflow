@@ -1,2 +1,2 @@
 export const WHATS_NEW_STORAGE_KEY = 'whatsNew_lastSeen';
-export const LATEST_VERSION = 'v1.0.6';
+export const LATEST_VERSION = 'v1.0.7';
