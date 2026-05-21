@@ -212,11 +212,21 @@ export default function DemoPage() {
   const [statusFilter, setStatusFilter] = useState('all');
   const [platformFilter, setPlatformFilter] = useState('all');
   const [mounted, setMounted] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
 
   useEffect(() => {
     setMounted(true);
     fetchVisible();
   }, [fetchVisible]);
+
+  // Expose sidebar toggle so DemoWalkthrough can open/close it during the tour
+  useEffect(() => {
+    (window as unknown as Record<string, unknown>).__orderflow_open_sidebar__ = (open: boolean) =>
+      setMobileOpen(open);
+    return () => {
+      delete (window as unknown as Record<string, unknown>).__orderflow_open_sidebar__;
+    };
+  }, []);
 
   const filtered = useMemo(() => {
     return orders.filter((o) => {
@@ -254,7 +264,81 @@ export default function DemoPage() {
       {/* Demo banner */}
       {mounted && <DemoModeBanner />}
 
-      {/* ── Sidebar ── */}
+      {/* ── Mobile sidebar overlay ── */}
+      {mobileOpen && (
+        <div
+          className="fixed inset-0 z-30 bg-black/50 md:hidden"
+          onClick={() => setMobileOpen(false)}
+        />
+      )}
+
+      {/* ── Mobile sidebar panel ── */}
+      <aside
+        className={`fixed left-0 top-0 z-40 h-screen w-60 bg-sidebar-bg border-r border-dashboard-border flex flex-col transition-transform duration-300 md:hidden ${mobileOpen ? 'translate-x-0' : '-translate-x-full'}`}
+      >
+        <div className="flex items-center justify-between h-16 border-b border-dashboard-border px-4">
+          <div className="flex items-center gap-2.5">
+            <svg width="32" height="32" viewBox="0 0 40 40" fill="none">
+              <defs>
+                <linearGradient id="demo-grad-m" x1="0" y1="0" x2="1" y2="1">
+                  <stop offset="0%" stopColor="#3B82F6" />
+                  <stop offset="100%" stopColor="#8B5CF6" />
+                </linearGradient>
+              </defs>
+              <rect width="40" height="40" rx="10" fill="url(#demo-grad-m)" />
+              <path d="M12 14h16M12 20h10M12 26h13" stroke="white" strokeWidth="2.5" strokeLinecap="round" />
+              <circle cx="29" cy="26" r="4" fill="white" opacity="0.9" />
+            </svg>
+            <span className="font-semibold text-sm leading-tight text-text-primary">
+              OrderFlow<br />
+              <span className="font-normal text-xs text-text-muted">Demo Mode</span>
+            </span>
+          </div>
+          <button
+            onClick={() => setMobileOpen(false)}
+            className="p-1.5 rounded-lg hover:bg-dashboard-card text-text-secondary hover:text-text-primary"
+            aria-label="Close menu"
+          >
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+        <nav className="flex-1 overflow-y-auto px-3 pt-4">
+          <ul className="space-y-1">
+            <DemoSidebarItem active label="Orders Dashboard" icon={
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+              </svg>
+            } />
+            <DemoSidebarItem tourId="sidebar-m-archive" label="Archive" icon={
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
+              </svg>
+            } />
+            <DemoSidebarItem tourId="sidebar-m-analytics" label="My Order Analytics" icon={
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+              </svg>
+            } />
+            <DemoSidebarItem tourId="sidebar-m-features" label="Feature Requests" icon={
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+              </svg>
+            } />
+          </ul>
+        </nav>
+        <div className="p-3 border-t border-dashboard-border">
+          <Link
+            href="/signup"
+            className="w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold text-white bg-gradient-to-r from-blue-500 to-violet-500 hover:from-blue-600 hover:to-violet-600 transition"
+          >
+            Create free account →
+          </Link>
+        </div>
+      </aside>
+
+      {/* ── Desktop Sidebar ── */}
       <aside className="fixed left-0 top-0 z-40 h-screen w-60 bg-sidebar-bg border-r border-dashboard-border flex-col hidden md:flex">
         <div className="flex items-center h-16 border-b border-dashboard-border px-4 gap-2.5">
           <svg width="32" height="32" viewBox="0 0 40 40" fill="none">
@@ -319,6 +403,16 @@ export default function DemoPage() {
         >
           <div className="flex items-center justify-between px-4 sm:px-6 h-14 gap-3">
             <div className="flex items-center gap-2">
+              {/* Mobile hamburger */}
+              <button
+                onClick={() => setMobileOpen(true)}
+                className="p-1.5 rounded-lg hover:bg-dashboard-card text-text-secondary hover:text-text-primary md:hidden"
+                aria-label="Open menu"
+              >
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
+              </button>
               {/* Mobile logo */}
               <svg className="w-7 h-7 md:hidden" width="28" height="28" viewBox="0 0 40 40" fill="none">
                 <rect width="40" height="40" rx="10" fill="url(#demo-grad)" />

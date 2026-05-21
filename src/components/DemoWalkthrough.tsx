@@ -140,6 +140,21 @@ interface DemoWalkthroughProps {
   onComplete?: () => void;
 }
 
+// Indices (0-based) in TOUR_STEPS that require the sidebar to be open on mobile
+const SIDEBAR_STEP_INDICES = new Set([10, 11, 14]);
+
+type DriverInstance = {
+  getActiveIndex: () => number;
+  moveNext: () => void;
+  movePrevious: () => void;
+  destroy: () => void;
+};
+
+function setSidebarOpen(open: boolean) {
+  const fn = (window as unknown as Record<string, unknown>).__orderflow_open_sidebar__;
+  if (typeof fn === 'function') (fn as (v: boolean) => void)(open);
+}
+
 export default function DemoWalkthrough({ autoStart = false, onComplete }: DemoWalkthroughProps) {
   const driverRef = useRef<unknown>(null);
 
@@ -148,8 +163,65 @@ export default function DemoWalkthrough({ autoStart = false, onComplete }: DemoW
     await import('driver.js/dist/driver.css');
 
     if (driverRef.current) {
-      (driverRef.current as { destroy: () => void }).destroy();
+      (driverRef.current as DriverInstance).destroy();
     }
+
+    const isMobile = window.innerWidth < 768;
+
+    // On mobile, sidebar steps target the mobile sidebar items (sidebar-m-* selectors)
+    const steps = TOUR_STEPS.map((s, i) => {
+      const element =
+        isMobile && SIDEBAR_STEP_INDICES.has(i)
+          ? s.element.replace('data-tour="sidebar-', 'data-tour="sidebar-m-')
+          : s.element;
+      return {
+        element,
+        popover: {
+          title: s.popover.title,
+          description: s.popover.description,
+          side: 'bottom' as const,
+          align: 'start' as const,
+        },
+      };
+    });
+
+    const getDriver = () => driverRef.current as DriverInstance | null;
+
+    const handleNext = isMobile
+      ? () => {
+          const d = getDriver();
+          if (!d) return;
+          const cur = d.getActiveIndex() ?? 0;
+          const next = cur + 1;
+          if (SIDEBAR_STEP_INDICES.has(next) && !SIDEBAR_STEP_INDICES.has(cur)) {
+            setSidebarOpen(true);
+            setTimeout(() => d.moveNext(), 300);
+          } else {
+            if (!SIDEBAR_STEP_INDICES.has(next) && SIDEBAR_STEP_INDICES.has(cur)) {
+              setSidebarOpen(false);
+            }
+            d.moveNext();
+          }
+        }
+      : undefined;
+
+    const handlePrev = isMobile
+      ? () => {
+          const d = getDriver();
+          if (!d) return;
+          const cur = d.getActiveIndex() ?? 0;
+          const prev = cur - 1;
+          if (SIDEBAR_STEP_INDICES.has(prev) && !SIDEBAR_STEP_INDICES.has(cur)) {
+            setSidebarOpen(true);
+            setTimeout(() => d.movePrevious(), 300);
+          } else {
+            if (!SIDEBAR_STEP_INDICES.has(prev) && SIDEBAR_STEP_INDICES.has(cur)) {
+              setSidebarOpen(false);
+            }
+            d.movePrevious();
+          }
+        }
+      : undefined;
 
     const d = driver({
       showProgress: true,
@@ -164,16 +236,11 @@ export default function DemoWalkthrough({ autoStart = false, onComplete }: DemoW
       prevBtnText: '← Prev',
       doneBtnText: 'Finish tour',
       progressText: 'Step {{current}} of {{total}}',
-      steps: TOUR_STEPS.map((s) => ({
-        element: s.element,
-        popover: {
-          title: s.popover.title,
-          description: s.popover.description,
-          side: 'bottom' as const,
-          align: 'start' as const,
-        },
-      })),
+      steps,
+      onNextClick: handleNext,
+      onPrevClick: handlePrev,
       onDestroyStarted: () => {
+        if (isMobile) setSidebarOpen(false);
         localStorage.setItem(WALKTHROUGH_STORAGE_KEY, 'completed');
         d.destroy();
         onComplete?.();
