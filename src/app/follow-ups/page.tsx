@@ -126,39 +126,45 @@ export default function FollowUpsPage() {
         <h1 className="text-2xl font-bold text-text-primary mb-1">Follow-ups</h1>
         <p className="text-sm text-text-muted mb-4">Refund reminders and mediator follow-ups</p>
 
-        {/* Summary chips */}
-        <div className="flex flex-wrap gap-2 mb-4">
-          <div className={`px-3.5 py-2 rounded-xl border ${dueCount > 0 ? 'bg-red-500/10 border-red-500/30' : 'bg-dashboard-card border-dashboard-border'}`}>
-            <span className="text-xs text-text-muted">Due / Overdue</span>
-            <span className={`ml-2 text-sm font-bold ${dueCount > 0 ? 'text-red-400' : 'text-text-secondary'}`}>{dueCount}</span>
-          </div>
-          <div className="px-3.5 py-2 rounded-xl bg-dashboard-card border border-dashboard-border">
-            <span className="text-xs text-text-muted">Upcoming</span>
-            <span className="ml-2 text-sm font-bold text-text-secondary">{upcomingCount}</span>
-          </div>
-          <div className="px-3.5 py-2 rounded-xl bg-dashboard-card border border-dashboard-border">
-            <span className="text-xs text-text-muted">Total Active</span>
-            <span className="ml-2 text-sm font-bold text-text-secondary">{followUps.length}</span>
-          </div>
-        </div>
-
-        {/* View tabs */}
-        <div className="flex gap-1 mb-3">
+        {/* KPI cards — clickable, same style as the dashboard; they drive the view filter */}
+        <div className="grid grid-cols-3 gap-3 pb-4">
           {([
-            { key: 'due', label: `Due & Overdue${dueCount ? ` (${dueCount})` : ''}` },
-            { key: 'upcoming', label: 'Upcoming' },
-            { key: 'all', label: 'All' },
-          ] as { key: View; label: string }[]).map((t) => (
+            {
+              key: 'due' as View,
+              label: 'Due / Overdue',
+              value: dueCount,
+              sub: dueCount > 0 ? 'Needs your action' : 'All caught up',
+              color: dueCount > 0 ? 'text-red-400' : 'text-text-muted',
+              urgent: dueCount > 0,
+            },
+            {
+              key: 'upcoming' as View,
+              label: 'Upcoming',
+              value: upcomingCount,
+              sub: 'Scheduled for later',
+              color: 'text-yellow-400',
+              urgent: false,
+            },
+            {
+              key: 'all' as View,
+              label: 'Total Active',
+              value: followUps.length,
+              sub: 'Tap to view all',
+              color: 'text-green-400',
+              urgent: false,
+            },
+          ]).map((kpi) => (
             <button
-              key={t.key}
-              onClick={() => setView(t.key)}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition ${
-                view === t.key
-                  ? 'bg-accent-blue text-white'
-                  : 'bg-dashboard-card border border-dashboard-border text-text-secondary hover:text-text-primary hover:bg-dashboard-card-hover'
-              }`}
+              key={kpi.key}
+              onClick={() => setView(kpi.key)}
+              aria-pressed={view === kpi.key}
+              className={`text-left p-4 rounded-xl bg-dashboard-card border hover:bg-dashboard-card-hover transition cursor-pointer ${
+                view === kpi.key ? 'ring-2 ring-accent-blue border-accent-blue' : 'border-dashboard-border'
+              } ${kpi.urgent ? 'border-red-500/40' : ''}`}
             >
-              {t.label}
+              <p className="text-xs text-text-muted">{kpi.label}</p>
+              <p className={`text-xl font-bold mt-1 ${kpi.color}`}>{kpi.value}</p>
+              <p className="text-[10px] text-text-muted mt-0.5">{kpi.sub}</p>
             </button>
           ))}
         </div>
