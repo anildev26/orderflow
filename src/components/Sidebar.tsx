@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
 import { usePathname } from 'next/navigation';
-import { useState, useId, useEffect } from 'react';
+import { useState, useId, useEffect, useMemo } from 'react';
 import {
   HiOutlineClipboardList,
   HiOutlineDocumentText,
@@ -12,7 +12,9 @@ import {
   HiOutlineMail,
   HiOutlineBell,
   HiOutlineLightBulb,
+  HiOutlineClock,
 } from 'react-icons/hi';
+import { useOrderStore } from '@/store/useOrderStore';
 import { WHATS_NEW_STORAGE_KEY, LATEST_VERSION } from './whatsNewConstants';
 
 const WhatsNewModal = dynamic(() => import('./WhatsNewModal'), { ssr: false });
@@ -24,15 +26,23 @@ interface NavItem {
   desktopOnly?: boolean;
   onClick?: () => void;
   badge?: boolean;
+  badgeCount?: number;
   newTab?: boolean;
   tourId?: string;
 }
 
-const buildMainNav = (onWhatsNew: () => void, hasNew: boolean): NavItem[] => [
+const buildMainNav = (onWhatsNew: () => void, hasNew: boolean, followUpCount: number): NavItem[] => [
   {
     label: 'Orders Dashboard',
     href: '/dashboard',
     icon: <HiOutlineClipboardList className="w-5 h-5" />,
+  },
+  {
+    label: 'Follow-ups',
+    href: '/follow-ups',
+    icon: <HiOutlineClock className="w-5 h-5" />,
+    badgeCount: followUpCount,
+    tourId: 'sidebar-followups',
   },
   {
     label: 'Order Form',
@@ -97,6 +107,13 @@ export default function Sidebar() {
   const [whatsNewOpen, setWhatsNewOpen] = useState(false);
   const [hasNew, setHasNew] = useState(false);
 
+  const orders = useOrderStore((s) => s.orders);
+  const dueFollowUpCount = useMemo(
+    () => useOrderStore.getState().getDueFollowUpCount(),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [orders]
+  );
+
   useEffect(() => {
     const seen = localStorage.getItem(WHATS_NEW_STORAGE_KEY);
     setHasNew(seen !== LATEST_VERSION);
@@ -108,7 +125,7 @@ export default function Sidebar() {
     setMobileOpen(false);
   };
 
-  const mainNav = buildMainNav(handleWhatsNew, hasNew);
+  const mainNav = buildMainNav(handleWhatsNew, hasNew, dueFollowUpCount);
 
   const isActive = (href: string) => pathname === href;
 
@@ -183,10 +200,19 @@ export default function Sidebar() {
                   >
                     <span className="relative flex-shrink-0">
                       {item.icon}
-                      {item.badge && <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-accent-blue rounded-full" />}
+                      {item.badgeCount && item.badgeCount > 0 ? (
+                        <span className="absolute -top-1.5 -right-2 min-w-[16px] h-4 px-1 flex items-center justify-center text-[9px] font-bold bg-red-500 text-white rounded-full">
+                          {item.badgeCount > 99 ? '99+' : item.badgeCount}
+                        </span>
+                      ) : item.badge ? (
+                        <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-accent-blue rounded-full" />
+                      ) : null}
                     </span>
                     <span className="flex-1 flex items-center gap-1.5">
                       {item.label}
+                      {item.badgeCount && item.badgeCount > 0 ? (
+                        <span className="ml-auto text-[10px] font-bold bg-red-500 text-white px-1.5 py-0.5 rounded-full">{item.badgeCount}</span>
+                      ) : null}
                       {item.newTab && (
                         <svg className="w-3 h-3 opacity-60" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
                           <path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
@@ -201,7 +227,13 @@ export default function Sidebar() {
                   >
                     <span className="relative flex-shrink-0">
                       {item.icon}
-                      {item.badge && <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-accent-blue rounded-full" />}
+                      {item.badgeCount && item.badgeCount > 0 ? (
+                        <span className="absolute -top-1.5 -right-2 min-w-[16px] h-4 px-1 flex items-center justify-center text-[9px] font-bold bg-red-500 text-white rounded-full">
+                          {item.badgeCount > 99 ? '99+' : item.badgeCount}
+                        </span>
+                      ) : item.badge ? (
+                        <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-accent-blue rounded-full" />
+                      ) : null}
                     </span>
                     <span>{item.label}</span>
                     {item.badge && <span className="ml-auto text-[10px] font-semibold bg-accent-blue text-white px-1.5 py-0.5 rounded-full">New</span>}
@@ -266,11 +298,20 @@ export default function Sidebar() {
                   >
                     <span className="relative flex-shrink-0">
                       {item.icon}
-                      {item.badge && <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-accent-blue rounded-full" />}
+                      {item.badgeCount && item.badgeCount > 0 ? (
+                        <span className="absolute -top-1.5 -right-2 min-w-[16px] h-4 px-1 flex items-center justify-center text-[9px] font-bold bg-red-500 text-white rounded-full">
+                          {item.badgeCount > 99 ? '99+' : item.badgeCount}
+                        </span>
+                      ) : item.badge ? (
+                        <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-accent-blue rounded-full" />
+                      ) : null}
                     </span>
                     {expanded && (
                       <span className="whitespace-nowrap flex-1 flex items-center gap-1.5">
                         {item.label}
+                        {item.badgeCount && item.badgeCount > 0 ? (
+                          <span className="ml-auto text-[10px] font-bold bg-red-500 text-white px-1.5 py-0.5 rounded-full">{item.badgeCount}</span>
+                        ) : null}
                         {item.newTab && (
                           <svg className="w-3 h-3 opacity-60" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
                             <path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
@@ -287,7 +328,13 @@ export default function Sidebar() {
                   >
                     <span className="relative flex-shrink-0">
                       {item.icon}
-                      {item.badge && <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-accent-blue rounded-full" />}
+                      {item.badgeCount && item.badgeCount > 0 ? (
+                        <span className="absolute -top-1.5 -right-2 min-w-[16px] h-4 px-1 flex items-center justify-center text-[9px] font-bold bg-red-500 text-white rounded-full">
+                          {item.badgeCount > 99 ? '99+' : item.badgeCount}
+                        </span>
+                      ) : item.badge ? (
+                        <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-accent-blue rounded-full" />
+                      ) : null}
                     </span>
                     {expanded && (
                       <>

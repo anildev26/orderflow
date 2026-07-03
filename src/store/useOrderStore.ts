@@ -1,6 +1,7 @@
 import { create } from 'zustand';
-import { Order, OrderStatus, OrderPlatform } from '@/types/order';
+import { Order, OrderStatus, OrderPlatform, ReminderHistoryEntry } from '@/types/order';
 import { createClient } from '@/lib/supabase';
+import { todayStr } from '@/lib/followup';
 
 interface OrderStore {
   orders: Order[];
@@ -21,6 +22,12 @@ interface OrderStore {
     archivedOrders: number;
   };
   editOrder: (id: string, updates: Partial<Omit<Order, 'id' | 'createdAt' | 'updatedAt'>>) => Promise<void>;
+  // ─── Follow-up / reminder actions ───
+  getFollowUps: () => Order[];
+  getDueFollowUpCount: () => number;
+  markContacted: (id: string, nextReminderDate: string, note?: string) => Promise<void>;
+  snoozeReminder: (id: string, nextReminderDate: string, note?: string) => Promise<void>;
+  stopReminders: (id: string, note?: string) => Promise<void>;
   exportData: () => string;
   importData: (jsonString: string) => Promise<boolean>;
   importFromTemplate: (rows: Array<Partial<Order> & { orderId: string }>) => Promise<{
@@ -67,6 +74,12 @@ function dbToOrder(row: Record<string, unknown>): Order {
     paymentReceivedDate: (row.payment_received_date as string) || (row.payment_date as string) || undefined,
     paymentBank: (row.payment_bank as string) || undefined,
     isNewOrder: (row.is_new_order as boolean) || false,
+    refundTimelineDays: row.refund_timeline_days != null ? Number(row.refund_timeline_days) : undefined,
+    nextReminderDate: (row.next_reminder_date as string) || undefined,
+    reminderStatus: (row.reminder_status as Order['reminderStatus']) || undefined,
+    lastContactedDate: (row.last_contacted_date as string) || undefined,
+    reminderCount: row.reminder_count != null ? Number(row.reminder_count) : 0,
+    reminderHistory: Array.isArray(row.reminder_history) ? (row.reminder_history as ReminderHistoryEntry[]) : [],
     createdAt: row.created_at as string,
     updatedAt: row.updated_at as string,
   };
@@ -102,6 +115,12 @@ function orderToDb(order: Partial<Order> & { userId?: string }) {
   if (order.paymentReceivedDate !== undefined) result.payment_received_date = order.paymentReceivedDate;
   if (order.paymentBank !== undefined) result.payment_bank = order.paymentBank;
   if (order.isNewOrder !== undefined) result.is_new_order = order.isNewOrder;
+  if (order.refundTimelineDays !== undefined) result.refund_timeline_days = order.refundTimelineDays;
+  if (order.nextReminderDate !== undefined) result.next_reminder_date = order.nextReminderDate || null;
+  if (order.reminderStatus !== undefined) result.reminder_status = order.reminderStatus;
+  if (order.lastContactedDate !== undefined) result.last_contacted_date = order.lastContactedDate || null;
+  if (order.reminderCount !== undefined) result.reminder_count = order.reminderCount;
+  if (order.reminderHistory !== undefined) result.reminder_history = order.reminderHistory;
   return result;
 }
 
@@ -221,6 +240,67 @@ export const useOrderStore = create<OrderStore>()((set, get) => ({
     }
   },
 
+  // ─── Follow-up / reminder ───
+
+  // All active orders that have a live reminder, oldest due-date first.
+  getFollowUps: () => {
+    return get().orders
+      .filter((o) =>
+        o.status !== 'payment_received' &&
+        o.status !== 'order_cancelled' &&
+        !!o.nextReminderDate &&
+        o.reminderStatus !== 'stopped'
+      )
+      .sort((a, b) => (a.nextReminderDate! < b.nextReminderDate! ? -1 : a.nextReminderDate! > b.nextReminderDate! ? 1 : 0));
+  },
+
+  // Count of follow-ups that are due today or overdue (drives the sidebar badge).
+  getDueFollowUpCount: () => {
+    const today = todayStr();
+    return get().getFollowUps().filter((o) => o.nextReminderDate! <= today).length;
+  },
+
+  // Log a contact attempt and schedule the next reminder.
+  markContacted: async (id, nextReminderDate, note) => {
+    const order = get().orders.find((o) => o.id === id);
+    if (!order) return;
+    const today = todayStr();
+    const entry: ReminderHistoryEntry = { date: today, action: 'contacted', nextReminderDate };
+    if (note && note.trim()) entry.note = note.trim();
+    await get().editOrder(id, {
+      lastContactedDate: today,
+      reminderCount: (order.reminderCount || 0) + 1,
+      nextReminderDate,
+      reminderStatus: 'scheduled',
+      reminderHistory: [...(order.reminderHistory || []), entry],
+    });
+  },
+
+  // Push the reminder to a later date without logging a contact.
+  snoozeReminder: async (id, nextReminderDate, note) => {
+    const order = get().orders.find((o) => o.id === id);
+    if (!order) return;
+    const entry: ReminderHistoryEntry = { date: todayStr(), action: 'snoozed', nextReminderDate };
+    if (note && note.trim()) entry.note = note.trim();
+    await get().editOrder(id, {
+      nextReminderDate,
+      reminderStatus: 'snoozed',
+      reminderHistory: [...(order.reminderHistory || []), entry],
+    });
+  },
+
+  // Stop all future reminders for this order (refund complete / no longer needed).
+  stopReminders: async (id, note) => {
+    const order = get().orders.find((o) => o.id === id);
+    if (!order) return;
+    const entry: ReminderHistoryEntry = { date: todayStr(), action: 'stopped' };
+    if (note && note.trim()) entry.note = note.trim();
+    await get().editOrder(id, {
+      reminderStatus: 'stopped',
+      reminderHistory: [...(order.reminderHistory || []), entry],
+    });
+  },
+
   updateOrderStatus: async (id, status, extras = {}) => {
     const supabase = createClient();
     const updateData: Record<string, unknown> = { status };
@@ -239,6 +319,11 @@ export const useOrderStore = create<OrderStore>()((set, get) => ({
     if (extras.isReplacement !== undefined) updateData.is_replacement = extras.isReplacement;
     if (extras.replacementOrderId !== undefined) updateData.replacement_order_id = extras.replacementOrderId;
     if (extras.totalAmount !== undefined) updateData.total_amount = extras.totalAmount;
+    // Reminder scheduling (set when transitioning into a reminder-eligible status)
+    if (extras.refundTimelineDays !== undefined) updateData.refund_timeline_days = extras.refundTimelineDays;
+    if (extras.nextReminderDate !== undefined) updateData.next_reminder_date = extras.nextReminderDate || null;
+    if (extras.reminderStatus !== undefined) updateData.reminder_status = extras.reminderStatus;
+    if (extras.reminderHistory !== undefined) updateData.reminder_history = extras.reminderHistory;
 
     const { error } = await supabase
       .from('orders')

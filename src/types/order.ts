@@ -10,6 +10,38 @@ export type OrderStatus =
   | 'payment_received'
   | 'order_cancelled';
 
+// ─── Follow-up / reminder system ───
+
+// Lifecycle of a follow-up reminder. 'due' is NOT stored — it is derived at
+// read time when nextReminderDate <= today.
+export type ReminderStatus = 'scheduled' | 'snoozed' | 'contacted' | 'stopped';
+
+export type ReminderAction = 'scheduled' | 'contacted' | 'snoozed' | 'stopped';
+
+export interface ReminderHistoryEntry {
+  date: string;              // YYYY-MM-DD when the action happened
+  action: ReminderAction;
+  note?: string;             // optional free-text note
+  nextReminderDate?: string; // the reminder date this action scheduled (if any)
+  fromStatus?: OrderStatus;  // status that triggered the schedule (if any)
+}
+
+// Default expected refund timeline (days) used when the user leaves the
+// timeline field blank. Reminders are calculated as anchorDate + timeline.
+export const DEFAULT_REFUND_TIMELINE_DAYS = 60;
+
+// Statuses that represent "waiting on someone" — these support reminder
+// scheduling in the Update Order modal.
+export const REMINDER_ELIGIBLE_STATUSES: OrderStatus[] = [
+  'review_rating_submitted',
+  'refund_form_filled',
+  'informed_mediator',
+];
+
+export function isReminderEligible(status: OrderStatus): boolean {
+  return REMINDER_ELIGIBLE_STATUSES.includes(status);
+}
+
 export interface Order {
   id: string;
   orderId: string;
@@ -39,6 +71,13 @@ export interface Order {
   paymentReceivedDate?: string;
   paymentBank?: string;
   isNewOrder?: boolean;
+  // Follow-up / reminder fields
+  refundTimelineDays?: number;
+  nextReminderDate?: string;
+  reminderStatus?: ReminderStatus;
+  lastContactedDate?: string;
+  reminderCount?: number;
+  reminderHistory?: ReminderHistoryEntry[];
   createdAt: string;
   updatedAt: string;
 }

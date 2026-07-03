@@ -4,8 +4,9 @@ import { useState } from 'react';
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
-import { Order, OrderStatus, STATUS_LABELS, STATUS_COLORS, STATUS_OPTIONS } from '@/types/order';
+import { Order, OrderStatus, STATUS_LABELS, STATUS_COLORS, STATUS_OPTIONS, ReminderHistoryEntry, isReminderEligible, DEFAULT_REFUND_TIMELINE_DAYS } from '@/types/order';
 import { useOrderStore } from '@/store/useOrderStore';
+import { addDays, todayStr, fmtDate as fmtFullDate } from '@/lib/followup';
 
 const EditOrderModal = dynamic(() => import('./EditOrderModal'), { ssr: false });
 
@@ -39,6 +40,10 @@ export default function UpdateOrderModal({ order, onClose }: UpdateOrderModalPro
   const [informedMediatorDate, setInformedMediatorDate] = useState(order.informedMediatorDate || today);
   const [paymentReceivedDate, setPaymentReceivedDate] = useState(order.paymentReceivedDate || today);
   const [paymentBank, setPaymentBank] = useState(order.paymentBank || '');
+
+  // Expected refund timeline (days) — drives follow-up reminder scheduling
+  const [timelineDays, setTimelineDays] = useState(order.refundTimelineDays ? String(order.refundTimelineDays) : '');
+  const timelineDefault = order.refundTimelineDays ? String(order.refundTimelineDays) : '';
 
   // General fields
   const [mediatorMessage, setMediatorMessage] = useState(order.mediatorMessage || '');
@@ -125,6 +130,33 @@ export default function UpdateOrderModal({ order, onClose }: UpdateOrderModalPro
       extras.paymentBank = paymentBank;
     }
 
+    // ─── Follow-up reminder scheduling ───
+    const statusChanged = newStatus !== order.status;
+    const timelineChanged = timelineDays !== timelineDefault;
+    if (isReminderEligible(newStatus) && (statusChanged || timelineChanged)) {
+      const anchor =
+        newStatus === 'refund_form_filled' ? refundFormFilledDate :
+        newStatus === 'informed_mediator' ? informedMediatorDate :
+        reviewRatingDate;
+      const timeline = parseInt(timelineDays, 10) > 0 ? parseInt(timelineDays, 10) : DEFAULT_REFUND_TIMELINE_DAYS;
+      const nextDate = addDays(anchor, timeline);
+      extras.refundTimelineDays = timeline;
+      extras.nextReminderDate = nextDate;
+      extras.reminderStatus = 'scheduled';
+      const entry: ReminderHistoryEntry = {
+        date: todayStr(),
+        action: 'scheduled',
+        fromStatus: newStatus,
+        nextReminderDate: nextDate,
+        note: `Timeline ${timeline} days`,
+      };
+      extras.reminderHistory = [...(order.reminderHistory || []), entry];
+    }
+    // Stop reminders once the order leaves the active pipeline
+    if ((newStatus === 'payment_received' || newStatus === 'order_cancelled') && order.reminderStatus && order.reminderStatus !== 'stopped') {
+      extras.reminderStatus = 'stopped';
+    }
+
     if (mediatorMessage !== (order.mediatorMessage || '')) extras.mediatorMessage = mediatorMessage;
     if (refundFormLink !== (order.refundFormLink || '')) extras.refundFormLink = refundFormLink.trim() || undefined;
     if (sellerLess !== order.sellerLess) extras.sellerLess = sellerLess;
@@ -160,7 +192,16 @@ export default function UpdateOrderModal({ order, onClose }: UpdateOrderModalPro
     (newStatus === 'review_rating_submitted' && reviewRatingDate !== (order.reviewRatingDate || today)) ||
     (newStatus === 'refund_form_filled' && refundFormFilledDate !== (order.refundFormFilledDate || today)) ||
     (newStatus === 'informed_mediator' && informedMediatorDate !== (order.informedMediatorDate || today)) ||
-    (newStatus === 'payment_received' && (paymentReceivedDate !== (order.paymentReceivedDate || today) || paymentBank !== (order.paymentBank || '')));
+    (newStatus === 'payment_received' && (paymentReceivedDate !== (order.paymentReceivedDate || today) || paymentBank !== (order.paymentBank || ''))) ||
+    (isReminderEligible(newStatus) && timelineDays !== timelineDefault);
+
+  // Preview of the next follow-up reminder date for the timeline field
+  const reminderAnchor =
+    newStatus === 'refund_form_filled' ? refundFormFilledDate :
+    newStatus === 'informed_mediator' ? informedMediatorDate :
+    reviewRatingDate;
+  const previewTimeline = parseInt(timelineDays, 10) > 0 ? parseInt(timelineDays, 10) : DEFAULT_REFUND_TIMELINE_DAYS;
+  const previewNextReminder = addDays(reminderAnchor, previewTimeline);
 
   const refundAmount = order.totalAmount - order.sellerLess;
 
@@ -414,6 +455,31 @@ export default function UpdateOrderModal({ order, onClose }: UpdateOrderModalPro
               ))}
             </select>
           </div>
+
+          {/* ── Expected Timeline (Days) — schedules the next follow-up reminder ── */}
+          {isReminderEligible(newStatus) && (
+            <div className="p-4 rounded-xl bg-accent-blue/5 border border-accent-blue/20">
+              <label className="block text-sm font-semibold text-text-primary mb-1">
+                Expected Timeline (Days)
+                <span className="ml-1 text-xs font-normal text-text-muted">optional</span>
+              </label>
+              <p className="text-[11px] text-text-muted mb-2">
+                Check the mediator&apos;s message for the expected refund time. Leave blank to use the default of {DEFAULT_REFUND_TIMELINE_DAYS} days.
+              </p>
+              <input
+                type="number"
+                min={1}
+                value={timelineDays}
+                onChange={(e) => setTimelineDays(e.target.value)}
+                placeholder={String(DEFAULT_REFUND_TIMELINE_DAYS)}
+                className="w-full bg-dashboard-bg border border-dashboard-border rounded-lg px-4 py-2.5 text-sm text-text-primary placeholder-text-muted focus:ring-2 focus:ring-accent-blue outline-none"
+              />
+              <p className="text-[11px] text-accent-blue mt-2">
+                Next follow-up reminder: <span className="font-semibold">{fmtFullDate(previewNextReminder)}</span>
+                {' '}({previewTimeline} days after {STATUS_LABELS[newStatus].toLowerCase()})
+              </p>
+            </div>
+          )}
 
           {/* ── Status-specific inputs ── */}
 
