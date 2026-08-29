@@ -396,7 +396,7 @@ export async function parseTemplateFile(
 
   // Map header name → column index
   const col = (name: string) => {
-    const idx = headers.findIndex((h) => h.toLowerCase() === name.toLowerCase());
+    const idx = headers.findIndex((h) => h != null && h.toLowerCase() === name.toLowerCase());
     return idx > 0 ? idx : -1;
   };
 
