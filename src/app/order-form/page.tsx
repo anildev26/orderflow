@@ -280,38 +280,42 @@ export default function OrderFormPage() {
                 <p className="text-xs text-form-hint mt-1">Defaults to today. Pick a past date if backfilling an older order.</p>
               </div>
 
-              {/* 6. Order Type — radio buttons */}
+              {/* 6. Order Type — segmented control */}
               <div>
                 <label className={`${labelClass} mb-2`}>Order Type <span className="text-accent-red">*</span></label>
-                <div className="flex gap-6 flex-wrap">
+                <div className="inline-flex flex-wrap gap-1 p-1 bg-form-input-bg border border-form-border rounded-lg">
                   {ORDER_TYPES.map((type) => (
-                    <label key={type} className="flex items-center gap-2 cursor-pointer">
-                      <input
-                        type="radio"
-                        name="orderType"
-                        value={type}
-                        checked={form.orderType === type}
-                        onChange={handleChange}
-                        className="w-4 h-4 text-accent-blue"
-                      />
-                      <span className="text-text-primary">{type}</span>
-                    </label>
+                    <button
+                      key={type}
+                      type="button"
+                      onClick={() => setForm((prev) => ({ ...prev, orderType: type }))}
+                      className={`px-4 py-1.5 rounded-md text-sm font-medium transition ${
+                        form.orderType === type
+                          ? 'bg-accent-blue text-white shadow-sm'
+                          : 'text-form-label hover:text-form-text'
+                      }`}
+                    >
+                      {type}
+                    </button>
                   ))}
                 </div>
               </div>
 
-              {/* 7. Exchange Deal */}
+              {/* 7. Exchange Deal — toggle switch */}
               <div>
                 <label className={`${labelClass} mb-2`}>Exchange Deal? <span className="text-accent-red">*</span></label>
-                <div className="flex gap-6">
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input type="radio" name="isExchange" value="yes" checked={form.isExchange} onChange={handleChange} className="w-4 h-4 text-accent-blue" />
-                    <span className="text-text-primary">Yes</span>
-                  </label>
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input type="radio" name="isExchange" value="no" checked={!form.isExchange} onChange={handleChange} className="w-4 h-4 text-accent-blue" />
-                    <span className="text-text-primary">No</span>
-                  </label>
+                <div className="flex items-center gap-3">
+                  <div
+                    role="switch"
+                    aria-checked={form.isExchange}
+                    tabIndex={0}
+                    onClick={() => setForm((prev) => ({ ...prev, isExchange: !prev.isExchange }))}
+                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setForm((prev) => ({ ...prev, isExchange: !prev.isExchange })); } }}
+                    className={`relative w-10 h-5 rounded-full cursor-pointer transition ${form.isExchange ? 'bg-accent-blue' : 'bg-form-border'}`}
+                  >
+                    <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform ${form.isExchange ? 'translate-x-5' : 'translate-x-0.5'}`} />
+                  </div>
+                  <span className="text-sm text-form-text">{form.isExchange ? 'Yes' : 'No'}</span>
                 </div>
               </div>
 

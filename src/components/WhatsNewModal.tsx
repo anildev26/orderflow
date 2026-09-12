@@ -12,6 +12,14 @@ interface WhatsNewModalProps {
 
 const CHANGELOG = [
   {
+    version: 'v1.0.8',
+    date: 'Sep 2026',
+    items: [
+      { type: 'new', text: 'New order type: Order Deal — added based on a request from the Feature Requests board. Available when creating an order, editing an order, and in the Excel import template.' },
+      { type: 'improvement', text: 'Order Type is now a single-tap segmented control on the order form instead of radio buttons, and Exchange Deal uses a toggle switch — quicker to fill on mobile.' },
+    ],
+  },
+  {
     version: 'v1.0.7',
     date: 'May 2026',
     items: [
