@@ -1,8 +1,7 @@
 import type { Workbook, Worksheet, CellValue } from 'exceljs';
-import { STATUS_OPTIONS, OrderStatus, OrderPlatform } from '@/types/order';
+import { STATUS_OPTIONS, ORDER_TYPES, OrderStatus, OrderPlatform } from '@/types/order';
 import type { GlobalPlatform } from '@/store/usePlatformStore';
 
-const ORDER_TYPES = ['Rating', 'Review', 'Empty Box'];
 const YES_NO = ['Yes', 'No'];
 
 // Column definitions — single source of truth for header, hint, width, type, required, dropdown source.

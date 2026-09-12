@@ -6,10 +6,8 @@ import toast from 'react-hot-toast';
 import { useOrderStore } from '@/store/useOrderStore';
 import { usePlatformStore } from '@/store/usePlatformStore';
 import { useAuth } from '@/hooks/useAuth';
-import { OrderPlatform } from '@/types/order';
+import { OrderPlatform, ORDER_TYPES } from '@/types/order';
 import ThemeToggle from '@/components/ThemeToggle';
-
-const ORDER_TYPES = ['Rating', 'Review', 'Empty Box'];
 
 export default function OrderFormPage() {
   const addOrder = useOrderStore((s) => s.addOrder);

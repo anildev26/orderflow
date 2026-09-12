@@ -134,6 +134,8 @@ export const STATUS_OPTIONS: { value: OrderStatus; label: string }[] = [
   { value: 'order_cancelled', label: 'Order Cancelled' },
 ];
 
+export const ORDER_TYPES = ['Rating', 'Review', 'Empty Box', 'Order Deal'];
+
 export const PLATFORM_OPTIONS: { value: OrderPlatform; label: string }[] = [
   { value: 'flipkart', label: 'Flipkart' },
   { value: 'amazon', label: 'Amazon' },

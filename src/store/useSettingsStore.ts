@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { createClient } from '@/lib/supabase';
+import { ORDER_TYPES } from '@/types/order';
 
 // All platforms available in the system — used for the platform manager
 export const ALL_PLATFORMS: { value: string; label: string }[] = [
@@ -25,7 +26,7 @@ const DEFAULT_PLATFORMS: { value: string; label: string }[] = [
   { value: 'nykaa', label: 'Nykaa' },
 ];
 
-const DEFAULT_ORDER_TYPES = ['Rating', 'Review', 'Empty Box'];
+const DEFAULT_ORDER_TYPES = ORDER_TYPES;
 
 interface SettingsStore {
   platforms: { value: string; label: string }[];

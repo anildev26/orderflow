@@ -2,11 +2,9 @@
 
 import { useState } from 'react';
 import toast from 'react-hot-toast';
-import { Order, OrderPlatform } from '@/types/order';
+import { Order, OrderPlatform, ORDER_TYPES } from '@/types/order';
 import { useOrderStore } from '@/store/useOrderStore';
 import { usePlatformStore } from '@/store/usePlatformStore';
-
-const ORDER_TYPES = ['Rating', 'Review', 'Empty Box'];
 
 interface EditOrderModalProps {
   order: Order;
