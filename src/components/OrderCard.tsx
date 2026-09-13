@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import toast from 'react-hot-toast';
-import { Order, STATUS_LABELS, STATUS_COLORS, OrderPlatform } from '@/types/order';
+import { Order, STATUS_LABELS, STATUS_COLORS, OrderPlatform, formatSellerLess } from '@/types/order';
 
 const UpdateOrderModal = dynamic(() => import('./UpdateOrderModal'), { ssr: false });
 
@@ -111,7 +111,7 @@ export default function OrderCard({ order }: OrderCardProps) {
             <p className="text-sm font-medium text-text-primary truncate">{order.productName}</p>
             <div className="flex items-center gap-3 text-xs text-text-muted">
               <span className="text-sm font-bold text-green-400">&#8377;{order.totalAmount.toLocaleString('en-IN')}</span>
-              {order.sellerLess > 0 && <span>Less: &#8377;{order.sellerLess}</span>}
+              {order.sellerLess > 0 && <span>Less: {formatSellerLess(order.sellerLess, order.sellerLessPercent)}</span>}
               <span>{fmtDate(order.orderDate)} ({days}d)</span>
             </div>
             <div className="flex items-center gap-4 text-xs text-text-muted">

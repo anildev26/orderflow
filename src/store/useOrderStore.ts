@@ -56,6 +56,7 @@ function dbToOrder(row: Record<string, unknown>): Order {
     orderDate: row.order_date as string,
     totalAmount: Number(row.total_amount) || 0,
     sellerLess: Number(row.seller_less) || 0,
+    sellerLessPercent: row.seller_less_percent != null ? Number(row.seller_less_percent) : null,
     mediatorName: (row.mediator_name as string) || '',
     reviewerName: (row.reviewer_name as string) || '',
     orderType: (row.order_type as string) || 'Rating',
@@ -97,6 +98,7 @@ function orderToDb(order: Partial<Order> & { userId?: string }) {
   if (order.orderDate !== undefined) result.order_date = order.orderDate;
   if (order.totalAmount !== undefined) result.total_amount = order.totalAmount;
   if (order.sellerLess !== undefined) result.seller_less = order.sellerLess;
+  if (order.sellerLessPercent !== undefined) result.seller_less_percent = order.sellerLessPercent;
   if (order.mediatorName !== undefined) result.mediator_name = order.mediatorName;
   if (order.reviewerName !== undefined) result.reviewer_name = order.reviewerName;
   if (order.orderType !== undefined) result.order_type = order.orderType;
@@ -316,6 +318,7 @@ export const useOrderStore = create<OrderStore>()((set, get) => ({
     if (extras.mediatorMessage !== undefined) updateData.mediator_message = extras.mediatorMessage;
     if (extras.refundFormLink !== undefined) updateData.refund_form_link = extras.refundFormLink || null;
     if (extras.sellerLess !== undefined) updateData.seller_less = extras.sellerLess;
+    if (extras.sellerLessPercent !== undefined) updateData.seller_less_percent = extras.sellerLessPercent;
     if (extras.isReplacement !== undefined) updateData.is_replacement = extras.isReplacement;
     if (extras.replacementOrderId !== undefined) updateData.replacement_order_id = extras.replacementOrderId;
     if (extras.totalAmount !== undefined) updateData.total_amount = extras.totalAmount;

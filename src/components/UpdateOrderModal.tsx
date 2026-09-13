@@ -4,7 +4,7 @@ import { useState } from 'react';
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
-import { Order, OrderStatus, STATUS_LABELS, STATUS_COLORS, STATUS_OPTIONS, ReminderHistoryEntry, isReminderEligible, DEFAULT_REFUND_TIMELINE_DAYS } from '@/types/order';
+import { Order, OrderStatus, STATUS_LABELS, STATUS_COLORS, STATUS_OPTIONS, ReminderHistoryEntry, isReminderEligible, DEFAULT_REFUND_TIMELINE_DAYS, formatSellerLess } from '@/types/order';
 import { useOrderStore } from '@/store/useOrderStore';
 import { addDays, todayStr, fmtDate as fmtFullDate } from '@/lib/followup';
 
@@ -49,9 +49,16 @@ export default function UpdateOrderModal({ order, onClose }: UpdateOrderModalPro
   const [mediatorMessage, setMediatorMessage] = useState(order.mediatorMessage || '');
   const [refundFormLink, setRefundFormLink] = useState(order.refundFormLink || '');
   const [sellerLess, setSellerLess] = useState(order.sellerLess);
+  const [sellerLessMode, setSellerLessMode] = useState<'inr' | 'percent'>(order.sellerLessPercent != null ? 'percent' : 'inr');
+  const [sellerLessPercentInput, setSellerLessPercentInput] = useState(order.sellerLessPercent != null ? String(order.sellerLessPercent) : '');
   const [isReplacement, setIsReplacement] = useState(order.isReplacement);
   const [replacementOrderId, setReplacementOrderId] = useState(order.replacementOrderId || '');
   const [replacementAmount, setReplacementAmount] = useState(String(order.totalAmount || ''));
+
+  const finalSellerLess = sellerLessMode === 'percent'
+    ? Math.round((parseFloat(sellerLessPercentInput) || 0) * order.totalAmount / 100)
+    : sellerLess;
+  const finalSellerLessPercent: number | null = sellerLessMode === 'percent' ? (parseFloat(sellerLessPercentInput) || 0) : null;
 
   // Copy all details for WhatsApp
   const handleCopyDetails = () => {
@@ -67,7 +74,7 @@ export default function UpdateOrderModal({ order, onClose }: UpdateOrderModalPro
       ``,
       `💰 *Payment Info*`,
       `*Order Amount:* ₹${order.totalAmount.toLocaleString('en-IN')}`,
-      `*Seller Less:* ₹${order.sellerLess.toLocaleString('en-IN')}`,
+      `*Seller Less:* ${formatSellerLess(order.sellerLess, order.sellerLessPercent)}`,
       `*Refund Amount:* ₹${refundAmount.toLocaleString('en-IN')}`,
     ];
 
@@ -159,7 +166,8 @@ export default function UpdateOrderModal({ order, onClose }: UpdateOrderModalPro
 
     if (mediatorMessage !== (order.mediatorMessage || '')) extras.mediatorMessage = mediatorMessage;
     if (refundFormLink !== (order.refundFormLink || '')) extras.refundFormLink = refundFormLink.trim() || undefined;
-    if (sellerLess !== order.sellerLess) extras.sellerLess = sellerLess;
+    if (finalSellerLess !== order.sellerLess) extras.sellerLess = finalSellerLess;
+    if (finalSellerLessPercent !== (order.sellerLessPercent ?? null)) extras.sellerLessPercent = finalSellerLessPercent;
     if (isReplacement !== order.isReplacement) extras.isReplacement = isReplacement;
     if (isReplacement) {
       if (replacementOrderId !== (order.replacementOrderId || '')) extras.replacementOrderId = replacementOrderId;
@@ -184,7 +192,8 @@ export default function UpdateOrderModal({ order, onClose }: UpdateOrderModalPro
     newStatus !== order.status ||
     mediatorMessage !== (order.mediatorMessage || '') ||
     refundFormLink !== (order.refundFormLink || '') ||
-    sellerLess !== order.sellerLess ||
+    finalSellerLess !== order.sellerLess ||
+    finalSellerLessPercent !== (order.sellerLessPercent ?? null) ||
     isReplacement !== order.isReplacement ||
     (isReplacement && replacementOrderId !== (order.replacementOrderId || '')) ||
     (isReplacement && parseFloat(replacementAmount) !== order.totalAmount) ||
@@ -257,7 +266,7 @@ export default function UpdateOrderModal({ order, onClose }: UpdateOrderModalPro
               <span className="text-sm font-bold text-green-400">
                 &#8377;{order.totalAmount.toLocaleString('en-IN')}
                 {order.sellerLess > 0 && (
-                  <span className="text-xs text-text-muted ml-1">(Less: &#8377;{order.sellerLess})</span>
+                  <span className="text-xs text-text-muted ml-1">(Less: {formatSellerLess(order.sellerLess, order.sellerLessPercent)})</span>
                 )}
               </span>
             </div>
@@ -365,14 +374,42 @@ export default function UpdateOrderModal({ order, onClose }: UpdateOrderModalPro
 
           {/* Seller Less */}
           <div>
-            <label className="block text-sm font-semibold text-text-primary mb-2">Seller Less Amount</label>
-            <input
-              type="number"
-              value={sellerLess}
-              onChange={(e) => setSellerLess(Number(e.target.value) || 0)}
-              min={0}
-              className="w-full bg-dashboard-bg border border-dashboard-border rounded-lg px-4 py-2.5 text-sm text-text-primary focus:ring-2 focus:ring-accent-blue outline-none"
-            />
+            <div className="flex items-center justify-between mb-2">
+              <label className="block text-sm font-semibold text-text-primary">Seller Less Amount</label>
+              <button
+                type="button"
+                onClick={() => setSellerLessMode((m) => (m === 'inr' ? 'percent' : 'inr'))}
+                className="text-xs font-semibold text-accent-blue hover:text-blue-400 transition"
+              >
+                Switch to {sellerLessMode === 'inr' ? '%' : '₹'}
+              </button>
+            </div>
+            {sellerLessMode === 'inr' ? (
+              <input
+                type="number"
+                value={sellerLess}
+                onChange={(e) => setSellerLess(Number(e.target.value) || 0)}
+                min={0}
+                className="w-full bg-dashboard-bg border border-dashboard-border rounded-lg px-4 py-2.5 text-sm text-text-primary focus:ring-2 focus:ring-accent-blue outline-none"
+              />
+            ) : (
+              <>
+                <input
+                  type="number"
+                  value={sellerLessPercentInput}
+                  onChange={(e) => setSellerLessPercentInput(e.target.value)}
+                  min={0}
+                  max={100}
+                  placeholder="0"
+                  className="w-full bg-dashboard-bg border border-dashboard-border rounded-lg px-4 py-2.5 text-sm text-text-primary focus:ring-2 focus:ring-accent-blue outline-none"
+                />
+                {sellerLessPercentInput && (
+                  <p className="text-[11px] text-text-muted mt-1">
+                    = ₹{finalSellerLess.toLocaleString('en-IN')} off ₹{order.totalAmount.toLocaleString('en-IN')}
+                  </p>
+                )}
+              </>
+            )}
           </div>
 
           {/* Replacement Toggle */}

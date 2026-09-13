@@ -6,6 +6,7 @@ import toast from 'react-hot-toast';
 import { createClient } from '@/lib/supabase';
 import { useOrderStore } from '@/store/useOrderStore';
 import { usePlatformStore } from '@/store/usePlatformStore';
+import { formatSellerLess } from '@/types/order';
 import ThemeToggle from '@/components/ThemeToggle';
 import { useAuth } from '@/hooks/useAuth';
 
@@ -361,7 +362,7 @@ export default function ArchivePage() {
                   <div className="text-right flex-shrink-0">
                     <p className="text-sm font-bold text-green-400">&#8377;{order.totalAmount.toLocaleString('en-IN')}</p>
                     {order.sellerLess > 0 && (
-                      <p className="text-xs text-text-muted">Less: &#8377;{order.sellerLess}</p>
+                      <p className="text-xs text-text-muted">Less: {formatSellerLess(order.sellerLess, order.sellerLessPercent)}</p>
                     )}
                     <p className="text-xs font-bold text-emerald-400 mt-1">
                       Received Amount: &#8377;{(order.totalAmount - order.sellerLess).toLocaleString('en-IN')}

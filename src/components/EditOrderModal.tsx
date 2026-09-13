@@ -27,6 +27,8 @@ export default function EditOrderModal({ order, onClose }: EditOrderModalProps) 
     mediatorName: order.mediatorName,
     reviewerName: order.reviewerName,
   });
+  const [sellerLessMode, setSellerLessMode] = useState<'inr' | 'percent'>(order.sellerLessPercent != null ? 'percent' : 'inr');
+  const [sellerLessPercentInput, setSellerLessPercentInput] = useState(order.sellerLessPercent != null ? String(order.sellerLessPercent) : '');
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -46,11 +48,14 @@ export default function EditOrderModal({ order, onClose }: EditOrderModalProps) 
       return;
     }
     const totalAmount = parseFloat(form.totalAmount);
-    const sellerLess = parseFloat(form.sellerLess) || 0;
     if (isNaN(totalAmount)) {
       toast.error('Enter a valid total amount');
       return;
     }
+    const sellerLess = sellerLessMode === 'percent'
+      ? Math.round((parseFloat(sellerLessPercentInput) || 0) * totalAmount / 100)
+      : (parseFloat(form.sellerLess) || 0);
+    const sellerLessPercent = sellerLessMode === 'percent' ? (parseFloat(sellerLessPercentInput) || 0) : null;
     setSaving(true);
     try {
       await editOrder(order.id, {
@@ -61,6 +66,7 @@ export default function EditOrderModal({ order, onClose }: EditOrderModalProps) 
         orderType: form.orderType,
         totalAmount,
         sellerLess,
+        sellerLessPercent,
         mediatorName: form.mediatorName,
         reviewerName: form.reviewerName,
       });
@@ -166,16 +172,43 @@ export default function EditOrderModal({ order, onClose }: EditOrderModalProps) 
 
           {/* Seller Less */}
           <div>
-            <label className="block text-xs font-semibold text-text-secondary mb-1.5">Seller Less (₹)</label>
-            <input
-              type="text"
-              inputMode="decimal"
-              name="sellerLess"
-              value={form.sellerLess}
-              onChange={handleAmountChange}
-              placeholder="0"
-              className={ic}
-            />
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="block text-xs font-semibold text-text-secondary">Seller Less</label>
+              <button
+                type="button"
+                onClick={() => setSellerLessMode((m) => (m === 'inr' ? 'percent' : 'inr'))}
+                className="text-[11px] font-semibold text-accent-blue hover:text-blue-400 transition"
+              >
+                Switch to {sellerLessMode === 'inr' ? '%' : '₹'}
+              </button>
+            </div>
+            {sellerLessMode === 'inr' ? (
+              <input
+                type="text"
+                inputMode="decimal"
+                name="sellerLess"
+                value={form.sellerLess}
+                onChange={handleAmountChange}
+                placeholder="0"
+                className={ic}
+              />
+            ) : (
+              <>
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  value={sellerLessPercentInput}
+                  onChange={(e) => { if (e.target.value === '' || /^\d*\.?\d*$/.test(e.target.value)) setSellerLessPercentInput(e.target.value); }}
+                  placeholder="0"
+                  className={ic}
+                />
+                {sellerLessPercentInput && form.totalAmount && (
+                  <p className="text-[11px] text-text-muted mt-1">
+                    = ₹{Math.round((parseFloat(sellerLessPercentInput) || 0) * (parseFloat(form.totalAmount) || 0) / 100).toLocaleString('en-IN')} off ₹{(parseFloat(form.totalAmount) || 0).toLocaleString('en-IN')}
+                  </p>
+                )}
+              </>
+            )}
           </div>
 
           {/* Mediator Name */}

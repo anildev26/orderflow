@@ -52,6 +52,11 @@ export interface Order {
   orderDate: string;
   totalAmount: number;
   sellerLess: number;
+  // Set only when sellerLess was entered as a % of totalAmount, so the app
+  // can redisplay it as "50% (₹649)" instead of just the ₹ amount. null
+  // clears it (e.g. switching back to a flat ₹ entry); absent/undefined
+  // when reading a legacy order that never had one.
+  sellerLessPercent?: number | null;
   mediatorName: string;
   reviewerName: string;
   orderType: string;
@@ -91,6 +96,7 @@ export interface OrderFormData {
   isExchange: boolean;
   exchangeProductName: string;
   sellerLess: number;
+  sellerLessPercent?: number | null;
   mediatorName: string;
   reviewerName: string;
   isReplacement: boolean;
@@ -135,6 +141,12 @@ export const STATUS_OPTIONS: { value: OrderStatus; label: string }[] = [
 ];
 
 export const ORDER_TYPES = ['Rating', 'Review', 'Empty Box', 'Order Deal'];
+
+// Renders "50% (₹649)" when the amount was entered as a %, otherwise just "₹649".
+export function formatSellerLess(sellerLess: number, sellerLessPercent?: number | null): string {
+  const inr = `₹${sellerLess.toLocaleString('en-IN')}`;
+  return sellerLessPercent != null ? `${sellerLessPercent}% (${inr})` : inr;
+}
 
 export const PLATFORM_OPTIONS: { value: OrderPlatform; label: string }[] = [
   { value: 'flipkart', label: 'Flipkart' },
