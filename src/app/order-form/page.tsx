@@ -9,6 +9,32 @@ import { useAuth } from '@/hooks/useAuth';
 import { OrderPlatform, ORDER_TYPES } from '@/types/order';
 import ThemeToggle from '@/components/ThemeToggle';
 
+const ORDER_TYPE_ICON_PATHS: Record<string, string> = {
+  Rating: 'M11.48 3.499a.562.562 0 011.04 0l2.125 5.111a.563.563 0 00.475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 00-.182.557l1.285 5.385c.117.489-.412.885-.84.633l-4.725-2.885a.563.563 0 00-.586 0L6.982 20.63c-.428.252-.957-.144-.84-.633l1.285-5.385a.562.562 0 00-.182-.557l-4.204-3.602c-.38-.325-.178-.948.321-.988l5.518-.442a.563.563 0 00.475-.345L11.48 3.5z',
+  Review: 'M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z',
+  'Empty Box': 'M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622a2.25 2.25 0 01-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z',
+  // Generic price-tag fallback for any future order type without a dedicated icon.
+  Fallback: 'M9.568 3H5.25A2.25 2.25 0 003 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.83.699 2.53 0l7.5-7.5a1.79 1.79 0 000-2.53L13.19 3.66A2.25 2.25 0 0011.599 3H9.568z',
+};
+
+function OrderTypeIcon({ type }: { type: string }) {
+  if (type === 'Order Deal') {
+    return (
+      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+        <line x1="19" y1="5" x2="5" y2="19" strokeLinecap="round" />
+        <circle cx="7" cy="6.5" r="2" />
+        <circle cx="17" cy="17.5" r="2" />
+      </svg>
+    );
+  }
+  const d = ORDER_TYPE_ICON_PATHS[type] ?? ORDER_TYPE_ICON_PATHS.Fallback;
+  return (
+    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+      <path strokeLinecap="round" strokeLinejoin="round" d={d} />
+    </svg>
+  );
+}
+
 export default function OrderFormPage() {
   const addOrder = useOrderStore((s) => s.addOrder);
   const platforms = usePlatformStore((s) => s.platforms);
@@ -280,22 +306,26 @@ export default function OrderFormPage() {
                 <p className="text-xs text-form-hint mt-1">Defaults to today. Pick a past date if backfilling an older order.</p>
               </div>
 
-              {/* 6. Order Type — segmented control */}
+              {/* 6. Order Type — icon tiles */}
               <div>
                 <label className={`${labelClass} mb-2`}>Order Type <span className="text-accent-red">*</span></label>
-                <div className="inline-flex flex-wrap gap-1 p-1 bg-form-input-bg border border-form-border rounded-lg">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                   {ORDER_TYPES.map((type) => (
                     <button
                       key={type}
                       type="button"
                       onClick={() => setForm((prev) => ({ ...prev, orderType: type }))}
-                      className={`px-4 py-1.5 rounded-md text-sm font-medium transition ${
+                      className={`relative flex flex-col items-center gap-1.5 px-2 py-3 rounded-lg border-[1.5px] text-xs font-semibold text-center leading-tight transition ${
                         form.orderType === type
-                          ? 'bg-accent-blue text-white shadow-sm'
-                          : 'text-form-label hover:text-form-text'
+                          ? 'border-accent-blue bg-accent-blue/10 text-accent-blue'
+                          : 'border-form-border bg-form-input-bg text-form-label hover:text-form-text'
                       }`}
                     >
-                      {type}
+                      {form.orderType === type && (
+                        <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-accent-blue" />
+                      )}
+                      <OrderTypeIcon type={type} />
+                      <span>{type}</span>
                     </button>
                   ))}
                 </div>
