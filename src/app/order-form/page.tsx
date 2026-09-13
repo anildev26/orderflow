@@ -6,7 +6,7 @@ import toast from 'react-hot-toast';
 import { useOrderStore } from '@/store/useOrderStore';
 import { usePlatformStore } from '@/store/usePlatformStore';
 import { useAuth } from '@/hooks/useAuth';
-import { OrderPlatform, ORDER_TYPES } from '@/types/order';
+import { OrderPlatform, ORDER_TYPES, SellerLessMode, computeSellerLess } from '@/types/order';
 import ThemeToggle from '@/components/ThemeToggle';
 
 const ORDER_TYPE_ICON_PATHS: Record<string, string> = {
@@ -40,7 +40,7 @@ export default function OrderFormPage() {
   const today = `${_d.getFullYear()}-${String(_d.getMonth() + 1).padStart(2, '0')}-${String(_d.getDate()).padStart(2, '0')}`;
 
   const [submitted, setSubmitted] = useState(false);
-  const [sellerLessMode, setSellerLessMode] = useState<'inr' | 'percent'>('inr');
+  const [sellerLessMode, setSellerLessMode] = useState<SellerLessMode>('inr');
   const [sellerLessPercentInput, setSellerLessPercentInput] = useState('');
 
   const [form, setForm] = useState({
@@ -104,10 +104,12 @@ export default function OrderFormPage() {
     }
     setSubmitting(true);
     try {
-      const sellerLess = sellerLessMode === 'percent'
-        ? Math.round((parseFloat(sellerLessPercentInput) || 0) * (parseFloat(form.totalAmount) || 0) / 100)
-        : (parseFloat(form.sellerLess) || 0);
-      const sellerLessPercent = sellerLessMode === 'percent' ? (parseFloat(sellerLessPercentInput) || 0) : undefined;
+      const { sellerLess, sellerLessPercent } = computeSellerLess(
+        sellerLessMode,
+        parseFloat(form.sellerLess) || 0,
+        parseFloat(sellerLessPercentInput) || 0,
+        parseFloat(form.totalAmount) || 0
+      );
       await addOrder({
         orderId: form.orderId,
         platform: form.platform as OrderPlatform,
@@ -163,6 +165,19 @@ export default function OrderFormPage() {
 
   const inputClass = "w-full bg-form-input-bg border border-form-border rounded-lg px-4 py-2.5 text-form-text placeholder-form-placeholder focus:ring-2 focus:ring-accent-blue focus:border-accent-blue outline-none transition";
   const labelClass = "block text-sm font-semibold text-form-label mb-1";
+
+  // Live Seller's Less preview — shown under the field so the ₹, Less % and
+  // Refund % readings are always visible together, whichever one was typed.
+  const sellerLessHint = (() => {
+    if (sellerLessMode === 'inr') return 'For FULL REFUND type "0". Do not make a mistake here.';
+    if (!form.totalAmount || !sellerLessPercentInput) return 'Enter the % from the mediator’s message — either the Refund % or the Less % works.';
+    const totalAmt = parseFloat(form.totalAmount) || 0;
+    const { sellerLess, sellerLessPercent } = computeSellerLess(sellerLessMode, 0, parseFloat(sellerLessPercentInput) || 0, totalAmt);
+    const lessPct = sellerLessPercent ?? 0;
+    const refundAmt = totalAmt - sellerLess;
+    const refundPct = 100 - lessPct;
+    return `Less ${lessPct}% = ₹${sellerLess.toLocaleString('en-IN')} deducted → Refund ${refundPct}% = ₹${refundAmt.toLocaleString('en-IN')} you'll get`;
+  })();
 
   return (
     <div className="min-h-screen bg-form-bg">
@@ -371,15 +386,28 @@ export default function OrderFormPage() {
               {/* 9. Seller Less */}
               <div>
                 <label className={labelClass}>Seller&apos;s Less <span className="text-accent-red">*</span></label>
+                <div className="inline-flex flex-wrap gap-1 p-1 mb-2 bg-form-input-bg border border-form-border rounded-lg">
+                  {([
+                    { key: 'inr', label: '₹ Amount' },
+                    { key: 'refund_percent', label: 'Refund %' },
+                    { key: 'less_percent', label: 'Less %' },
+                  ] as const).map((opt) => (
+                    <button
+                      key={opt.key}
+                      type="button"
+                      onClick={() => setSellerLessMode(opt.key)}
+                      className={`px-3 py-1.5 rounded-md text-xs font-semibold transition ${
+                        sellerLessMode === opt.key ? 'bg-accent-blue text-white' : 'text-form-label hover:text-form-text'
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
                 <div className="flex min-w-0">
-                  <button
-                    type="button"
-                    onClick={() => setSellerLessMode((m) => (m === 'inr' ? 'percent' : 'inr'))}
-                    title="Click to switch between a ₹ amount and a % of the total order amount"
-                    className="inline-flex items-center px-3 bg-form-currency-bg border border-r-0 border-form-currency-border rounded-l-lg text-form-currency-text font-semibold flex-shrink-0 hover:text-accent-blue transition cursor-pointer"
-                  >
+                  <span className="inline-flex items-center px-3 bg-form-currency-bg border border-r-0 border-form-currency-border rounded-l-lg text-form-currency-text font-semibold flex-shrink-0">
                     {sellerLessMode === 'inr' ? '₹' : '%'}
-                  </button>
+                  </span>
                   {sellerLessMode === 'inr' ? (
                     <input type="number" name="sellerLess" value={form.sellerLess} onChange={handleChange} placeholder="0" min="0" className="min-w-0 flex-1 bg-form-input-bg border border-form-border px-4 py-2.5 text-form-text placeholder-form-placeholder focus:ring-2 focus:ring-accent-blue outline-none transition" />
                   ) : (
@@ -387,13 +415,7 @@ export default function OrderFormPage() {
                   )}
                   <span className="inline-flex items-center px-2 bg-form-currency-bg border border-l-0 border-form-currency-border rounded-r-lg text-form-currency-text text-xs flex-shrink-0">Less</span>
                 </div>
-                <p className="text-xs text-form-hint mt-1">
-                  {sellerLessMode === 'percent'
-                    ? (form.totalAmount && sellerLessPercentInput
-                        ? `= ₹${Math.round((parseFloat(sellerLessPercentInput) || 0) * (parseFloat(form.totalAmount) || 0) / 100).toLocaleString('en-IN')} off ₹${(parseFloat(form.totalAmount) || 0).toLocaleString('en-IN')} (${sellerLessPercentInput}%)`
-                        : 'Enter the % less mentioned in the deal — we’ll work out the ₹ amount.')
-                    : 'For FULL REFUND type "0". Do not make a mistake here.'}
-                </p>
+                <p className="text-xs text-form-hint mt-1">{sellerLessHint}</p>
               </div>
 
               {/* 10. Mediator Name */}

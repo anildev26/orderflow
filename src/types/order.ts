@@ -148,6 +148,23 @@ export function formatSellerLess(sellerLess: number, sellerLessPercent?: number 
   return sellerLessPercent != null ? `${sellerLessPercent}% (${inr})` : inr;
 }
 
+// Seller's Less can be entered as a flat ₹ amount, a % that's deducted ("less"),
+// or a % that comes back ("refund") — mediator messages usually state the latter
+// (e.g. "Refund: 55% of order amount"). Whatever the entry mode, we always store
+// and display the LESS percentage/amount, since that's what sellerLess itself means.
+export type SellerLessMode = 'inr' | 'less_percent' | 'refund_percent';
+
+export function computeSellerLess(
+  mode: SellerLessMode,
+  inrInput: number,
+  percentInput: number,
+  totalAmount: number
+): { sellerLess: number; sellerLessPercent: number | null } {
+  if (mode === 'inr') return { sellerLess: inrInput, sellerLessPercent: null };
+  const lessPercent = mode === 'refund_percent' ? 100 - percentInput : percentInput;
+  return { sellerLess: Math.round((totalAmount * lessPercent) / 100), sellerLessPercent: lessPercent };
+}
+
 export const PLATFORM_OPTIONS: { value: OrderPlatform; label: string }[] = [
   { value: 'flipkart', label: 'Flipkart' },
   { value: 'amazon', label: 'Amazon' },

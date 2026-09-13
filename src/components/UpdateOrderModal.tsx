@@ -4,7 +4,7 @@ import { useState } from 'react';
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
-import { Order, OrderStatus, STATUS_LABELS, STATUS_COLORS, STATUS_OPTIONS, ReminderHistoryEntry, isReminderEligible, DEFAULT_REFUND_TIMELINE_DAYS, formatSellerLess } from '@/types/order';
+import { Order, OrderStatus, STATUS_LABELS, STATUS_COLORS, STATUS_OPTIONS, ReminderHistoryEntry, isReminderEligible, DEFAULT_REFUND_TIMELINE_DAYS, formatSellerLess, SellerLessMode, computeSellerLess } from '@/types/order';
 import { useOrderStore } from '@/store/useOrderStore';
 import { addDays, todayStr, fmtDate as fmtFullDate } from '@/lib/followup';
 
@@ -49,16 +49,18 @@ export default function UpdateOrderModal({ order, onClose }: UpdateOrderModalPro
   const [mediatorMessage, setMediatorMessage] = useState(order.mediatorMessage || '');
   const [refundFormLink, setRefundFormLink] = useState(order.refundFormLink || '');
   const [sellerLess, setSellerLess] = useState(order.sellerLess);
-  const [sellerLessMode, setSellerLessMode] = useState<'inr' | 'percent'>(order.sellerLessPercent != null ? 'percent' : 'inr');
+  const [sellerLessMode, setSellerLessMode] = useState<SellerLessMode>(order.sellerLessPercent != null ? 'less_percent' : 'inr');
   const [sellerLessPercentInput, setSellerLessPercentInput] = useState(order.sellerLessPercent != null ? String(order.sellerLessPercent) : '');
   const [isReplacement, setIsReplacement] = useState(order.isReplacement);
   const [replacementOrderId, setReplacementOrderId] = useState(order.replacementOrderId || '');
   const [replacementAmount, setReplacementAmount] = useState(String(order.totalAmount || ''));
 
-  const finalSellerLess = sellerLessMode === 'percent'
-    ? Math.round((parseFloat(sellerLessPercentInput) || 0) * order.totalAmount / 100)
-    : sellerLess;
-  const finalSellerLessPercent: number | null = sellerLessMode === 'percent' ? (parseFloat(sellerLessPercentInput) || 0) : null;
+  const { sellerLess: finalSellerLess, sellerLessPercent: finalSellerLessPercent } = computeSellerLess(
+    sellerLessMode,
+    sellerLess,
+    parseFloat(sellerLessPercentInput) || 0,
+    order.totalAmount
+  );
 
   // Copy all details for WhatsApp
   const handleCopyDetails = () => {
@@ -374,15 +376,24 @@ export default function UpdateOrderModal({ order, onClose }: UpdateOrderModalPro
 
           {/* Seller Less */}
           <div>
-            <div className="flex items-center justify-between mb-2">
-              <label className="block text-sm font-semibold text-text-primary">Seller Less Amount</label>
-              <button
-                type="button"
-                onClick={() => setSellerLessMode((m) => (m === 'inr' ? 'percent' : 'inr'))}
-                className="text-xs font-semibold text-accent-blue hover:text-blue-400 transition"
-              >
-                Switch to {sellerLessMode === 'inr' ? '%' : '₹'}
-              </button>
+            <label className="block text-sm font-semibold text-text-primary mb-2">Seller Less Amount</label>
+            <div className="inline-flex flex-wrap gap-1 p-1 mb-2 bg-dashboard-bg border border-dashboard-border rounded-lg">
+              {([
+                { key: 'inr', label: '₹ Amount' },
+                { key: 'refund_percent', label: 'Refund %' },
+                { key: 'less_percent', label: 'Less %' },
+              ] as const).map((opt) => (
+                <button
+                  key={opt.key}
+                  type="button"
+                  onClick={() => setSellerLessMode(opt.key)}
+                  className={`px-2.5 py-1 rounded-md text-xs font-semibold transition ${
+                    sellerLessMode === opt.key ? 'bg-accent-blue text-white' : 'text-text-secondary hover:text-text-primary'
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
             </div>
             {sellerLessMode === 'inr' ? (
               <input
@@ -393,22 +404,20 @@ export default function UpdateOrderModal({ order, onClose }: UpdateOrderModalPro
                 className="w-full bg-dashboard-bg border border-dashboard-border rounded-lg px-4 py-2.5 text-sm text-text-primary focus:ring-2 focus:ring-accent-blue outline-none"
               />
             ) : (
-              <>
-                <input
-                  type="number"
-                  value={sellerLessPercentInput}
-                  onChange={(e) => setSellerLessPercentInput(e.target.value)}
-                  min={0}
-                  max={100}
-                  placeholder="0"
-                  className="w-full bg-dashboard-bg border border-dashboard-border rounded-lg px-4 py-2.5 text-sm text-text-primary focus:ring-2 focus:ring-accent-blue outline-none"
-                />
-                {sellerLessPercentInput && (
-                  <p className="text-[11px] text-text-muted mt-1">
-                    = ₹{finalSellerLess.toLocaleString('en-IN')} off ₹{order.totalAmount.toLocaleString('en-IN')}
-                  </p>
-                )}
-              </>
+              <input
+                type="number"
+                value={sellerLessPercentInput}
+                onChange={(e) => setSellerLessPercentInput(e.target.value)}
+                min={0}
+                max={100}
+                placeholder="0"
+                className="w-full bg-dashboard-bg border border-dashboard-border rounded-lg px-4 py-2.5 text-sm text-text-primary focus:ring-2 focus:ring-accent-blue outline-none"
+              />
+            )}
+            {sellerLessMode !== 'inr' && sellerLessPercentInput && (
+              <p className="text-[11px] text-text-muted mt-1">
+                Less {finalSellerLessPercent ?? 0}% = ₹{finalSellerLess.toLocaleString('en-IN')} deducted &rarr; Refund {100 - (finalSellerLessPercent ?? 0)}% = ₹{(order.totalAmount - finalSellerLess).toLocaleString('en-IN')} you&apos;ll get
+              </p>
             )}
           </div>
 
