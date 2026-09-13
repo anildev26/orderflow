@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import toast from 'react-hot-toast';
 import { Order, STATUS_LABELS, STATUS_COLORS, OrderPlatform, formatSellerLess } from '@/types/order';
+import { addDays, daysBetween, todayStr } from '@/lib/followup';
 
 const UpdateOrderModal = dynamic(() => import('./UpdateOrderModal'), { ssr: false });
 
@@ -58,14 +59,14 @@ export default function OrderCard({ order }: OrderCardProps) {
     toast.success(`${label} copied!`);
   };
 
-  // Return period tracking (only when delivered)
+  // Return period tracking (only when delivered). Compared as calendar dates
+  // (not raw timestamps) so the window stays open through its whole last day
+  // regardless of timezone — see useOrderStore.fetchOrders for the same fix
+  // on the auto status transition.
   const showReturnPeriod = order.status === 'delivered' && order.deliveredDate;
-  const returnPeriodEnd = mounted && showReturnPeriod
-    ? new Date(new Date(order.deliveredDate!).getTime() + (order.returnPeriodDays || 7) * 24 * 60 * 60 * 1000)
-    : null;
-  const returnDaysLeft = returnPeriodEnd
-    ? Math.ceil((returnPeriodEnd.getTime() - Date.now()) / (1000 * 60 * 60 * 24))
-    : null;
+  const returnEndStr = showReturnPeriod ? addDays(order.deliveredDate!, order.returnPeriodDays || 7) : null;
+  const returnPeriodEnd = returnEndStr ? new Date(returnEndStr + 'T00:00:00') : null;
+  const returnDaysLeft = mounted && returnEndStr ? daysBetween(returnEndStr, todayStr()) + 1 : null;
 
   // Smart display: dedicated link > single clean URL in message > complex message
   const mediatorUrls = order.mediatorMessage

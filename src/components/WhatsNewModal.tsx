@@ -12,6 +12,13 @@ interface WhatsNewModalProps {
 
 const CHANGELOG = [
   {
+    version: 'v1.1.0',
+    date: 'Sep 2026',
+    items: [
+      { type: 'fix', text: "Fixed a timezone bug where an order could jump to “Refund Form Pending” up to a day early — while the return date shown on the card was still open. The return window now stays open through its full last day." },
+    ],
+  },
+  {
     version: 'v1.0.9',
     date: 'Sep 2026',
     items: [

@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
 import { Order, OrderStatus, STATUS_LABELS, STATUS_COLORS, STATUS_OPTIONS, ReminderHistoryEntry, isReminderEligible, DEFAULT_REFUND_TIMELINE_DAYS, formatSellerLess, SellerLessMode, computeSellerLess } from '@/types/order';
 import { useOrderStore } from '@/store/useOrderStore';
-import { addDays, todayStr, fmtDate as fmtFullDate } from '@/lib/followup';
+import { addDays, daysBetween, todayStr, fmtDate as fmtFullDate } from '@/lib/followup';
 
 const EditOrderModal = dynamic(() => import('./EditOrderModal'), { ssr: false });
 
@@ -182,13 +182,13 @@ export default function UpdateOrderModal({ order, onClose }: UpdateOrderModalPro
     onClose();
   };
 
-  // Return period tracking
-  const returnPeriodEnd = order.deliveredDate
-    ? new Date(new Date(order.deliveredDate).getTime() + (order.returnPeriodDays || 7) * 24 * 60 * 60 * 1000)
-    : null;
-  const returnDaysLeft = returnPeriodEnd
-    ? Math.ceil((returnPeriodEnd.getTime() - Date.now()) / (1000 * 60 * 60 * 24))
-    : null;
+  // Return period tracking — compared as calendar dates (not raw timestamps)
+  // so the window stays open through its whole last day regardless of
+  // timezone; see useOrderStore.fetchOrders for the same fix on the auto
+  // status transition.
+  const returnEndStr = order.deliveredDate ? addDays(order.deliveredDate, order.returnPeriodDays || 7) : null;
+  const returnPeriodEnd = returnEndStr ? new Date(returnEndStr + 'T00:00:00') : null;
+  const returnDaysLeft = returnEndStr ? daysBetween(returnEndStr, todayStr()) + 1 : null;
 
   const hasChanges =
     newStatus !== order.status ||

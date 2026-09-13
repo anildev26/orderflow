@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { Order, OrderStatus, OrderPlatform, ReminderHistoryEntry } from '@/types/order';
 import { createClient } from '@/lib/supabase';
-import { todayStr } from '@/lib/followup';
+import { todayStr, addDays } from '@/lib/followup';
 
 interface OrderStore {
   orders: Order[];
@@ -143,20 +143,22 @@ export const useOrderStore = create<OrderStore>()((set, get) => ({
 
     if (!error && data) {
       const orders = data.map(dbToOrder);
-      const now = Date.now();
-      const DAY_MS = 24 * 60 * 60 * 1000;
+      // Compare local calendar dates (YYYY-MM-DD), not raw timestamps: `new
+      // Date(dateStr)` parses a date-only string as UTC midnight, which is
+      // still hours *before* midnight in IST — comparing that against
+      // Date.now() flipped orders to the next status up to ~18 hours early,
+      // while the return date they were shown was still technically open.
+      const today = todayStr();
 
       // 1. Auto-deliver: orders still in 'ordered' status after 30 days from order date
       const autoDeliverOrders = orders.filter((o) => {
         if (o.status !== 'ordered') return false;
-        const orderTime = new Date(o.orderDate).getTime();
-        return now > orderTime + 30 * DAY_MS;
+        return today > addDays(o.orderDate, 30);
       });
 
       if (autoDeliverOrders.length > 0) {
         for (const o of autoDeliverOrders) {
-          const deliveredDate = new Date(new Date(o.orderDate).getTime() + 30 * DAY_MS)
-            .toISOString().split('T')[0];
+          const deliveredDate = addDays(o.orderDate, 30);
           await supabase
             .from('orders')
             .update({ status: 'delivered', delivered_date: deliveredDate, return_period_days: o.returnPeriodDays || 7 })
@@ -167,12 +169,11 @@ export const useOrderStore = create<OrderStore>()((set, get) => ({
         }
       }
 
-      // 2. Auto-refund-pending: orders still in 'delivered' status whose return period has expired
+      // 2. Auto-refund-pending: orders still in 'delivered' status whose return period has fully elapsed
       const expiredOrders = orders.filter((o) => {
         if (o.status !== 'delivered' || !o.deliveredDate) return false;
         const returnDays = o.returnPeriodDays || 7;
-        const returnEnd = new Date(o.deliveredDate).getTime() + returnDays * DAY_MS;
-        return now > returnEnd;
+        return today > addDays(o.deliveredDate, returnDays);
       });
 
       if (expiredOrders.length > 0) {
