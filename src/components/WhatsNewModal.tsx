@@ -12,6 +12,14 @@ interface WhatsNewModalProps {
 
 const CHANGELOG = [
   {
+    version: 'v1.0.9',
+    date: 'Sep 2026',
+    items: [
+      { type: 'new', text: "Seller's Less can now be entered as a flat ₹ amount, a Refund %, or a Less % — pick whichever matches the mediator's message and OrderFlow works out the ₹ amount for you." },
+      { type: 'improvement', text: 'Anywhere the deducted amount is shown (order cards, follow-ups, archive, Update Order, WhatsApp copy), it now shows the % alongside the ₹ amount, e.g. "50% (₹649)", instead of just the ₹ figure.' },
+    ],
+  },
+  {
     version: 'v1.0.8',
     date: 'Sep 2026',
     items: [
