@@ -335,15 +335,15 @@ export const useOrderStore = create<OrderStore>()((set, get) => ({
       .update(updateData)
       .eq('id', id);
 
-    if (!error) {
-      set((state) => ({
-        orders: state.orders.map((order) =>
-          order.id === id
-            ? { ...order, ...extras, status, updatedAt: new Date().toISOString() }
-            : order
-        ),
-      }));
-    }
+    if (error) throw new Error(error.message);
+
+    set((state) => ({
+      orders: state.orders.map((order) =>
+        order.id === id
+          ? { ...order, ...extras, status, updatedAt: new Date().toISOString() }
+          : order
+      ),
+    }));
   },
 
   getOrder: (orderId) => get().orders.find((o) => o.orderId === orderId),

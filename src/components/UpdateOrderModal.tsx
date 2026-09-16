@@ -183,9 +183,13 @@ export default function UpdateOrderModal({ order, onClose }: UpdateOrderModalPro
       if (!isNaN(parsedAmt) && parsedAmt !== order.totalAmount) extras.totalAmount = parsedAmt;
     }
 
-    await updateOrderStatus(order.id, newStatus, extras);
-    toast.success(`Order updated to: ${STATUS_LABELS[newStatus]}`);
-    onClose();
+    try {
+      await updateOrderStatus(order.id, newStatus, extras);
+      toast.success(`Order updated to: ${STATUS_LABELS[newStatus]}`);
+      onClose();
+    } catch (err) {
+      toast.error(err instanceof Error ? `Failed to save: ${err.message}` : 'Failed to save changes');
+    }
   };
 
   // Return period tracking — compared as calendar dates (not raw timestamps)

@@ -12,6 +12,13 @@ interface WhatsNewModalProps {
 
 const CHANGELOG = [
   {
+    version: 'v1.1.2',
+    date: 'Sep 2026',
+    items: [
+      { type: 'fix', text: 'Update Order now shows a clear error if saving fails, instead of a misleading "Order updated" message when nothing was actually saved.' },
+    ],
+  },
+  {
     version: 'v1.1.1',
     date: 'Sep 2026',
     items: [
