@@ -12,6 +12,15 @@ interface WhatsNewModalProps {
 
 const CHANGELOG = [
   {
+    version: 'v1.1.1',
+    date: 'Sep 2026',
+    items: [
+      { type: 'security', text: 'The Telegram order-lookup bot now also asks for the email used on the order, not just the Order ID, before showing any details — closing a gap where an Order ID alone could reveal another account’s order.' },
+      { type: 'security', text: 'Refund Form Link now only accepts real http:// or https:// links, both when you save an order and wherever the link is shown.' },
+      { type: 'security', text: 'Marking a feature request as done or posting a dev-team comment on it is now also enforced on our servers, not just hidden in the UI for non-admins.' },
+    ],
+  },
+  {
     version: 'v1.1.0',
     date: 'Sep 2026',
     items: [

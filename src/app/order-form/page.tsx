@@ -7,6 +7,7 @@ import { useOrderStore } from '@/store/useOrderStore';
 import { usePlatformStore } from '@/store/usePlatformStore';
 import { useAuth } from '@/hooks/useAuth';
 import { OrderPlatform, ORDER_TYPES, SellerLessMode, computeSellerLess } from '@/types/order';
+import { isSafeHttpUrl } from '@/lib/urlSafety';
 import ThemeToggle from '@/components/ThemeToggle';
 
 const ORDER_TYPE_ICON_PATHS: Record<string, string> = {
@@ -100,6 +101,10 @@ export default function OrderFormPage() {
     }
     if (!form.confirmed) {
       toast.error('Please confirm the details before submitting');
+      return;
+    }
+    if (form.refundFormLink.trim() && !isSafeHttpUrl(form.refundFormLink)) {
+      toast.error('Refund Form Link must start with http:// or https://');
       return;
     }
     setSubmitting(true);
@@ -241,7 +246,7 @@ export default function OrderFormPage() {
               </svg>
               <div className="text-left min-w-0">
                 <p className="text-xs font-semibold text-[#8ab4d4]">Track this order on Telegram</p>
-                <p className="text-[11px] text-[#4a6a8a] mt-0.5">Send your Order ID to our bot for instant details anytime.</p>
+                <p className="text-[11px] text-[#4a6a8a] mt-0.5">Send your Order ID and email to our bot for instant details anytime.</p>
               </div>
               <a href={`https://t.me/orderflow_orders_bot?start=${form.orderId}`} target="_blank" rel="noopener noreferrer" className="ml-auto flex-shrink-0 px-3 py-1.5 text-xs font-semibold rounded-lg bg-[#5ba3e0] text-white hover:bg-[#4a92cf] transition">
                 Open Bot

@@ -28,8 +28,13 @@ const PLATFORM_LABELS: Record<string, string> = {
 const rateLimiter = new RateLimiter(20, 60 * 1000);
 
 const MAX_PAYLOAD_BYTES = 100 * 1024; // 100 KB
-const MAX_INPUT_LENGTH = 100;
+const MAX_INPUT_LENGTH = 150;
+// Kept permissive (order IDs are free text copied from marketplace pages, so
+// real IDs can contain underscores) — the lookup below uses an exact `.eq()`
+// match instead of `.ilike()`, so a `_`/`%` in the input can no longer act as
+// a SQL wildcard regardless of what this pattern allows through.
 const ORDER_ID_PATTERN = /^[a-zA-Z0-9\-_]+$/;
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 function fmt(val: string | null | undefined): string {
   return val?.trim() ? val.trim() : '—';
@@ -105,7 +110,13 @@ async function sendTelegramMessage(chatId: number, text: string): Promise<void> 
   });
 }
 
-async function lookupOrder(chatId: number, orderId: string): Promise<void> {
+// Requires BOTH the order ID and the email registered on that order — an
+// order ID alone is not proof of ownership (it's the marketplace's own ID,
+// visible on order pages/screenshots, not a secret). Matching by exact
+// order_id (not .ilike, which lets `_`/`%` act as SQL wildcards) and then
+// checking the email in this application code means a bare order_id can
+// never disclose another user's data through this bot.
+async function lookupOrder(chatId: number, orderId: string, email: string): Promise<void> {
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -114,19 +125,25 @@ async function lookupOrder(chatId: number, orderId: string): Promise<void> {
   const { data: orders, error } = await supabase
     .from('orders')
     .select('*')
-    .ilike('order_id', orderId);
+    .eq('order_id', orderId);
 
   if (error) {
     await sendTelegramMessage(chatId, '⚠️ Something went wrong while fetching order details. Please try again.');
     return;
   }
 
-  if (!orders || orders.length === 0) {
-    await sendTelegramMessage(chatId, `🔍 No order found with ID <code>${orderId}</code>.\n\nPlease check the Order ID and try again.`);
+  const normalizedEmail = email.trim().toLowerCase();
+  const matches = (orders ?? []).filter(
+    (order) => typeof order.email === 'string' && order.email.trim().toLowerCase() === normalizedEmail
+  );
+
+  if (matches.length === 0) {
+    // Deliberately generic — do not reveal whether the order ID exists at all.
+    await sendTelegramMessage(chatId, `🔍 No order found matching that Order ID and email.\n\nPlease double-check both and try again.`);
     return;
   }
 
-  for (const order of orders) {
+  for (const order of matches) {
     await sendTelegramMessage(chatId, buildOrderMessage(order));
   }
 }
@@ -182,27 +199,34 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
           await sendTelegramMessage(chatId, '⚠️ Invalid Order ID format.');
           return NextResponse.json({ ok: true });
         }
-        await lookupOrder(chatId, deepLinkParam);
+        // An Order ID alone doesn't prove it's yours — it's the marketplace's
+        // own ID, not a secret — so ask for the registered email too instead
+        // of looking the order up immediately.
+        await sendTelegramMessage(
+          chatId,
+          `To look up this order, reply with the Order ID and the email used on it, separated by a space:\n\n` +
+          `<code>${deepLinkParam} you@example.com</code>`
+        );
       } else if (command === '/start') {
         await sendTelegramMessage(
           chatId,
           `🛒 <b>Welcome to OrderFlow Bot!</b>\n\n` +
           `I can instantly look up any order for you — no login needed.\n\n` +
           `<b>How to use:</b>\n` +
-          `Simply send me an <b>Order ID</b> and I'll show you everything about that order — status, dates, amounts, mediator details, and more.\n\n` +
+          `Send me the <b>Order ID</b> and the <b>email</b> used on that order, separated by a space, and I'll show you everything about it — status, dates, amounts, mediator details, and more.\n\n` +
           `<b>Example:</b>\n` +
-          `<code>MH1234567890</code>\n\n` +
+          `<code>MH1234567890 you@example.com</code>\n\n` +
           `<b>Commands:</b>\n` +
           `/start — Show this message\n` +
           `/help — How to use this bot\n\n` +
-          `Go ahead, send an Order ID to get started! 👇`
+          `Go ahead, send your Order ID and email to get started! 👇`
         );
       } else if (command === '/help') {
         await sendTelegramMessage(
           chatId,
           `ℹ️ <b>OrderFlow Bot — Help</b>\n\n` +
           `<b>What can this bot do?</b>\n` +
-          `Look up full order details using just an Order ID.\n\n` +
+          `Look up full order details using your Order ID and the email registered on it.\n\n` +
           `<b>What details will I see?</b>\n` +
           `• Order status & platform\n` +
           `• Product & brand name\n` +
@@ -212,20 +236,38 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
           `• Refund, payment & review dates\n` +
           `• Replacement / exchange info\n\n` +
           `<b>How to search:</b>\n` +
-          `Just type or paste the Order ID and send it.\n\n` +
-          `<code>MH1234567890</code>`
+          `Send the Order ID and email together, separated by a space.\n\n` +
+          `<code>MH1234567890 you@example.com</code>`
         );
       }
       return NextResponse.json({ ok: true });
     }
 
-    // 5. Order ID format validation before DB query
-    if (!ORDER_ID_PATTERN.test(rawText)) {
-      await sendTelegramMessage(chatId, `🔍 No order found with ID <code>${rawText}</code>.\n\nPlease check the Order ID and try again.`);
+    // 5. Parse "<orderId> <email>" — both are required. An Order ID alone is
+    // not proof of ownership (see lookupOrder for why), so a bare Order ID
+    // gets a prompt to resend with the email, never a lookup.
+    const inputParts = rawText.split(/\s+/).filter(Boolean);
+    const usage = `🔍 Send your Order ID and email together, separated by a space:\n\n<code>MH1234567890 you@example.com</code>`;
+
+    if (inputParts.length === 1) {
+      const [maybeOrderId] = inputParts;
+      if (ORDER_ID_PATTERN.test(maybeOrderId)) {
+        await sendTelegramMessage(
+          chatId,
+          `To look up this order, also send the email used on it, separated by a space:\n\n<code>${maybeOrderId} you@example.com</code>`
+        );
+      } else {
+        await sendTelegramMessage(chatId, usage);
+      }
       return NextResponse.json({ ok: true });
     }
 
-    await lookupOrder(chatId, rawText);
+    if (inputParts.length !== 2 || !ORDER_ID_PATTERN.test(inputParts[0]) || !EMAIL_PATTERN.test(inputParts[1])) {
+      await sendTelegramMessage(chatId, usage);
+      return NextResponse.json({ ok: true });
+    }
+
+    await lookupOrder(chatId, inputParts[0], inputParts[1]);
     return NextResponse.json({ ok: true });
 
   } catch {

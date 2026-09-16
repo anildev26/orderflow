@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import toast from 'react-hot-toast';
 import { Order, STATUS_LABELS, STATUS_COLORS, OrderPlatform, formatSellerLess } from '@/types/order';
+import { isSafeHttpUrl } from '@/lib/urlSafety';
 import { addDays, daysBetween, todayStr } from '@/lib/followup';
 
 const UpdateOrderModal = dynamic(() => import('./UpdateOrderModal'), { ssr: false });
@@ -75,7 +76,8 @@ export default function OrderCard({ order }: OrderCardProps) {
   const isCleanUrl = mediatorUrls.length === 1 && order.mediatorMessage?.trim() === mediatorUrls[0].trim();
   const hasComplexMessage = mediatorUrls.length > 0 && !isCleanUrl;
 
-  const refundFormUrl: string | null = order.refundFormLink || (isCleanUrl ? mediatorUrls[0] : null);
+  const safeRefundFormLink = isSafeHttpUrl(order.refundFormLink) ? order.refundFormLink : null;
+  const refundFormUrl: string | null = safeRefundFormLink || (isCleanUrl ? mediatorUrls[0] : null);
   const showViewMessage = !refundFormUrl && hasComplexMessage;
 
   const [showMessageModal, setShowMessageModal] = useState(false);

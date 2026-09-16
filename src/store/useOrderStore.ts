@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { Order, OrderStatus, OrderPlatform, ReminderHistoryEntry } from '@/types/order';
 import { createClient } from '@/lib/supabase';
 import { todayStr, addDays } from '@/lib/followup';
+import { isSafeHttpUrl } from '@/lib/urlSafety';
 
 interface OrderStore {
   orders: Order[];
@@ -107,7 +108,7 @@ function orderToDb(order: Partial<Order> & { userId?: string }) {
   if (order.exchangeProductName !== undefined) result.exchange_product_name = order.exchangeProductName;
   if (order.replacementOrderId !== undefined) result.replacement_order_id = order.replacementOrderId;
   if (order.mediatorMessage !== undefined) result.mediator_message = order.mediatorMessage;
-  if (order.refundFormLink !== undefined) result.refund_form_link = order.refundFormLink || null;
+  if (order.refundFormLink !== undefined) result.refund_form_link = isSafeHttpUrl(order.refundFormLink) ? order.refundFormLink : null;
   if (order.status !== undefined) result.status = order.status;
   if (order.deliveredDate !== undefined) result.delivered_date = order.deliveredDate;
   if (order.returnPeriodDays !== undefined) result.return_period_days = order.returnPeriodDays;
@@ -317,7 +318,7 @@ export const useOrderStore = create<OrderStore>()((set, get) => ({
     if (extras.paymentReceivedDate !== undefined) updateData.payment_received_date = extras.paymentReceivedDate;
     if (extras.paymentBank !== undefined) updateData.payment_bank = extras.paymentBank;
     if (extras.mediatorMessage !== undefined) updateData.mediator_message = extras.mediatorMessage;
-    if (extras.refundFormLink !== undefined) updateData.refund_form_link = extras.refundFormLink || null;
+    if (extras.refundFormLink !== undefined) updateData.refund_form_link = isSafeHttpUrl(extras.refundFormLink) ? extras.refundFormLink : null;
     if (extras.sellerLess !== undefined) updateData.seller_less = extras.sellerLess;
     if (extras.sellerLessPercent !== undefined) updateData.seller_less_percent = extras.sellerLessPercent;
     if (extras.isReplacement !== undefined) updateData.is_replacement = extras.isReplacement;

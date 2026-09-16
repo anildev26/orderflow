@@ -7,6 +7,7 @@ import toast from 'react-hot-toast';
 import { Order, OrderStatus, STATUS_LABELS, STATUS_COLORS, STATUS_OPTIONS, ReminderHistoryEntry, isReminderEligible, DEFAULT_REFUND_TIMELINE_DAYS, formatSellerLess, SellerLessMode, computeSellerLess } from '@/types/order';
 import { useOrderStore } from '@/store/useOrderStore';
 import { addDays, daysBetween, todayStr, fmtDate as fmtFullDate } from '@/lib/followup';
+import { isSafeHttpUrl } from '@/lib/urlSafety';
 
 const EditOrderModal = dynamic(() => import('./EditOrderModal'), { ssr: false });
 
@@ -107,6 +108,11 @@ export default function UpdateOrderModal({ order, onClose }: UpdateOrderModalPro
   };
 
   const handleUpdate = async () => {
+    if (refundFormLink.trim() && !isSafeHttpUrl(refundFormLink)) {
+      toast.error('Refund Form Link must start with http:// or https://');
+      return;
+    }
+
     // Show confirmation when archiving (payment_received)
     if (newStatus === 'payment_received' && !showArchiveConfirm) {
       setShowArchiveConfirm(true);
@@ -478,13 +484,16 @@ export default function UpdateOrderModal({ order, onClose }: UpdateOrderModalPro
               placeholder="https://... (paste refund form link)"
               className="w-full bg-dashboard-bg border border-dashboard-border rounded-lg px-4 py-2.5 text-sm text-text-primary placeholder-text-muted focus:ring-2 focus:ring-accent-blue outline-none"
             />
-            {refundFormLink && (
+            {refundFormLink && isSafeHttpUrl(refundFormLink) && (
               <a href={refundFormLink} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 mt-2 text-xs text-green-400 hover:underline">
                 <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                 </svg>
                 Open Refund Form
               </a>
+            )}
+            {refundFormLink && !isSafeHttpUrl(refundFormLink) && (
+              <p className="text-xs text-red-400 mt-2">Only http:// or https:// links are supported.</p>
             )}
           </div>
 

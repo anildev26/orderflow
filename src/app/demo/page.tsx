@@ -7,6 +7,7 @@ import { useTheme } from '@/context/ThemeContext';
 import ThemeToggle from '@/components/ThemeToggle';
 import { useDemoOrderStore, DemoOrder } from '@/store/useDemoOrderStore';
 import { STATUS_LABELS, STATUS_COLORS } from '@/types/order';
+import { isSafeHttpUrl } from '@/lib/urlSafety';
 
 const DemoWalkthrough = dynamic(() => import('@/components/DemoWalkthrough'), { ssr: false });
 const DemoModeBanner = dynamic(() => import('@/components/DemoModeBanner'), { ssr: false });
@@ -142,7 +143,7 @@ function DemoOrderCard({ order, onUpdateClick }: { order: DemoOrder; onUpdateCli
         data-tour="order-card-edit"
         className="px-4 pb-3 flex items-center gap-2"
       >
-        {order.refundFormLink && (
+        {isSafeHttpUrl(order.refundFormLink) && (
           <a
             href={order.refundFormLink}
             target="_blank"

@@ -1,6 +1,7 @@
 import type { Workbook, Worksheet, CellValue } from 'exceljs';
 import { STATUS_OPTIONS, ORDER_TYPES, OrderStatus, OrderPlatform } from '@/types/order';
 import type { GlobalPlatform } from '@/store/usePlatformStore';
+import { isSafeHttpUrl } from '@/lib/urlSafety';
 
 const YES_NO = ['Yes', 'No'];
 
@@ -498,6 +499,10 @@ export async function parseTemplateFile(
     const exchangeProductName = cellText(row.getCell(cols.exchangeProductName).value);
     const mediatorMessage = cellText(row.getCell(cols.mediatorMessage).value);
     const refundFormLink = cellText(row.getCell(cols.refundFormLink).value);
+    if (refundFormLink && !isSafeHttpUrl(refundFormLink)) {
+      errors.push(`${rowLabel}: Refund Form Link "${refundFormLink}" must start with http:// or https://.`);
+      continue;
+    }
 
     // Single "Status Date" column — route to the right field by status.
     const statusDate = cols.statusDate > 0 ? toIsoDate(row.getCell(cols.statusDate).value) : undefined;
