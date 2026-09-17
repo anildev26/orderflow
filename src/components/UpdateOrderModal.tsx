@@ -552,6 +552,7 @@ export default function UpdateOrderModal({ order, onClose }: UpdateOrderModalPro
               <div>
                 <label className="block text-xs text-text-muted mb-1">Return Period (days)</label>
                 <select value={returnPeriodDays} onChange={(e) => setReturnPeriodDays(parseInt(e.target.value))} className="w-full bg-dashboard-bg border border-dashboard-border rounded-lg px-4 py-2.5 text-sm text-text-primary focus:ring-2 focus:ring-accent-blue outline-none">
+                  <option value={1}>1 day</option>
                   <option value={7}>7 days</option>
                   <option value={10}>10 days</option>
                   <option value={14}>14 days</option>
@@ -560,7 +561,7 @@ export default function UpdateOrderModal({ order, onClose }: UpdateOrderModalPro
               </div>
               {deliveredDate && (
                 <p className="text-[11px] text-text-muted">
-                  Return ends: {new Date(new Date(deliveredDate).getTime() + returnPeriodDays * 24 * 60 * 60 * 1000).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+                  Return ends: {fmtFullDate(addDays(deliveredDate, returnPeriodDays))}
                 </p>
               )}
             </div>

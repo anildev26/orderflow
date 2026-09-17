@@ -12,6 +12,13 @@ interface WhatsNewModalProps {
 
 const CHANGELOG = [
   {
+    version: 'v1.1.3',
+    date: 'Sep 2026',
+    items: [
+      { type: 'new', text: 'Update Order now offers a 1-day return period, for products like cosmetics that come with a shorter return window.' },
+    ],
+  },
+  {
     version: 'v1.1.2',
     date: 'Sep 2026',
     items: [
