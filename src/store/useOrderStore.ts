@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { Order, OrderStatus, OrderPlatform, ReminderHistoryEntry } from '@/types/order';
 import { createClient } from '@/lib/supabase';
 import { todayStr, addDays } from '@/lib/followup';
+import { getReturnWindow } from '@/lib/returnWindow';
 import { isSafeHttpUrl } from '@/lib/urlSafety';
 
 interface OrderStore {
@@ -172,9 +173,9 @@ export const useOrderStore = create<OrderStore>()((set, get) => ({
 
       // 2. Auto-refund-pending: orders still in 'delivered' status whose return period has fully elapsed
       const expiredOrders = orders.filter((o) => {
-        if (o.status !== 'delivered' || !o.deliveredDate) return false;
-        const returnDays = o.returnPeriodDays || 7;
-        return today > addDays(o.deliveredDate, returnDays);
+        if (o.status !== 'delivered') return false;
+        const window = getReturnWindow(o, today);
+        return window !== null && window.daysLeft <= 0;
       });
 
       if (expiredOrders.length > 0) {
@@ -469,3 +470,4 @@ export const useOrderStore = create<OrderStore>()((set, get) => ({
     return { inserted: toInsert.length, skipped };
   },
 }));
+

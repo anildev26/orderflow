@@ -12,6 +12,13 @@ interface WhatsNewModalProps {
 
 const CHANGELOG = [
   {
+    version: 'v1.1.5',
+    date: 'Oct 2026',
+    items: [
+      { type: 'improvement', text: 'Return windows show “Ends today” on their closing date and stay open through the entire day. The dashboard now refreshes after midnight or when you return to an open tab, so expired Delivered orders can move to Refund Form Pending.' },
+    ],
+  },
+  {
     version: 'v1.1.4',
     date: 'Oct 2026',
     items: [

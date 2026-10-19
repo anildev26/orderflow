@@ -65,6 +65,8 @@ registerHooks({
 const { getReturnWindow } = await import('../src/lib/returnWindow.ts');
 const { STATUS_OPTIONS } = await import('../src/types/order.ts');
 const { useOrderStore } = await import('../src/store/useOrderStore.ts');
+const { watchLocalDate } = await import('../src/lib/localDate.ts');
+const { todayStr } = await import('../src/lib/followup.ts');
 
 test('return closing date survives every status except Refund Form Filled', () => {
   for (const { value: status } of STATUS_OPTIONS) {
@@ -109,4 +111,87 @@ test('review submission preserves delivery data across save and reload; expiry o
   assert.deepEqual(getReturnWindow(store().orders[0]), { endDate: '2026-10-08', daysLeft: 0 });
   assert.deepEqual(getReturnWindow(store().orders[1]), { endDate: '2026-10-08', daysLeft: 0 });
   assert.equal(getReturnWindow(store().orders[2]), null);
+});
+
+test('closing-day midnight and 23:59:59.999 stay open; only the next midnight expires Delivered', async (t) => {
+  t.mock.timers.enable({ apis: ['Date'], now: new Date('2026-10-01T00:00:00') });
+  for (const returnDays of [undefined, 1, 3, 7, 10, 14]) {
+    const day = 1 + (returnDays || 7);
+    const closingDate = `2026-10-${String(day).padStart(2, '0')}`;
+    rows = ['delivered', 'review_rating_submitted'].map((status, index) => ({
+      id: `boundary-${index}`, order_id: `boundary-order-${index}`, status,
+      order_date: '2026-10-01', delivered_date: '2026-10-01', return_period_days: returnDays,
+    }));
+    for (const time of ['00:00:00', '12:00:00', '23:59:59.999']) {
+      t.mock.timers.setTime(new Date(`${closingDate}T${time}`).getTime());
+      await useOrderStore.getState().fetchOrders();
+      assert.deepEqual(rows.map((row) => row.status), ['delivered', 'review_rating_submitted']);
+      for (const order of useOrderStore.getState().orders) {
+        assert.deepEqual(getReturnWindow(order), { endDate: closingDate, daysLeft: 1 });
+      }
+    }
+    const nextDate = `2026-10-${String(day + 1).padStart(2, '0')}`;
+    t.mock.timers.setTime(new Date(`${nextDate}T00:00:00`).getTime());
+    await useOrderStore.getState().fetchOrders();
+    assert.deepEqual(rows.map((row) => row.status), ['refund_form_pending', 'review_rating_submitted']);
+    for (const order of useOrderStore.getState().orders) {
+      assert.deepEqual(getReturnWindow(order), { endDate: closingDate, daysLeft: 0 });
+    }
+  }
+});
+
+function installBrowserEvents() {
+  const previousWindow = globalThis.window;
+  const previousDocument = globalThis.document;
+  globalThis.window = new EventTarget();
+  globalThis.document = new EventTarget();
+  document.visibilityState = 'visible';
+  return () => {
+    globalThis.window = previousWindow;
+    globalThis.document = previousDocument;
+  };
+}
+
+test('open tabs refresh exactly at midnight, on resume, and stop after unmount', (t) => {
+  const restoreBrowserEvents = installBrowserEvents();
+  t.mock.timers.enable({ apis: ['Date', 'setTimeout'], now: new Date('2026-10-08T23:59:59.500') });
+  const dates = [];
+  const stop = watchLocalDate(() => dates.push(todayStr()));
+  t.after(() => { stop(); restoreBrowserEvents(); });
+  t.mock.timers.tick(499);
+  assert.deepEqual(dates, []);
+  t.mock.timers.tick(1);
+  assert.deepEqual(dates, ['2026-10-09']);
+
+  // Simulate a sleeping tab whose timeout was suspended across several days.
+  t.mock.timers.setTime(new Date('2026-10-12T08:00:00').getTime());
+  document.visibilityState = 'hidden';
+  document.dispatchEvent(new Event('visibilitychange'));
+  assert.equal(dates.length, 1);
+  document.visibilityState = 'visible';
+  document.dispatchEvent(new Event('visibilitychange'));
+  assert.equal(dates.at(-1), '2026-10-12');
+  window.dispatchEvent(new Event('focus'));
+  assert.equal(dates.at(-1), '2026-10-12');
+
+  stop();
+  const count = dates.length;
+  t.mock.timers.tick(2 * 24 * 60 * 60 * 1000);
+  window.dispatchEvent(new Event('focus'));
+  document.dispatchEvent(new Event('visibilitychange'));
+  assert.equal(dates.length, count);
+});
+
+test('midnight scheduling follows calendar days even when daylight saving changes their length', (t) => {
+  const restoreBrowserEvents = installBrowserEvents();
+  t.mock.timers.enable({ apis: ['Date', 'setTimeout'], now: new Date('2026-11-01T00:00:00') });
+  let calls = 0;
+  const stop = watchLocalDate(() => calls++);
+  t.after(() => { stop(); restoreBrowserEvents(); });
+  const lengthOfDay = new Date('2026-11-02T00:00:00').getTime() - Date.now();
+  t.mock.timers.tick(lengthOfDay - 1);
+  assert.equal(calls, 0);
+  t.mock.timers.tick(1);
+  assert.equal(calls, 1);
+  assert.equal(todayStr(), '2026-11-02');
 });

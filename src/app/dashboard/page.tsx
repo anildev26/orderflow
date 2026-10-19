@@ -12,6 +12,7 @@ import { OrderStatus } from '@/types/order';
 import OrderCard from '@/components/OrderCard';
 import ThemeToggle from '@/components/ThemeToggle';
 import { useAuth } from '@/hooks/useAuth';
+import { useLocalDate } from '@/hooks/useLocalDate';
 import { WHATS_NEW_STORAGE_KEY, LATEST_VERSION } from '@/components/whatsNewConstants';
 
 const FilterPanel = dynamic(() => import('@/components/FilterPanel'), { ssr: false });
@@ -179,13 +180,18 @@ export default function DashboardPage() {
   const fetchOrders = useOrderStore((s) => s.fetchOrders);
   const loading = useOrderStore((s) => s.loading);
   const initialized = useOrderStore((s) => s.initialized);
+  const today = useLocalDate();
 
   useEffect(() => {
     setMounted(true);
-    fetchOrders();
     fetchPlatforms();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Refresh expired statuses after midnight, including when a sleeping tab resumes.
+  useEffect(() => {
+    if (today) void fetchOrders();
+  }, [today, fetchOrders]);
 
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -623,3 +629,4 @@ export default function DashboardPage() {
     </div>
   );
 }
+

@@ -6,6 +6,7 @@ import toast from 'react-hot-toast';
 import { Order, STATUS_LABELS, STATUS_COLORS, OrderPlatform, formatSellerLess } from '@/types/order';
 import { isSafeHttpUrl } from '@/lib/urlSafety';
 import { getReturnWindow } from '@/lib/returnWindow';
+import { useLocalDate } from '@/hooks/useLocalDate';
 
 const UpdateOrderModal = dynamic(() => import('./UpdateOrderModal'), { ssr: false });
 
@@ -61,7 +62,8 @@ export default function OrderCard({ order }: OrderCardProps) {
   };
 
   // Keep the return window visible alongside later statuses, including reviews.
-  const returnWindow = getReturnWindow(order);
+  const today = useLocalDate();
+  const returnWindow = today ? getReturnWindow(order, today) : null;
   const returnEndStr = returnWindow?.endDate;
   const returnPeriodEnd = returnEndStr ? new Date(returnEndStr + 'T00:00:00') : null;
   const returnDaysLeft = mounted && returnWindow ? returnWindow.daysLeft : null;
@@ -141,7 +143,7 @@ export default function OrderCard({ order }: OrderCardProps) {
                 : 'bg-green-500/10 border border-green-500/20 text-green-400'
             }`}>
               {`Return ends: ${returnPeriodEnd!.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}`}
-              {returnDaysLeft > 0 ? ` (${returnDaysLeft}d left)` : ' · Return period over'}
+              {returnDaysLeft === 1 ? ' · Ends today' : returnDaysLeft > 1 ? ` (${returnDaysLeft}d left)` : ' · Return period over'}
             </div>
           )}
 

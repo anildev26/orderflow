@@ -8,6 +8,7 @@ import { Order, OrderStatus, STATUS_LABELS, STATUS_COLORS, STATUS_OPTIONS, Remin
 import { useOrderStore } from '@/store/useOrderStore';
 import { addDays, todayStr, fmtDate as fmtFullDate } from '@/lib/followup';
 import { getReturnWindow } from '@/lib/returnWindow';
+import { useLocalDate } from '@/hooks/useLocalDate';
 import { isSafeHttpUrl } from '@/lib/urlSafety';
 
 const EditOrderModal = dynamic(() => import('./EditOrderModal'), { ssr: false });
@@ -26,8 +27,8 @@ export default function UpdateOrderModal({ order, onClose }: UpdateOrderModalPro
   const router = useRouter();
   const updateOrderStatus = useOrderStore((s) => s.updateOrderStatus);
   // Bank is now a free-text field (no longer driven by settings store)
-  const _d = new Date();
-  const today = `${_d.getFullYear()}-${String(_d.getMonth() + 1).padStart(2, '0')}-${String(_d.getDate()).padStart(2, '0')}`;
+  const localDate = useLocalDate();
+  const today = localDate || todayStr();
   const [showArchiveConfirm, setShowArchiveConfirm] = useState(false);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
@@ -193,7 +194,7 @@ export default function UpdateOrderModal({ order, onClose }: UpdateOrderModalPro
     }
   };
 
-  const returnWindow = getReturnWindow(order);
+  const returnWindow = getReturnWindow(order, today);
   const returnDaysLeft = returnWindow?.daysLeft ?? null;
 
   const hasChanges =
@@ -347,7 +348,7 @@ export default function UpdateOrderModal({ order, onClose }: UpdateOrderModalPro
                 <p className={`text-xs font-bold mt-0.5 ${returnDaysLeft !== null && returnDaysLeft > 0 ? 'text-yellow-400' : 'text-green-400'}`}>
                   Return ends: {fmtFullDate(returnWindow.endDate)}{' · '}
                   {returnDaysLeft !== null && returnDaysLeft > 0
-                    ? `${returnDaysLeft} days left`
+                    ? returnDaysLeft === 1 ? 'Ends today' : `${returnDaysLeft} days left`
                     : 'Return period over'}
                 </p>
               )}
