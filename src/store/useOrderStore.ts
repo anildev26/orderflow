@@ -171,9 +171,9 @@ export const useOrderStore = create<OrderStore>()((set, get) => ({
         }
       }
 
-      // 2. Auto-refund-pending: orders still in 'delivered' status whose return period has fully elapsed
+      // 2. Auto-refund-pending: delivered or reviewed orders after the full return closing day.
       const expiredOrders = orders.filter((o) => {
-        if (o.status !== 'delivered') return false;
+        if (o.status !== 'delivered' && o.status !== 'review_rating_submitted') return false;
         const window = getReturnWindow(o, today);
         return window !== null && window.daysLeft <= 0;
       });

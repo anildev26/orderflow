@@ -88,7 +88,7 @@ test('default and custom windows stay open through the full closing day', () => 
   });
 });
 
-test('review submission preserves delivery data across save and reload; expiry only advances Delivered', async (t) => {
+test('review submission preserves delivery data; expiry advances Delivered and Review/Rating Submitted', async (t) => {
   t.mock.timers.enable({ apis: ['Date'], now: new Date('2026-10-08T12:00:00') });
   rows = ['delivered', 'delivered', 'refund_form_filled', 'informed_mediator'].map((status, index) => ({
     id: `row-${index}`, order_id: `order-${index}`, status,
@@ -105,15 +105,17 @@ test('review submission preserves delivery data across save and reload; expiry o
   t.mock.timers.setTime(new Date('2026-10-09T12:00:00').getTime());
   await store().fetchOrders();
   assert.deepEqual(store().orders.map((order) => order.status), [
-    'review_rating_submitted', 'refund_form_pending', 'refund_form_filled', 'informed_mediator',
+    'refund_form_pending', 'refund_form_pending', 'refund_form_filled', 'informed_mediator',
   ]);
+  assert.equal(rows[0].status, 'refund_form_pending', 'reviewed orders must persist the automatic transition');
+  assert.equal(rows[0].review_rating_date, '2026-10-08', 'review history must be preserved');
   assert.equal(rows[1].status, 'refund_form_pending', 'automatic transition must persist');
   assert.deepEqual(getReturnWindow(store().orders[0]), { endDate: '2026-10-08', daysLeft: 0 });
   assert.deepEqual(getReturnWindow(store().orders[1]), { endDate: '2026-10-08', daysLeft: 0 });
   assert.equal(getReturnWindow(store().orders[2]), null);
 });
 
-test('closing-day midnight and 23:59:59.999 stay open; only the next midnight expires Delivered', async (t) => {
+test('Delivered and Review/Rating Submitted stay open through 23:59:59.999 and expire at the next midnight', async (t) => {
   t.mock.timers.enable({ apis: ['Date'], now: new Date('2026-10-01T00:00:00') });
   for (const returnDays of [undefined, 1, 3, 7, 10, 14]) {
     const day = 1 + (returnDays || 7);
@@ -133,11 +135,23 @@ test('closing-day midnight and 23:59:59.999 stay open; only the next midnight ex
     const nextDate = `2026-10-${String(day + 1).padStart(2, '0')}`;
     t.mock.timers.setTime(new Date(`${nextDate}T00:00:00`).getTime());
     await useOrderStore.getState().fetchOrders();
-    assert.deepEqual(rows.map((row) => row.status), ['refund_form_pending', 'review_rating_submitted']);
+    assert.deepEqual(rows.map((row) => row.status), ['refund_form_pending', 'refund_form_pending']);
     for (const order of useOrderStore.getState().orders) {
       assert.deepEqual(getReturnWindow(order), { endDate: closingDate, daysLeft: 0 });
     }
   }
+});
+
+test('reviewed orders without a delivery date are not automatically expired', async (t) => {
+  t.mock.timers.enable({ apis: ['Date'], now: new Date('2026-10-20T12:00:00') });
+  rows = [{
+    id: 'review-without-delivery', order_id: 'review-without-delivery',
+    status: 'review_rating_submitted', order_date: '2026-10-01',
+    review_rating_date: '2026-10-08',
+  }];
+  await useOrderStore.getState().fetchOrders();
+  assert.equal(rows[0].status, 'review_rating_submitted');
+  assert.equal(useOrderStore.getState().orders[0].status, 'review_rating_submitted');
 });
 
 function installBrowserEvents() {

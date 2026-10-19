@@ -12,6 +12,13 @@ interface WhatsNewModalProps {
 
 const CHANGELOG = [
   {
+    version: 'v1.1.6',
+    date: 'Oct 2026',
+    items: [
+      { type: 'improvement', text: 'Orders marked Review/Rating Submitted now also move to Refund Form Pending after their return window closes, while keeping the submitted review date.' },
+    ],
+  },
+  {
     version: 'v1.1.5',
     date: 'Oct 2026',
     items: [
