@@ -6,7 +6,8 @@ import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
 import { Order, OrderStatus, STATUS_LABELS, STATUS_COLORS, STATUS_OPTIONS, ReminderHistoryEntry, isReminderEligible, DEFAULT_REFUND_TIMELINE_DAYS, formatSellerLess, SellerLessMode, computeSellerLess } from '@/types/order';
 import { useOrderStore } from '@/store/useOrderStore';
-import { addDays, daysBetween, todayStr, fmtDate as fmtFullDate } from '@/lib/followup';
+import { addDays, todayStr, fmtDate as fmtFullDate } from '@/lib/followup';
+import { getReturnWindow } from '@/lib/returnWindow';
 import { isSafeHttpUrl } from '@/lib/urlSafety';
 
 const EditOrderModal = dynamic(() => import('./EditOrderModal'), { ssr: false });
@@ -192,13 +193,8 @@ export default function UpdateOrderModal({ order, onClose }: UpdateOrderModalPro
     }
   };
 
-  // Return period tracking — compared as calendar dates (not raw timestamps)
-  // so the window stays open through its whole last day regardless of
-  // timezone; see useOrderStore.fetchOrders for the same fix on the auto
-  // status transition.
-  const returnEndStr = order.deliveredDate ? addDays(order.deliveredDate, order.returnPeriodDays || 7) : null;
-  const returnPeriodEnd = returnEndStr ? new Date(returnEndStr + 'T00:00:00') : null;
-  const returnDaysLeft = returnEndStr ? daysBetween(returnEndStr, todayStr()) + 1 : null;
+  const returnWindow = getReturnWindow(order);
+  const returnDaysLeft = returnWindow?.daysLeft ?? null;
 
   const hasChanges =
     newStatus !== order.status ||
@@ -345,10 +341,11 @@ export default function UpdateOrderModal({ order, onClose }: UpdateOrderModalPro
             }`}>
               <p className="text-xs text-text-secondary">
                 Delivered: {fmtDate(order.deliveredDate)}
-                {' · '}{order.returnPeriodDays || 7}d return
+                {returnWindow && <> · {order.returnPeriodDays || 7}d return</>}
               </p>
-              {returnPeriodEnd && (
+              {returnWindow && (
                 <p className={`text-xs font-bold mt-0.5 ${returnDaysLeft !== null && returnDaysLeft > 0 ? 'text-yellow-400' : 'text-green-400'}`}>
+                  Return ends: {fmtFullDate(returnWindow.endDate)}{' · '}
                   {returnDaysLeft !== null && returnDaysLeft > 0
                     ? `${returnDaysLeft} days left`
                     : 'Return period over'}
@@ -682,3 +679,4 @@ export default function UpdateOrderModal({ order, onClose }: UpdateOrderModalPro
     </>
   );
 }
+

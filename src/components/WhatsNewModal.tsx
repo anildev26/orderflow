@@ -12,6 +12,13 @@ interface WhatsNewModalProps {
 
 const CHANGELOG = [
   {
+    version: 'v1.1.4',
+    date: 'Oct 2026',
+    items: [
+      { type: 'fix', text: 'Your return closing date stays visible on order cards and in order details after submitting a review or changing status. Return tracking is hidden for Refund Form Filled orders.' },
+    ],
+  },
+  {
     version: 'v1.1.3',
     date: 'Sep 2026',
     items: [
@@ -226,3 +233,4 @@ export default function WhatsNewModal({ open, onClose }: WhatsNewModalProps) {
     </div>
   );
 }
+

@@ -5,7 +5,7 @@ import dynamic from 'next/dynamic';
 import toast from 'react-hot-toast';
 import { Order, STATUS_LABELS, STATUS_COLORS, OrderPlatform, formatSellerLess } from '@/types/order';
 import { isSafeHttpUrl } from '@/lib/urlSafety';
-import { addDays, daysBetween, todayStr } from '@/lib/followup';
+import { getReturnWindow } from '@/lib/returnWindow';
 
 const UpdateOrderModal = dynamic(() => import('./UpdateOrderModal'), { ssr: false });
 
@@ -60,14 +60,11 @@ export default function OrderCard({ order }: OrderCardProps) {
     toast.success(`${label} copied!`);
   };
 
-  // Return period tracking (only when delivered). Compared as calendar dates
-  // (not raw timestamps) so the window stays open through its whole last day
-  // regardless of timezone — see useOrderStore.fetchOrders for the same fix
-  // on the auto status transition.
-  const showReturnPeriod = order.status === 'delivered' && order.deliveredDate;
-  const returnEndStr = showReturnPeriod ? addDays(order.deliveredDate!, order.returnPeriodDays || 7) : null;
+  // Keep the return window visible alongside later statuses, including reviews.
+  const returnWindow = getReturnWindow(order);
+  const returnEndStr = returnWindow?.endDate;
   const returnPeriodEnd = returnEndStr ? new Date(returnEndStr + 'T00:00:00') : null;
-  const returnDaysLeft = mounted && returnEndStr ? daysBetween(returnEndStr, todayStr()) + 1 : null;
+  const returnDaysLeft = mounted && returnWindow ? returnWindow.daysLeft : null;
 
   // Smart display: dedicated link > single clean URL in message > complex message
   const mediatorUrls = order.mediatorMessage
@@ -136,16 +133,15 @@ export default function OrderCard({ order }: OrderCardProps) {
             </div>
           </div>
 
-          {/* Return Period countdown (only when delivered) */}
-          {showReturnPeriod && returnDaysLeft !== null && (
+          {/* Return window is independent of the current status badge. */}
+          {returnWindow && returnDaysLeft !== null && (
             <div className={`mt-2 px-3 py-1.5 rounded-lg text-xs ${
               returnDaysLeft > 0
                 ? 'bg-yellow-500/10 border border-yellow-500/20 text-yellow-400'
                 : 'bg-green-500/10 border border-green-500/20 text-green-400'
             }`}>
-              {returnDaysLeft > 0
-                ? `Return ends: ${returnPeriodEnd!.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })} (${returnDaysLeft}d left)`
-                : 'Return period over'}
+              {`Return ends: ${returnPeriodEnd!.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}`}
+              {returnDaysLeft > 0 ? ` (${returnDaysLeft}d left)` : ' · Return period over'}
             </div>
           )}
 
@@ -238,3 +234,4 @@ export default function OrderCard({ order }: OrderCardProps) {
     </>
   );
 }
+

@@ -1,4 +1,4 @@
-import { Order } from '@/types/order';
+import type { Order } from '@/types/order';
 
 // ─── Date helpers (all work in local time, return YYYY-MM-DD) ───
 
@@ -111,3 +111,4 @@ export function buildFollowUpMessage(order: Order): string {
 
   return lines.join('\n');
 }
+
