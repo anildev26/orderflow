@@ -70,10 +70,10 @@ export default function DashboardPage() {
 
   const handleExportExcel = () => {
     const allOrders = useOrderStore.getState().orders;
-    const headers = ['Order ID','Platform','Email','Brand','Product','Order Date','Amount','Seller Less','Mediator','Reviewer','Type','Status','Delivered Date','Return Days','Review After Days','Review/Rating Date','Refund Form Date','Informed Mediator Date','Payment Received Date','Payment Bank'];
+    const headers = ['Order ID','Platform','Email','Brand','Product','Order Date','Amount','Seller Less','Commission','Mediator','Reviewer','Type','Status','Delivered Date','Return Days','Review After Days','Review/Rating Date','Refund Form Date','Informed Mediator Date','Payment Received Date','Payment Bank'];
     const rows = allOrders.map(o => [
       o.orderId, o.platform, o.email, o.brandName, o.productName, o.orderDate,
-      o.totalAmount, o.sellerLess, o.mediatorName, o.reviewerName, o.orderType,
+      o.totalAmount, o.sellerLess, o.commissionAmount ?? '', o.mediatorName, o.reviewerName, o.orderType,
       o.status, o.deliveredDate || '', o.returnPeriodDays || '', o.reviewAfterDays ?? '', o.reviewRatingDate || '', o.refundFormFilledDate || '', o.informedMediatorDate || '', o.paymentReceivedDate || '', o.paymentBank || '',
     ]);
     const csv = [headers.join(','), ...rows.map(r => r.map(v => `"${v}"`).join(','))].join('\n');

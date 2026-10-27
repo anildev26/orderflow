@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import toast from 'react-hot-toast';
-import { Order, OrderPlatform, ORDER_TYPES, SellerLessMode, computeSellerLess } from '@/types/order';
+import { Order, OrderPlatform, ORDER_TYPES, SellerLessMode, computeSellerLess, parseCommissionAmount } from '@/types/order';
 import { useOrderStore } from '@/store/useOrderStore';
 import { usePlatformStore } from '@/store/usePlatformStore';
 
@@ -29,6 +29,8 @@ export default function EditOrderModal({ order, onClose }: EditOrderModalProps) 
   });
   const [sellerLessMode, setSellerLessMode] = useState<SellerLessMode>(order.sellerLessPercent != null ? 'less_percent' : 'inr');
   const [sellerLessPercentInput, setSellerLessPercentInput] = useState(order.sellerLessPercent != null ? String(order.sellerLessPercent) : '');
+  const [isCommission, setIsCommission] = useState(order.commissionAmount != null);
+  const [commissionInput, setCommissionInput] = useState(order.commissionAmount != null ? String(order.commissionAmount) : '');
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -52,12 +54,19 @@ export default function EditOrderModal({ order, onClose }: EditOrderModalProps) 
       toast.error('Enter a valid total amount');
       return;
     }
-    const { sellerLess, sellerLessPercent } = computeSellerLess(
-      sellerLessMode,
-      parseFloat(form.sellerLess) || 0,
-      parseFloat(sellerLessPercentInput) || 0,
-      totalAmount
-    );
+    const commissionAmount = isCommission ? parseCommissionAmount(commissionInput) : null;
+    if (isCommission && commissionAmount == null) {
+      toast.error('Please enter the commission amount');
+      return;
+    }
+    const { sellerLess, sellerLessPercent } = isCommission
+      ? { sellerLess: 0, sellerLessPercent: null }
+      : computeSellerLess(
+          sellerLessMode,
+          parseFloat(form.sellerLess) || 0,
+          parseFloat(sellerLessPercentInput) || 0,
+          totalAmount
+        );
     setSaving(true);
     try {
       await editOrder(order.id, {
@@ -69,6 +78,7 @@ export default function EditOrderModal({ order, onClose }: EditOrderModalProps) 
         totalAmount,
         sellerLess,
         sellerLessPercent,
+        commissionAmount,
         mediatorName: form.mediatorName,
         reviewerName: form.reviewerName,
       });
@@ -90,6 +100,16 @@ export default function EditOrderModal({ order, onClose }: EditOrderModalProps) 
     const lessPct = sellerLessPercent ?? 0;
     const refundAmt = totalAmt - sellerLess;
     return `Less ${lessPct}% = ₹${sellerLess.toLocaleString('en-IN')} deducted → Refund ${100 - lessPct}% = ₹${refundAmt.toLocaleString('en-IN')} you'll get`;
+  })();
+
+  const commissionHint = (() => {
+    const totalAmt = parseFloat(form.totalAmount);
+    const commission = parseCommissionAmount(commissionInput);
+    if (!Number.isFinite(totalAmt) || commission == null) {
+      return 'Flat ₹ the mediator pays on top of the order amount. No percentage.';
+    }
+    const payout = totalAmt + commission;
+    return `You'll get ₹${payout.toLocaleString('en-IN')} — order ₹${totalAmt.toLocaleString('en-IN')} plus ₹${commission.toLocaleString('en-IN')} commission.`;
   })();
 
   return (
@@ -181,48 +201,71 @@ export default function EditOrderModal({ order, onClose }: EditOrderModalProps) 
             />
           </div>
 
-          {/* Seller Less */}
+          {/* Seller's Less (default) or a flat commission. Either one, never both. */}
           <div>
-            <label className="block text-xs font-semibold text-text-secondary mb-1.5">Seller Less</label>
-            <div className="inline-flex flex-wrap gap-1 p-1 mb-1.5 bg-dashboard-bg border border-dashboard-border rounded-lg">
-              {([
-                { key: 'inr', label: '₹ Amount' },
-                { key: 'refund_percent', label: 'Refund %' },
-                { key: 'less_percent', label: 'Less %' },
-              ] as const).map((opt) => (
-                <button
-                  key={opt.key}
-                  type="button"
-                  onClick={() => setSellerLessMode(opt.key)}
-                  className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition ${
-                    sellerLessMode === opt.key ? 'bg-accent-blue text-white' : 'text-text-secondary hover:text-text-primary'
-                  }`}
-                >
-                  {opt.label}
+            {isCommission ? (
+              <>
+                <label className="block text-xs font-semibold text-text-secondary mb-1.5">Commission (₹)</label>
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  value={commissionInput}
+                  onChange={(e) => { if (e.target.value === '' || /^\d*\.?\d*$/.test(e.target.value)) setCommissionInput(e.target.value); }}
+                  placeholder="0"
+                  className={ic}
+                />
+                <p className="text-[11px] text-text-muted mt-1">{commissionHint}</p>
+                <button type="button" onClick={() => setIsCommission(false)} className="mt-1.5 text-xs font-medium text-accent-blue hover:underline">
+                  Use seller&apos;s less instead
                 </button>
-              ))}
-            </div>
-            {sellerLessMode === 'inr' ? (
-              <input
-                type="text"
-                inputMode="decimal"
-                name="sellerLess"
-                value={form.sellerLess}
-                onChange={handleAmountChange}
-                placeholder="0"
-                className={ic}
-              />
+              </>
             ) : (
-              <input
-                type="text"
-                inputMode="decimal"
-                value={sellerLessPercentInput}
-                onChange={(e) => { if (e.target.value === '' || /^\d*\.?\d*$/.test(e.target.value)) setSellerLessPercentInput(e.target.value); }}
-                placeholder="0"
-                className={ic}
-              />
+              <>
+                <label className="block text-xs font-semibold text-text-secondary mb-1.5">Seller Less</label>
+                <div className="inline-flex flex-wrap gap-1 p-1 mb-1.5 bg-dashboard-bg border border-dashboard-border rounded-lg">
+                  {([
+                    { key: 'inr', label: '₹ Amount' },
+                    { key: 'refund_percent', label: 'Refund %' },
+                    { key: 'less_percent', label: 'Less %' },
+                  ] as const).map((opt) => (
+                    <button
+                      key={opt.key}
+                      type="button"
+                      onClick={() => setSellerLessMode(opt.key)}
+                      className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition ${
+                        sellerLessMode === opt.key ? 'bg-accent-blue text-white' : 'text-text-secondary hover:text-text-primary'
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+                {sellerLessMode === 'inr' ? (
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    name="sellerLess"
+                    value={form.sellerLess}
+                    onChange={handleAmountChange}
+                    placeholder="0"
+                    className={ic}
+                  />
+                ) : (
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    value={sellerLessPercentInput}
+                    onChange={(e) => { if (e.target.value === '' || /^\d*\.?\d*$/.test(e.target.value)) setSellerLessPercentInput(e.target.value); }}
+                    placeholder="0"
+                    className={ic}
+                  />
+                )}
+                {sellerLessHint && <p className="text-[11px] text-text-muted mt-1">{sellerLessHint}</p>}
+                <button type="button" onClick={() => setIsCommission(true)} className="mt-1.5 text-xs font-medium text-accent-blue hover:underline">
+                  Commission deal instead?
+                </button>
+              </>
             )}
-            {sellerLessHint && <p className="text-[11px] text-text-muted mt-1">{sellerLessHint}</p>}
           </div>
 
           {/* Mediator Name */}

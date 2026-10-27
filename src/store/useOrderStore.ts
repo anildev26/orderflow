@@ -61,6 +61,7 @@ function dbToOrder(row: Record<string, unknown>): Order {
     totalAmount: Number(row.total_amount) || 0,
     sellerLess: Number(row.seller_less) || 0,
     sellerLessPercent: row.seller_less_percent != null ? Number(row.seller_less_percent) : null,
+    commissionAmount: row.commission_amount != null && row.commission_amount !== '' ? Number(row.commission_amount) : null,
     mediatorName: (row.mediator_name as string) || '',
     reviewerName: (row.reviewer_name as string) || '',
     orderType: (row.order_type as string) || 'Rating',
@@ -104,6 +105,7 @@ function orderToDb(order: Partial<Order> & { userId?: string }) {
   if (order.totalAmount !== undefined) result.total_amount = order.totalAmount;
   if (order.sellerLess !== undefined) result.seller_less = order.sellerLess;
   if (order.sellerLessPercent !== undefined) result.seller_less_percent = order.sellerLessPercent;
+  if (order.commissionAmount !== undefined) result.commission_amount = order.commissionAmount;
   if (order.mediatorName !== undefined) result.mediator_name = order.mediatorName;
   if (order.reviewerName !== undefined) result.reviewer_name = order.reviewerName;
   if (order.orderType !== undefined) result.order_type = order.orderType;
@@ -327,6 +329,7 @@ export const useOrderStore = create<OrderStore>()((set, get) => ({
     if (extras.refundFormLink !== undefined) updateData.refund_form_link = isSafeHttpUrl(extras.refundFormLink) ? extras.refundFormLink : null;
     if (extras.sellerLess !== undefined) updateData.seller_less = extras.sellerLess;
     if (extras.sellerLessPercent !== undefined) updateData.seller_less_percent = extras.sellerLessPercent;
+    if (extras.commissionAmount !== undefined) updateData.commission_amount = extras.commissionAmount;
     if (extras.isReplacement !== undefined) updateData.is_replacement = extras.isReplacement;
     if (extras.replacementOrderId !== undefined) updateData.replacement_order_id = extras.replacementOrderId;
     if (extras.totalAmount !== undefined) updateData.total_amount = extras.totalAmount;
@@ -406,7 +409,7 @@ export const useOrderStore = create<OrderStore>()((set, get) => ({
     if (platform && platform !== 'all') orders = orders.filter((o) => o.platform === platform);
     const activeOrders = orders.filter((o) => o.status !== 'payment_received' && o.status !== 'order_cancelled');
     const totalAmount = activeOrders.reduce((sum, o) => sum + o.totalAmount, 0);
-    const actualSpent = activeOrders.reduce((sum, o) => sum + o.sellerLess, 0);
+    const actualSpent = activeOrders.reduce((sum, o) => sum + (o.commissionAmount != null ? 0 : o.sellerLess), 0);
     const day = today || todayStr();
     return {
       totalOrders: activeOrders.length,

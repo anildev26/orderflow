@@ -6,7 +6,7 @@ import toast from 'react-hot-toast';
 import { useOrderStore } from '@/store/useOrderStore';
 import { usePlatformStore } from '@/store/usePlatformStore';
 import { useAuth } from '@/hooks/useAuth';
-import { OrderPlatform, ORDER_TYPES, SellerLessMode, computeSellerLess } from '@/types/order';
+import { OrderPlatform, ORDER_TYPES, SellerLessMode, computeSellerLess, parseCommissionAmount } from '@/types/order';
 import { isSafeHttpUrl } from '@/lib/urlSafety';
 import ThemeToggle from '@/components/ThemeToggle';
 
@@ -41,6 +41,7 @@ export default function OrderFormPage() {
   const today = `${_d.getFullYear()}-${String(_d.getMonth() + 1).padStart(2, '0')}-${String(_d.getDate()).padStart(2, '0')}`;
 
   const [submitted, setSubmitted] = useState(false);
+  const [dealMode, setDealMode] = useState<'seller_less' | 'commission'>('seller_less');
   const [sellerLessMode, setSellerLessMode] = useState<SellerLessMode>('inr');
   const [sellerLessPercentInput, setSellerLessPercentInput] = useState('');
 
@@ -55,6 +56,7 @@ export default function OrderFormPage() {
     exchangeProductName: '',
     totalAmount: '',
     sellerLess: '',
+    commissionAmount: '',
     mediatorNameCustom: '',
     reviewerNameCustom: '',
     isReplacement: false,
@@ -107,14 +109,21 @@ export default function OrderFormPage() {
       toast.error('Refund Form Link must start with http:// or https://');
       return;
     }
+    const commissionAmount = dealMode === 'commission' ? parseCommissionAmount(form.commissionAmount) : null;
+    if (dealMode === 'commission' && commissionAmount == null) {
+      toast.error('Please enter the commission amount');
+      return;
+    }
+    const { sellerLess, sellerLessPercent } = dealMode === 'commission'
+      ? { sellerLess: 0, sellerLessPercent: null }
+      : computeSellerLess(
+          sellerLessMode,
+          parseFloat(form.sellerLess) || 0,
+          parseFloat(sellerLessPercentInput) || 0,
+          parseFloat(form.totalAmount) || 0
+        );
     setSubmitting(true);
     try {
-      const { sellerLess, sellerLessPercent } = computeSellerLess(
-        sellerLessMode,
-        parseFloat(form.sellerLess) || 0,
-        parseFloat(sellerLessPercentInput) || 0,
-        parseFloat(form.totalAmount) || 0
-      );
       await addOrder({
         orderId: form.orderId,
         platform: form.platform as OrderPlatform,
@@ -125,6 +134,7 @@ export default function OrderFormPage() {
         totalAmount: parseFloat(form.totalAmount),
         sellerLess,
         sellerLessPercent,
+        commissionAmount,
         mediatorName: form.mediatorNameCustom || '',
         reviewerName: form.reviewerNameCustom || '',
         orderType: form.orderType,
@@ -144,6 +154,7 @@ export default function OrderFormPage() {
 
   const handleReset = () => {
     const email = authUser?.email ?? '';
+    setDealMode('seller_less');
     setSellerLessMode('inr');
     setSellerLessPercentInput('');
     setForm({
@@ -157,6 +168,7 @@ export default function OrderFormPage() {
       exchangeProductName: '',
       totalAmount: '',
       sellerLess: '',
+      commissionAmount: '',
       mediatorNameCustom: '',
       reviewerNameCustom: '',
       isReplacement: false,
@@ -182,6 +194,16 @@ export default function OrderFormPage() {
     const refundAmt = totalAmt - sellerLess;
     const refundPct = 100 - lessPct;
     return `Less ${lessPct}% = ₹${sellerLess.toLocaleString('en-IN')} deducted → Refund ${refundPct}% = ₹${refundAmt.toLocaleString('en-IN')} you'll get`;
+  })();
+
+  const commissionHint = (() => {
+    const totalAmt = parseFloat(form.totalAmount);
+    const commission = parseCommissionAmount(form.commissionAmount);
+    if (!Number.isFinite(totalAmt) || commission == null) {
+      return 'Flat ₹ the mediator pays on top of the order amount. No percentage.';
+    }
+    const payout = totalAmt + commission;
+    return `You'll get ₹${payout.toLocaleString('en-IN')} — order ₹${totalAmt.toLocaleString('en-IN')} plus ₹${commission.toLocaleString('en-IN')} commission.`;
   })();
 
   return (
@@ -388,39 +410,59 @@ export default function OrderFormPage() {
                 <p className="text-xs text-form-hint mt-1">Enter the exact total order amount from the order page.</p>
               </div>
 
-              {/* 9. Seller Less */}
+              {/* 9. Seller's Less (default) or a flat commission */}
               <div>
-                <label className={labelClass}>Seller&apos;s Less <span className="text-accent-red">*</span></label>
-                <div className="inline-flex flex-wrap gap-1 p-1 mb-2 bg-form-input-bg border border-form-border rounded-lg">
-                  {([
-                    { key: 'inr', label: '₹ Amount' },
-                    { key: 'refund_percent', label: 'Refund %' },
-                    { key: 'less_percent', label: 'Less %' },
-                  ] as const).map((opt) => (
-                    <button
-                      key={opt.key}
-                      type="button"
-                      onClick={() => setSellerLessMode(opt.key)}
-                      className={`px-3 py-1.5 rounded-md text-xs font-semibold transition ${
-                        sellerLessMode === opt.key ? 'bg-accent-blue text-white' : 'text-form-label hover:text-form-text'
-                      }`}
-                    >
-                      {opt.label}
+                {dealMode === 'commission' ? (
+                  <>
+                    <label className={labelClass}>Commission <span className="text-accent-red">*</span></label>
+                    <div className="flex min-w-0">
+                      <span className="inline-flex items-center px-3 bg-form-currency-bg border border-r-0 border-form-currency-border rounded-l-lg text-form-currency-text font-semibold flex-shrink-0">₹</span>
+                      <input type="number" name="commissionAmount" value={form.commissionAmount} onChange={handleChange} placeholder="0" min="0" className="min-w-0 flex-1 bg-form-input-bg border border-form-border px-4 py-2.5 text-form-text placeholder-form-placeholder focus:ring-2 focus:ring-accent-blue outline-none transition" />
+                      <span className="inline-flex items-center px-2 bg-form-currency-bg border border-l-0 border-form-currency-border rounded-r-lg text-form-currency-text text-xs flex-shrink-0">Commission</span>
+                    </div>
+                    <p className="text-xs text-form-hint mt-1">{commissionHint}</p>
+                    <button type="button" onClick={() => setDealMode('seller_less')} className="mt-1.5 text-xs font-medium text-accent-blue hover:underline">
+                      Use seller&apos;s less instead
                     </button>
-                  ))}
-                </div>
-                <div className="flex min-w-0">
-                  <span className="inline-flex items-center px-3 bg-form-currency-bg border border-r-0 border-form-currency-border rounded-l-lg text-form-currency-text font-semibold flex-shrink-0">
-                    {sellerLessMode === 'inr' ? '₹' : '%'}
-                  </span>
-                  {sellerLessMode === 'inr' ? (
-                    <input type="number" name="sellerLess" value={form.sellerLess} onChange={handleChange} placeholder="0" min="0" className="min-w-0 flex-1 bg-form-input-bg border border-form-border px-4 py-2.5 text-form-text placeholder-form-placeholder focus:ring-2 focus:ring-accent-blue outline-none transition" />
-                  ) : (
-                    <input type="number" value={sellerLessPercentInput} onChange={(e) => setSellerLessPercentInput(e.target.value)} placeholder="0" min="0" max="100" className="min-w-0 flex-1 bg-form-input-bg border border-form-border px-4 py-2.5 text-form-text placeholder-form-placeholder focus:ring-2 focus:ring-accent-blue outline-none transition" />
-                  )}
-                  <span className="inline-flex items-center px-2 bg-form-currency-bg border border-l-0 border-form-currency-border rounded-r-lg text-form-currency-text text-xs flex-shrink-0">Less</span>
-                </div>
-                <p className="text-xs text-form-hint mt-1">{sellerLessHint}</p>
+                  </>
+                ) : (
+                  <>
+                    <label className={labelClass}>Seller&apos;s Less <span className="text-accent-red">*</span></label>
+                    <div className="inline-flex flex-wrap gap-1 p-1 mb-2 bg-form-input-bg border border-form-border rounded-lg">
+                      {([
+                        { key: 'inr', label: '₹ Amount' },
+                        { key: 'refund_percent', label: 'Refund %' },
+                        { key: 'less_percent', label: 'Less %' },
+                      ] as const).map((opt) => (
+                        <button
+                          key={opt.key}
+                          type="button"
+                          onClick={() => setSellerLessMode(opt.key)}
+                          className={`px-3 py-1.5 rounded-md text-xs font-semibold transition ${
+                            sellerLessMode === opt.key ? 'bg-accent-blue text-white' : 'text-form-label hover:text-form-text'
+                          }`}
+                        >
+                          {opt.label}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="flex min-w-0">
+                      <span className="inline-flex items-center px-3 bg-form-currency-bg border border-r-0 border-form-currency-border rounded-l-lg text-form-currency-text font-semibold flex-shrink-0">
+                        {sellerLessMode === 'inr' ? '₹' : '%'}
+                      </span>
+                      {sellerLessMode === 'inr' ? (
+                        <input type="number" name="sellerLess" value={form.sellerLess} onChange={handleChange} placeholder="0" min="0" className="min-w-0 flex-1 bg-form-input-bg border border-form-border px-4 py-2.5 text-form-text placeholder-form-placeholder focus:ring-2 focus:ring-accent-blue outline-none transition" />
+                      ) : (
+                        <input type="number" value={sellerLessPercentInput} onChange={(e) => setSellerLessPercentInput(e.target.value)} placeholder="0" min="0" max="100" className="min-w-0 flex-1 bg-form-input-bg border border-form-border px-4 py-2.5 text-form-text placeholder-form-placeholder focus:ring-2 focus:ring-accent-blue outline-none transition" />
+                      )}
+                      <span className="inline-flex items-center px-2 bg-form-currency-bg border border-l-0 border-form-currency-border rounded-r-lg text-form-currency-text text-xs flex-shrink-0">Less</span>
+                    </div>
+                    <p className="text-xs text-form-hint mt-1">{sellerLessHint}</p>
+                    <button type="button" onClick={() => setDealMode('commission')} className="mt-1.5 text-xs font-medium text-accent-blue hover:underline">
+                      Commission deal instead?
+                    </button>
+                  </>
+                )}
               </div>
 
               {/* 10. Mediator Name */}

@@ -4,7 +4,7 @@ import { useState } from 'react';
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
-import { Order, OrderStatus, STATUS_LABELS, STATUS_COLORS, STATUS_OPTIONS, ReminderHistoryEntry, isReminderEligible, DEFAULT_REFUND_TIMELINE_DAYS, formatSellerLess, SellerLessMode, computeSellerLess } from '@/types/order';
+import { Order, OrderStatus, STATUS_LABELS, STATUS_COLORS, STATUS_OPTIONS, ReminderHistoryEntry, isReminderEligible, DEFAULT_REFUND_TIMELINE_DAYS, formatSellerLess, SellerLessMode, computeSellerLess, expectedRefund, parseCommissionAmount } from '@/types/order';
 import { useOrderStore } from '@/store/useOrderStore';
 import { addDays, todayStr, fmtDate as fmtFullDate } from '@/lib/followup';
 import { getReturnWindow } from '@/lib/returnWindow';
@@ -56,6 +56,8 @@ export default function UpdateOrderModal({ order, onClose }: UpdateOrderModalPro
   const [sellerLess, setSellerLess] = useState(order.sellerLess);
   const [sellerLessMode, setSellerLessMode] = useState<SellerLessMode>(order.sellerLessPercent != null ? 'less_percent' : 'inr');
   const [sellerLessPercentInput, setSellerLessPercentInput] = useState(order.sellerLessPercent != null ? String(order.sellerLessPercent) : '');
+  const [isCommission, setIsCommission] = useState(order.commissionAmount != null);
+  const [commissionInput, setCommissionInput] = useState(order.commissionAmount != null ? String(order.commissionAmount) : '');
   const [isReplacement, setIsReplacement] = useState(order.isReplacement);
   const [replacementOrderId, setReplacementOrderId] = useState(order.replacementOrderId || '');
   const [replacementAmount, setReplacementAmount] = useState(String(order.totalAmount || ''));
@@ -69,7 +71,7 @@ export default function UpdateOrderModal({ order, onClose }: UpdateOrderModalPro
 
   // Copy all details for WhatsApp
   const handleCopyDetails = () => {
-    const refundAmount = order.totalAmount - order.sellerLess;
+    const refundAmount = expectedRefund(order.totalAmount, order.sellerLess, order.commissionAmount);
     const lines: string[] = [
       `📦 *Order Details*`,
       ``,
@@ -81,9 +83,13 @@ export default function UpdateOrderModal({ order, onClose }: UpdateOrderModalPro
       ``,
       `💰 *Payment Info*`,
       `*Order Amount:* ₹${order.totalAmount.toLocaleString('en-IN')}`,
-      `*Seller Less:* ${formatSellerLess(order.sellerLess, order.sellerLessPercent)}`,
-      `*Refund Amount:* ₹${refundAmount.toLocaleString('en-IN')}`,
     ];
+    if (order.commissionAmount != null) {
+      lines.push(`*Commission:* ₹${order.commissionAmount.toLocaleString('en-IN')}`);
+    } else {
+      lines.push(`*Seller Less:* ${formatSellerLess(order.sellerLess, order.sellerLessPercent)}`);
+    }
+    lines.push(`*Refund Amount:* ₹${refundAmount.toLocaleString('en-IN')}`);
 
     if (order.mediatorName) lines.push(``, `👤 *Mediator:* ${order.mediatorName}`);
     if (order.reviewerName) lines.push(`*Reviewer:* ${order.reviewerName}`);
@@ -180,8 +186,20 @@ export default function UpdateOrderModal({ order, onClose }: UpdateOrderModalPro
 
     if (mediatorMessage !== (order.mediatorMessage || '')) extras.mediatorMessage = mediatorMessage;
     if (refundFormLink !== (order.refundFormLink || '')) extras.refundFormLink = refundFormLink.trim() || undefined;
-    if (finalSellerLess !== order.sellerLess) extras.sellerLess = finalSellerLess;
-    if (finalSellerLessPercent !== (order.sellerLessPercent ?? null)) extras.sellerLessPercent = finalSellerLessPercent;
+    if (isCommission) {
+      const commission = parseCommissionAmount(commissionInput);
+      if (commission == null) {
+        toast.error('Please enter the commission amount');
+        return;
+      }
+      if (order.commissionAmount !== commission) extras.commissionAmount = commission;
+      if (order.sellerLess !== 0) extras.sellerLess = 0;
+      if ((order.sellerLessPercent ?? null) !== null) extras.sellerLessPercent = null;
+    } else {
+      if (order.commissionAmount != null) extras.commissionAmount = null;
+      if (finalSellerLess !== order.sellerLess) extras.sellerLess = finalSellerLess;
+      if (finalSellerLessPercent !== (order.sellerLessPercent ?? null)) extras.sellerLessPercent = finalSellerLessPercent;
+    }
     if (isReplacement !== order.isReplacement) extras.isReplacement = isReplacement;
     if (isReplacement) {
       if (replacementOrderId !== (order.replacementOrderId || '')) extras.replacementOrderId = replacementOrderId;
@@ -205,8 +223,9 @@ export default function UpdateOrderModal({ order, onClose }: UpdateOrderModalPro
     newStatus !== order.status ||
     mediatorMessage !== (order.mediatorMessage || '') ||
     refundFormLink !== (order.refundFormLink || '') ||
-    finalSellerLess !== order.sellerLess ||
-    finalSellerLessPercent !== (order.sellerLessPercent ?? null) ||
+    (isCommission
+      ? order.commissionAmount !== parseCommissionAmount(commissionInput) || order.sellerLess !== 0 || (order.sellerLessPercent ?? null) !== null
+      : order.commissionAmount != null || finalSellerLess !== order.sellerLess || finalSellerLessPercent !== (order.sellerLessPercent ?? null)) ||
     isReplacement !== order.isReplacement ||
     (isReplacement && replacementOrderId !== (order.replacementOrderId || '')) ||
     (isReplacement && parseFloat(replacementAmount) !== order.totalAmount) ||
@@ -225,7 +244,11 @@ export default function UpdateOrderModal({ order, onClose }: UpdateOrderModalPro
   const previewTimeline = parseInt(timelineDays, 10) > 0 ? parseInt(timelineDays, 10) : DEFAULT_REFUND_TIMELINE_DAYS;
   const previewNextReminder = addDays(reminderAnchor, previewTimeline);
 
-  const refundAmount = order.totalAmount - order.sellerLess;
+  const refundAmount = expectedRefund(order.totalAmount, order.sellerLess, order.commissionAmount);
+  const parsedCommission = parseCommissionAmount(commissionInput);
+  const commissionPreview = isCommission && parsedCommission != null
+    ? `You'll get ₹${(order.totalAmount + parsedCommission).toLocaleString('en-IN')} — order ₹${order.totalAmount.toLocaleString('en-IN')} plus ₹${parsedCommission.toLocaleString('en-IN')} commission.`
+    : null;
 
   return (
     <>
@@ -278,12 +301,14 @@ export default function UpdateOrderModal({ order, onClose }: UpdateOrderModalPro
               <span className="text-xs text-text-muted">Amount</span>
               <span className="text-sm font-bold text-green-400">
                 &#8377;{order.totalAmount.toLocaleString('en-IN')}
-                {order.sellerLess > 0 && (
+                {order.commissionAmount != null ? (
+                  <span className="text-xs text-text-muted ml-1">(Commission: &#8377;{order.commissionAmount.toLocaleString('en-IN')})</span>
+                ) : order.sellerLess > 0 ? (
                   <span className="text-xs text-text-muted ml-1">(Less: {formatSellerLess(order.sellerLess, order.sellerLessPercent)})</span>
-                )}
+                ) : null}
               </span>
             </div>
-            {order.sellerLess > 0 && (
+            {(order.commissionAmount != null || order.sellerLess > 0) && (
               <div className="flex items-center justify-between">
                 <span className="text-xs text-text-muted">Refund Amount</span>
                 <span className="text-sm font-bold text-emerald-400">&#8377;{refundAmount.toLocaleString('en-IN')}</span>
@@ -386,50 +411,75 @@ export default function UpdateOrderModal({ order, onClose }: UpdateOrderModalPro
             </div>
           )}
 
-          {/* Seller Less */}
+          {/* Seller's Less (default) or a flat commission. Either one, never both. */}
           <div>
-            <label className="block text-sm font-semibold text-text-primary mb-2">Seller Less Amount</label>
-            <div className="inline-flex flex-wrap gap-1 p-1 mb-2 bg-dashboard-bg border border-dashboard-border rounded-lg">
-              {([
-                { key: 'inr', label: '₹ Amount' },
-                { key: 'refund_percent', label: 'Refund %' },
-                { key: 'less_percent', label: 'Less %' },
-              ] as const).map((opt) => (
-                <button
-                  key={opt.key}
-                  type="button"
-                  onClick={() => setSellerLessMode(opt.key)}
-                  className={`px-2.5 py-1 rounded-md text-xs font-semibold transition ${
-                    sellerLessMode === opt.key ? 'bg-accent-blue text-white' : 'text-text-secondary hover:text-text-primary'
-                  }`}
-                >
-                  {opt.label}
+            {isCommission ? (
+              <>
+                <label className="block text-sm font-semibold text-text-primary mb-2">Commission</label>
+                <input
+                  type="number"
+                  value={commissionInput}
+                  onChange={(e) => setCommissionInput(e.target.value)}
+                  min={0}
+                  placeholder="0"
+                  className="w-full bg-dashboard-bg border border-dashboard-border rounded-lg px-4 py-2.5 text-sm text-text-primary focus:ring-2 focus:ring-accent-blue outline-none"
+                />
+                <p className="text-[11px] text-text-muted mt-1">
+                  {commissionPreview ?? 'Flat ₹ the mediator pays on top of the order amount. No percentage.'}
+                </p>
+                <button type="button" onClick={() => setIsCommission(false)} className="mt-1.5 text-xs font-medium text-accent-blue hover:underline">
+                  Use seller&apos;s less instead
                 </button>
-              ))}
-            </div>
-            {sellerLessMode === 'inr' ? (
-              <input
-                type="number"
-                value={sellerLess}
-                onChange={(e) => setSellerLess(Number(e.target.value) || 0)}
-                min={0}
-                className="w-full bg-dashboard-bg border border-dashboard-border rounded-lg px-4 py-2.5 text-sm text-text-primary focus:ring-2 focus:ring-accent-blue outline-none"
-              />
+              </>
             ) : (
-              <input
-                type="number"
-                value={sellerLessPercentInput}
-                onChange={(e) => setSellerLessPercentInput(e.target.value)}
-                min={0}
-                max={100}
-                placeholder="0"
-                className="w-full bg-dashboard-bg border border-dashboard-border rounded-lg px-4 py-2.5 text-sm text-text-primary focus:ring-2 focus:ring-accent-blue outline-none"
-              />
-            )}
-            {sellerLessMode !== 'inr' && sellerLessPercentInput && (
-              <p className="text-[11px] text-text-muted mt-1">
-                Less {finalSellerLessPercent ?? 0}% = ₹{finalSellerLess.toLocaleString('en-IN')} deducted &rarr; Refund {100 - (finalSellerLessPercent ?? 0)}% = ₹{(order.totalAmount - finalSellerLess).toLocaleString('en-IN')} you&apos;ll get
-              </p>
+              <>
+                <label className="block text-sm font-semibold text-text-primary mb-2">Seller Less Amount</label>
+                <div className="inline-flex flex-wrap gap-1 p-1 mb-2 bg-dashboard-bg border border-dashboard-border rounded-lg">
+                  {([
+                    { key: 'inr', label: '₹ Amount' },
+                    { key: 'refund_percent', label: 'Refund %' },
+                    { key: 'less_percent', label: 'Less %' },
+                  ] as const).map((opt) => (
+                    <button
+                      key={opt.key}
+                      type="button"
+                      onClick={() => setSellerLessMode(opt.key)}
+                      className={`px-2.5 py-1 rounded-md text-xs font-semibold transition ${
+                        sellerLessMode === opt.key ? 'bg-accent-blue text-white' : 'text-text-secondary hover:text-text-primary'
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+                {sellerLessMode === 'inr' ? (
+                  <input
+                    type="number"
+                    value={sellerLess}
+                    onChange={(e) => setSellerLess(Number(e.target.value) || 0)}
+                    min={0}
+                    className="w-full bg-dashboard-bg border border-dashboard-border rounded-lg px-4 py-2.5 text-sm text-text-primary focus:ring-2 focus:ring-accent-blue outline-none"
+                  />
+                ) : (
+                  <input
+                    type="number"
+                    value={sellerLessPercentInput}
+                    onChange={(e) => setSellerLessPercentInput(e.target.value)}
+                    min={0}
+                    max={100}
+                    placeholder="0"
+                    className="w-full bg-dashboard-bg border border-dashboard-border rounded-lg px-4 py-2.5 text-sm text-text-primary focus:ring-2 focus:ring-accent-blue outline-none"
+                  />
+                )}
+                {sellerLessMode !== 'inr' && sellerLessPercentInput && (
+                  <p className="text-[11px] text-text-muted mt-1">
+                    Less {finalSellerLessPercent ?? 0}% = ₹{finalSellerLess.toLocaleString('en-IN')} deducted &rarr; Refund {100 - (finalSellerLessPercent ?? 0)}% = ₹{(order.totalAmount - finalSellerLess).toLocaleString('en-IN')} you&apos;ll get
+                  </p>
+                )}
+                <button type="button" onClick={() => setIsCommission(true)} className="mt-1.5 text-xs font-medium text-accent-blue hover:underline">
+                  Commission deal instead?
+                </button>
+              </>
             )}
           </div>
 

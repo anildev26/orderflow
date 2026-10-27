@@ -1,4 +1,4 @@
-import type { Order } from '@/types/order';
+import { expectedRefund, type Order } from '@/types/order';
 
 // ─── Date helpers (all work in local time, return YYYY-MM-DD) ───
 
@@ -74,7 +74,7 @@ const PLATFORM_TITLE: Record<string, string> = {
  * framed as a polite status request.
  */
 export function buildFollowUpMessage(order: Order): string {
-  const refundAmount = order.totalAmount - order.sellerLess;
+  const refundAmount = expectedRefund(order.totalAmount, order.sellerLess, order.commissionAmount);
   const platform = PLATFORM_TITLE[order.platform] || order.platform;
   const filled = order.refundFormFilledDate;
   const sinceFilled = filled ? daysBetween(todayStr(), filled) : null;
@@ -97,6 +97,11 @@ export function buildFollowUpMessage(order: Order): string {
   lines.push(
     ``,
     `💰 *Order Amount:* ₹${order.totalAmount.toLocaleString('en-IN')}`,
+  );
+  if (order.commissionAmount != null) {
+    lines.push(`➕ *Commission:* ₹${order.commissionAmount.toLocaleString('en-IN')}`);
+  }
+  lines.push(
     `💸 *Refund Amount:* ₹${refundAmount.toLocaleString('en-IN')}`,
     ``,
   );
