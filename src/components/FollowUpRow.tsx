@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import dynamic from 'next/dynamic';
 import toast from 'react-hot-toast';
-import { Order, STATUS_LABELS, STATUS_COLORS, OrderPlatform, formatSellerLess } from '@/types/order';
+import { Order, STATUS_LABELS, STATUS_COLORS, OrderPlatform, formatSellerLess, expectedRefund } from '@/types/order';
 import { useOrderStore } from '@/store/useOrderStore';
 import {
   buildFollowUpMessage,
@@ -47,7 +47,7 @@ export default function FollowUpRow({ order }: { order: Order }) {
   const [busy, setBusy] = useState(false);
 
   const overdue = order.nextReminderDate ? daysOverdue(order.nextReminderDate) : 0;
-  const refundAmount = order.totalAmount - order.sellerLess;
+  const refundAmount = expectedRefund(order.totalAmount, order.sellerLess, order.commissionAmount);
 
   // Urgency drives the left border + the overdue badge
   const urgency = overdue > 0 ? 'overdue' : overdue === 0 ? 'due' : 'upcoming';
@@ -146,7 +146,11 @@ export default function FollowUpRow({ order }: { order: Order }) {
               <Detail label="Product" value={order.productName || '-'} />
               <Detail label="Order Date" value={fmtDate(order.orderDate)} />
               <Detail label="Order Amount" value={`₹${order.totalAmount.toLocaleString('en-IN')}`} />
-              {order.sellerLess > 0 && <Detail label="Seller Less" value={formatSellerLess(order.sellerLess, order.sellerLessPercent)} />}
+              {order.commissionAmount != null ? (
+                <Detail label="Commission" value={`₹${order.commissionAmount.toLocaleString('en-IN')}`} />
+              ) : order.sellerLess > 0 ? (
+                <Detail label="Seller Less" value={formatSellerLess(order.sellerLess, order.sellerLessPercent)} />
+              ) : null}
               <Detail label="Refund Amount" value={`₹${refundAmount.toLocaleString('en-IN')}`} accent />
               {order.email && <Detail label="Email" value={order.email} />}
               {order.refundFormFilledDate && <Detail label="Refund Form Filled" value={fmtDate(order.refundFormFilledDate)} />}

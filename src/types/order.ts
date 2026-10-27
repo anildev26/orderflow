@@ -61,6 +61,10 @@ export interface Order {
   // clears it (e.g. switching back to a flat ₹ entry); absent/undefined
   // when reading a legacy order that never had one.
   sellerLessPercent?: number | null;
+  // null = seller's less deal, including a full refund where sellerLess is 0.
+  // A number (including 0) = commission deal: the mediator pays totalAmount
+  // plus this flat INR amount. Never set together with a non-zero sellerLess.
+  commissionAmount?: number | null;
   mediatorName: string;
   reviewerName: string;
   orderType: string;
@@ -104,6 +108,7 @@ export interface OrderFormData {
   exchangeProductName: string;
   sellerLess: number;
   sellerLessPercent?: number | null;
+  commissionAmount?: number | null;
   mediatorName: string;
   reviewerName: string;
   isReplacement: boolean;
@@ -170,6 +175,22 @@ export function computeSellerLess(
   if (mode === 'inr') return { sellerLess: inrInput, sellerLessPercent: null };
   const lessPercent = mode === 'refund_percent' ? 100 - percentInput : percentInput;
   return { sellerLess: Math.round((totalAmount * lessPercent) / 100), sellerLessPercent: lessPercent };
+}
+
+// Refund the buyer is owed. A commission deal pays the product amount plus a
+// flat commission; a seller's-less deal pays the product amount minus seller's less.
+export function expectedRefund(totalAmount: number, sellerLess: number, commissionAmount?: number | null): number {
+  return commissionAmount != null ? totalAmount + commissionAmount : totalAmount - sellerLess;
+}
+
+// Flat INR commission. Empty or invalid input returns null so callers can
+// require a number. 0 is a valid commission.
+export function parseCommissionAmount(raw: string): number | null {
+  const trimmed = raw.trim();
+  if (trimmed === '') return null;
+  const n = Number(trimmed);
+  if (!Number.isFinite(n) || n < 0) return null;
+  return n;
 }
 
 export const PLATFORM_OPTIONS: { value: OrderPlatform; label: string }[] = [

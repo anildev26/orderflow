@@ -12,6 +12,14 @@ interface WhatsNewModalProps {
 
 const CHANGELOG = [
   {
+    version: 'v1.1.8',
+    date: 'Oct 2026',
+    items: [
+      { type: 'new', text: 'Commission deals: on the order form, choose “Commission deal instead?” when the mediator pays the product amount back plus a small flat commission, such as ₹50 or ₹100. The refund is the order amount plus that commission. Seller’s Less stays the default, and an order is one or the other.' },
+      { type: 'improvement', text: 'You can switch an existing order to a commission deal, or back to Seller’s Less, from Edit Order. Order cards, archive, follow-ups, and WhatsApp copy show the commission and the updated refund.' },
+    ],
+  },
+  {
     version: 'v1.1.7',
     date: 'Oct 2026',
     items: [

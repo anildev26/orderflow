@@ -117,7 +117,11 @@ export default function OrderCard({ order }: OrderCardProps) {
             <p className="text-sm font-medium text-text-primary truncate">{order.productName}</p>
             <div className="flex items-center gap-3 text-xs text-text-muted">
               <span className="text-sm font-bold text-green-400">&#8377;{order.totalAmount.toLocaleString('en-IN')}</span>
-              {order.sellerLess > 0 && <span>Less: {formatSellerLess(order.sellerLess, order.sellerLessPercent)}</span>}
+              {order.commissionAmount != null ? (
+                <span>Commission: &#8377;{order.commissionAmount.toLocaleString('en-IN')}</span>
+              ) : order.sellerLess > 0 ? (
+                <span>Less: {formatSellerLess(order.sellerLess, order.sellerLessPercent)}</span>
+              ) : null}
               <span>{fmtDate(order.orderDate)} ({days}d)</span>
             </div>
             <div className="flex items-center gap-4 text-xs text-text-muted">

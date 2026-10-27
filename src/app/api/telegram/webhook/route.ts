@@ -71,12 +71,20 @@ function buildOrderMessage(order: Record<string, unknown>): string {
     `<b>Order Date:</b> ${fmtDate(order.order_date as string)}`,
     ``,
     `<b>Amount:</b> ${fmtAmount(order.total_amount as number)}`,
-    `<b>Seller Less:</b> ${fmtAmount(order.seller_less as number)}`,
-    ``,
-    `<b>Email:</b> ${fmt(order.email as string)}`,
-    `<b>Mediator:</b> ${fmt(order.mediator_name as string)}`,
-    `<b>Reviewer:</b> ${fmt(order.reviewer_name as string)}`,
   ];
+  const commissionRaw = order.commission_amount;
+  const commission = commissionRaw != null && commissionRaw !== '' ? Number(commissionRaw) : null;
+  const totalAmount = Number(order.total_amount) || 0;
+  if (commission != null && Number.isFinite(commission)) {
+    lines.push(`<b>Commission:</b> ${fmtAmount(commission)}`);
+    lines.push(`<b>Refund Amount:</b> ${fmtAmount(totalAmount + commission)}`);
+  } else {
+    lines.push(`<b>Seller Less:</b> ${fmtAmount(order.seller_less as number)}`);
+  }
+  lines.push('');
+  lines.push(`<b>Email:</b> ${fmt(order.email as string)}`);
+  lines.push(`<b>Mediator:</b> ${fmt(order.mediator_name as string)}`);
+  lines.push(`<b>Reviewer:</b> ${fmt(order.reviewer_name as string)}`);
 
   if (order.delivered_date) {
     lines.push(`<b>Delivered On:</b> ${fmtDate(order.delivered_date as string)}`);

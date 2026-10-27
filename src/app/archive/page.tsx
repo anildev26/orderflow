@@ -6,7 +6,7 @@ import toast from 'react-hot-toast';
 import { createClient } from '@/lib/supabase';
 import { useOrderStore } from '@/store/useOrderStore';
 import { usePlatformStore } from '@/store/usePlatformStore';
-import { formatSellerLess } from '@/types/order';
+import { formatSellerLess, expectedRefund } from '@/types/order';
 import ThemeToggle from '@/components/ThemeToggle';
 import { useAuth } from '@/hooks/useAuth';
 
@@ -126,7 +126,7 @@ export default function ArchivePage() {
   }, [orders, search, searchField, platform, startDate, endDate, bankFilter, archiveFilter]);
 
   const totalRefundReceived = useMemo(
-    () => archivedOrders.reduce((sum, o) => sum + (o.totalAmount - o.sellerLess), 0),
+    () => archivedOrders.reduce((sum, o) => sum + expectedRefund(o.totalAmount, o.sellerLess, o.commissionAmount), 0),
     [archivedOrders]
   );
 
@@ -361,11 +361,13 @@ export default function ArchivePage() {
                   </div>
                   <div className="text-right flex-shrink-0">
                     <p className="text-sm font-bold text-green-400">&#8377;{order.totalAmount.toLocaleString('en-IN')}</p>
-                    {order.sellerLess > 0 && (
+                    {order.commissionAmount != null ? (
+                      <p className="text-xs text-text-muted">Commission: &#8377;{order.commissionAmount.toLocaleString('en-IN')}</p>
+                    ) : order.sellerLess > 0 ? (
                       <p className="text-xs text-text-muted">Less: {formatSellerLess(order.sellerLess, order.sellerLessPercent)}</p>
-                    )}
+                    ) : null}
                     <p className="text-xs font-bold text-emerald-400 mt-1">
-                      Received Amount: &#8377;{(order.totalAmount - order.sellerLess).toLocaleString('en-IN')}
+                      Received Amount: &#8377;{expectedRefund(order.totalAmount, order.sellerLess, order.commissionAmount).toLocaleString('en-IN')}
                     </p>
                     <span className={`inline-block mt-1 text-[10px] font-semibold px-2 py-0.5 rounded text-white ${order.status === 'order_cancelled' ? 'bg-red-500' : 'bg-emerald-600'}`}>
                       {order.status === 'order_cancelled' ? 'Cancelled' : 'Payment Received'}
