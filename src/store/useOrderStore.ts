@@ -1,8 +1,9 @@
 import { create } from 'zustand';
-import { Order, OrderStatus, OrderPlatform, ReminderHistoryEntry } from '@/types/order';
+import { Order, OrderStatus, OrderPlatform, OrderListFilter, ReminderHistoryEntry } from '@/types/order';
 import { createClient } from '@/lib/supabase';
 import { todayStr, addDays } from '@/lib/followup';
 import { getReturnWindow } from '@/lib/returnWindow';
+import { isReviewRatingDue } from '@/lib/reviewTiming';
 import { isSafeHttpUrl } from '@/lib/urlSafety';
 
 interface OrderStore {
@@ -13,14 +14,15 @@ interface OrderStore {
   addOrder: (order: Omit<Order, 'id' | 'createdAt' | 'updatedAt' | 'status'>) => Promise<void>;
   updateOrderStatus: (id: string, status: OrderStatus, extras?: Partial<Order>) => Promise<void>;
   getOrder: (orderId: string) => Order | undefined;
-  getActiveOrders: (status?: OrderStatus | 'all', search?: string, searchField?: string, platform?: string, month?: string) => Order[];
+  getActiveOrders: (status?: OrderListFilter, search?: string, searchField?: string, platform?: string, month?: string, today?: string) => Order[];
   getArchivedOrders: (search?: string, platform?: string) => Order[];
-  getStats: (platform?: string) => {
+  getStats: (platform?: string, today?: string) => {
     totalOrders: number;
     totalAmount: number;
     actualSpent: number;
     refundFormPending: number;
     refundFormFilled: number;
+    reviewRatingPending: number;
     archivedOrders: number;
   };
   editOrder: (id: string, updates: Partial<Omit<Order, 'id' | 'createdAt' | 'updatedAt'>>) => Promise<void>;
@@ -71,6 +73,7 @@ function dbToOrder(row: Record<string, unknown>): Order {
     status: status as OrderStatus,
     deliveredDate: (row.delivered_date as string) || undefined,
     returnPeriodDays: row.return_period_days != null ? Number(row.return_period_days) : undefined,
+    reviewAfterDays: row.review_after_days != null ? Number(row.review_after_days) : null,
     reviewRatingDate: (row.review_rating_date as string) || undefined,
     refundFormFilledDate: (row.refund_form_filled_date as string) || undefined,
     informedMediatorDate: (row.informed_mediator_date as string) || undefined,
@@ -113,6 +116,7 @@ function orderToDb(order: Partial<Order> & { userId?: string }) {
   if (order.status !== undefined) result.status = order.status;
   if (order.deliveredDate !== undefined) result.delivered_date = order.deliveredDate;
   if (order.returnPeriodDays !== undefined) result.return_period_days = order.returnPeriodDays;
+  if (order.reviewAfterDays !== undefined) result.review_after_days = order.reviewAfterDays;
   if (order.reviewRatingDate !== undefined) result.review_rating_date = order.reviewRatingDate;
   if (order.refundFormFilledDate !== undefined) result.refund_form_filled_date = order.refundFormFilledDate;
   if (order.informedMediatorDate !== undefined) result.informed_mediator_date = order.informedMediatorDate;
@@ -313,6 +317,7 @@ export const useOrderStore = create<OrderStore>()((set, get) => ({
     // Map extras to snake_case
     if (extras.deliveredDate !== undefined) updateData.delivered_date = extras.deliveredDate;
     if (extras.returnPeriodDays !== undefined) updateData.return_period_days = extras.returnPeriodDays;
+    if (extras.reviewAfterDays !== undefined) updateData.review_after_days = extras.reviewAfterDays;
     if (extras.reviewRatingDate !== undefined) updateData.review_rating_date = extras.reviewRatingDate;
     if (extras.refundFormFilledDate !== undefined) updateData.refund_form_filled_date = extras.refundFormFilledDate;
     if (extras.informedMediatorDate !== undefined) updateData.informed_mediator_date = extras.informedMediatorDate;
@@ -349,10 +354,13 @@ export const useOrderStore = create<OrderStore>()((set, get) => ({
 
   getOrder: (orderId) => get().orders.find((o) => o.orderId === orderId),
 
-  getActiveOrders: (status = 'all', search = '', searchField = 'orderid', platform = 'all', month = 'all') => {
+  getActiveOrders: (status = 'all', search = '', searchField = 'orderid', platform = 'all', month = 'all', today) => {
     // Active = everything except payment_received and order_cancelled
     let filtered = get().orders.filter((o) => o.status !== 'payment_received' && o.status !== 'order_cancelled');
-    if (status && status !== 'all') filtered = filtered.filter((o) => o.status === status);
+    if (status === 'review_rating_pending') {
+      const day = today || todayStr();
+      filtered = filtered.filter((o) => isReviewRatingDue(o, day));
+    } else if (status && status !== 'all') filtered = filtered.filter((o) => o.status === status);
     if (platform && platform !== 'all') filtered = filtered.filter((o) => o.platform === platform);
     if (month && month !== 'all') {
       filtered = filtered.filter((o) => {
@@ -393,18 +401,20 @@ export const useOrderStore = create<OrderStore>()((set, get) => ({
     return filtered.sort((a, b) => new Date(b.orderDate).getTime() - new Date(a.orderDate).getTime());
   },
 
-  getStats: (platform = 'all') => {
+  getStats: (platform = 'all', today) => {
     let orders = get().orders;
     if (platform && platform !== 'all') orders = orders.filter((o) => o.platform === platform);
     const activeOrders = orders.filter((o) => o.status !== 'payment_received' && o.status !== 'order_cancelled');
     const totalAmount = activeOrders.reduce((sum, o) => sum + o.totalAmount, 0);
     const actualSpent = activeOrders.reduce((sum, o) => sum + o.sellerLess, 0);
+    const day = today || todayStr();
     return {
       totalOrders: activeOrders.length,
       totalAmount,
       actualSpent,
       refundFormPending: orders.filter((o) => o.status === 'refund_form_pending').length,
       refundFormFilled: orders.filter((o) => o.status === 'refund_form_filled').length,
+      reviewRatingPending: orders.filter((o) => isReviewRatingDue(o, day)).length,
       archivedOrders: orders.filter((o) => o.status === 'payment_received').length,
     };
   },

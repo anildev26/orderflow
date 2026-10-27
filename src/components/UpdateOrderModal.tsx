@@ -8,6 +8,7 @@ import { Order, OrderStatus, STATUS_LABELS, STATUS_COLORS, STATUS_OPTIONS, Remin
 import { useOrderStore } from '@/store/useOrderStore';
 import { addDays, todayStr, fmtDate as fmtFullDate } from '@/lib/followup';
 import { getReturnWindow } from '@/lib/returnWindow';
+import { isReviewAfterDays, reviewTimingLabel } from '@/lib/reviewTiming';
 import { useLocalDate } from '@/hooks/useLocalDate';
 import { isSafeHttpUrl } from '@/lib/urlSafety';
 
@@ -38,6 +39,7 @@ export default function UpdateOrderModal({ order, onClose }: UpdateOrderModalPro
   // Status-specific date fields
   const [deliveredDate, setDeliveredDate] = useState(order.deliveredDate || today);
   const [returnPeriodDays, setReturnPeriodDays] = useState(order.returnPeriodDays || 7);
+  const [reviewAfterDays, setReviewAfterDays] = useState<number | null>(order.reviewAfterDays ?? null);
   const [reviewRatingDate, setReviewRatingDate] = useState(order.reviewRatingDate || today);
   const [refundFormFilledDate, setRefundFormFilledDate] = useState(order.refundFormFilledDate || today);
   const [informedMediatorDate, setInformedMediatorDate] = useState(order.informedMediatorDate || today);
@@ -91,6 +93,7 @@ export default function UpdateOrderModal({ order, onClose }: UpdateOrderModalPro
     if (order.deliveredDate) {
       lines.push(`*Delivered:* ${fmtDate(order.deliveredDate)}`);
       if (order.returnPeriodDays) lines.push(`*Return Period:* ${order.returnPeriodDays} days`);
+      lines.push(`*Review timing:* ${reviewTimingLabel(order.reviewAfterDays)}`);
     }
     if (order.reviewRatingDate) lines.push(`*Review/Rating Date:* ${fmtDate(order.reviewRatingDate)}`);
     if (order.refundFormFilledDate) lines.push(`*Refund Form Filled:* ${fmtDate(order.refundFormFilledDate)}`);
@@ -132,6 +135,7 @@ export default function UpdateOrderModal({ order, onClose }: UpdateOrderModalPro
     if (newStatus === 'delivered') {
       extras.deliveredDate = deliveredDate;
       extras.returnPeriodDays = returnPeriodDays;
+      extras.reviewAfterDays = reviewAfterDays;
     }
     if (newStatus === 'review_rating_submitted') {
       extras.reviewRatingDate = reviewRatingDate;
@@ -206,7 +210,7 @@ export default function UpdateOrderModal({ order, onClose }: UpdateOrderModalPro
     isReplacement !== order.isReplacement ||
     (isReplacement && replacementOrderId !== (order.replacementOrderId || '')) ||
     (isReplacement && parseFloat(replacementAmount) !== order.totalAmount) ||
-    (newStatus === 'delivered' && (deliveredDate !== (order.deliveredDate || today) || returnPeriodDays !== (order.returnPeriodDays || 7))) ||
+    (newStatus === 'delivered' && (deliveredDate !== (order.deliveredDate || today) || returnPeriodDays !== (order.returnPeriodDays || 7) || reviewAfterDays !== (order.reviewAfterDays ?? null))) ||
     (newStatus === 'review_rating_submitted' && reviewRatingDate !== (order.reviewRatingDate || today)) ||
     (newStatus === 'refund_form_filled' && refundFormFilledDate !== (order.refundFormFilledDate || today)) ||
     (newStatus === 'informed_mediator' && informedMediatorDate !== (order.informedMediatorDate || today)) ||
@@ -557,9 +561,40 @@ export default function UpdateOrderModal({ order, onClose }: UpdateOrderModalPro
                   <option value={30}>30 days</option>
                 </select>
               </div>
+              <div>
+                <label className="block text-xs text-text-muted mb-1">When do you want to submit the rating/review?</label>
+                <select
+                  value={reviewAfterDays == null ? '' : String(reviewAfterDays)}
+                  onChange={(e) => {
+                    const raw = e.target.value;
+                    setReviewAfterDays(raw === '' ? null : Number(raw));
+                  }}
+                  className="w-full bg-dashboard-bg border border-dashboard-border rounded-lg px-4 py-2.5 text-sm text-text-primary focus:ring-2 focus:ring-accent-blue outline-none"
+                >
+                  <option value="">After the return period</option>
+                  <option value="1">After 1 day of delivery</option>
+                  <option value="3">After 3 days of delivery</option>
+                  <option value="7">After 7 days of delivery</option>
+                </select>
+              </div>
               {deliveredDate && (
                 <p className="text-[11px] text-text-muted">
                   Return ends: {fmtFullDate(addDays(deliveredDate, returnPeriodDays))}
+                </p>
+              )}
+              {deliveredDate && !isReviewAfterDays(reviewAfterDays) && (
+                <p className="text-[11px] text-text-muted">
+                  No early reminder. Mark Review/Rating Submitted yourself when you are ready. The refund form still waits until the return window ends.
+                </p>
+              )}
+              {deliveredDate && isReviewAfterDays(reviewAfterDays) && (
+                <p className="text-[11px] text-purple-400">
+                  Rating &amp; review reminder from {fmtFullDate(addDays(deliveredDate, reviewAfterDays))}
+                </p>
+              )}
+              {deliveredDate && isReviewAfterDays(reviewAfterDays) && addDays(deliveredDate, reviewAfterDays) > addDays(deliveredDate, returnPeriodDays) && (
+                <p className="text-[11px] text-amber-400">
+                  This date is after the return window closes on {fmtFullDate(addDays(deliveredDate, returnPeriodDays))}. The order will move to Refund Form Pending before the reminder, so it will not show on the Rating &amp; Review Pending card. You can still save.
                 </p>
               )}
             </div>

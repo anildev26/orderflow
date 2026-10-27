@@ -10,6 +10,10 @@ export type OrderStatus =
   | 'payment_received'
   | 'order_cancelled';
 
+// Dashboard list filter. `review_rating_pending` is derived from delivery date
+// plus reviewAfterDays — it is not stored on the order.
+export type OrderListFilter = OrderStatus | 'all' | 'review_rating_pending';
+
 // ─── Follow-up / reminder system ───
 
 // Lifecycle of a follow-up reminder. 'due' is NOT stored — it is derived at
@@ -70,6 +74,9 @@ export interface Order {
   // Dedicated date fields per status
   deliveredDate?: string;
   returnPeriodDays?: number;
+  // null / absent = remind after the return period (default). 1, 3, or 7 =
+  // remind that many local calendar days after deliveredDate.
+  reviewAfterDays?: number | null;
   reviewRatingDate?: string;
   refundFormFilledDate?: string;
   informedMediatorDate?: string;
