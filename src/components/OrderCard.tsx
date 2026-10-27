@@ -6,6 +6,7 @@ import toast from 'react-hot-toast';
 import { Order, STATUS_LABELS, STATUS_COLORS, OrderPlatform, formatSellerLess } from '@/types/order';
 import { isSafeHttpUrl } from '@/lib/urlSafety';
 import { getReturnWindow } from '@/lib/returnWindow';
+import { reviewDueDate } from '@/lib/reviewTiming';
 import { useLocalDate } from '@/hooks/useLocalDate';
 
 const UpdateOrderModal = dynamic(() => import('./UpdateOrderModal'), { ssr: false });
@@ -67,6 +68,9 @@ export default function OrderCard({ order }: OrderCardProps) {
   const returnEndStr = returnWindow?.endDate;
   const returnPeriodEnd = returnEndStr ? new Date(returnEndStr + 'T00:00:00') : null;
   const returnDaysLeft = mounted && returnWindow ? returnWindow.daysLeft : null;
+  const reviewDue = reviewDueDate(order);
+  const showReviewStrip = mounted && !!today && order.status === 'delivered' && !!reviewDue && !!returnWindow && returnDaysLeft !== null && returnDaysLeft > 0;
+  const reviewIsDue = Boolean(showReviewStrip && today && reviewDue && today >= reviewDue);
 
   // Smart display: dedicated link > single clean URL in message > complex message
   const mediatorUrls = order.mediatorMessage
@@ -144,6 +148,14 @@ export default function OrderCard({ order }: OrderCardProps) {
             }`}>
               {`Return ends: ${returnPeriodEnd!.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}`}
               {returnDaysLeft === 1 ? ' · Ends today' : returnDaysLeft > 1 ? ` (${returnDaysLeft}d left)` : ' · Return period over'}
+            </div>
+          )}
+
+          {showReviewStrip && reviewDue && (
+            <div className="mt-2 px-3 py-1.5 rounded-lg text-xs bg-purple-500/10 border border-purple-500/20 text-purple-400">
+              {reviewIsDue
+                ? 'Rating & review due'
+                : `Review due: ${new Date(reviewDue + 'T00:00:00').toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}`}
             </div>
           )}
 

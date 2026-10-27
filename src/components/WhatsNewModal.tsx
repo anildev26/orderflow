@@ -12,6 +12,15 @@ interface WhatsNewModalProps {
 
 const CHANGELOG = [
   {
+    version: 'v1.1.7',
+    date: 'Oct 2026',
+    items: [
+      { type: 'new', text: 'When you mark an order Delivered, choose when to submit the rating or review: after 1 day, after 3 days, after 7 days, or after the return period (the usual timing). Early reviews show on a new Rating & Review Pending card so you can mark them submitted without waiting out the return window.' },
+      { type: 'improvement', text: 'The refund form still waits until the return window ends. Submitting a review early does not change when the order moves to Refund Form Pending.' },
+      { type: 'improvement', text: 'Rating & Review Pending replaces the Actual Spent card on the dashboard for every account. Seller Less is still shown on each order.' },
+    ],
+  },
+  {
     version: 'v1.1.6',
     date: 'Oct 2026',
     items: [

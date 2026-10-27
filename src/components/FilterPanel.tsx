@@ -1,20 +1,26 @@
 'use client';
 
-import { OrderStatus, STATUS_OPTIONS } from '@/types/order';
+import { OrderListFilter, STATUS_OPTIONS } from '@/types/order';
 
 interface FilterPanelProps {
   isOpen: boolean;
   onClose: () => void;
-  statusFilter: OrderStatus | 'all';
-  onStatusFilterChange: (status: OrderStatus | 'all') => void;
+  statusFilter: OrderListFilter;
+  onStatusFilterChange: (status: OrderListFilter) => void;
   onApply: () => void;
   onReset: () => void;
 }
 
-const filterStatusOptions: { value: OrderStatus | 'all'; label: string }[] = [
+const filterStatusOptions: { value: OrderListFilter; label: string }[] = [
   { value: 'all', label: 'All' },
-  ...STATUS_OPTIONS.filter((opt) => opt.value !== 'payment_received'),
 ];
+for (const opt of STATUS_OPTIONS) {
+  if (opt.value === 'payment_received') continue;
+  filterStatusOptions.push(opt);
+  if (opt.value === 'delivered') {
+    filterStatusOptions.push({ value: 'review_rating_pending', label: 'Rating & Review Pending' });
+  }
+}
 
 export default function FilterPanel({
   isOpen,

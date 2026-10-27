@@ -8,7 +8,7 @@ import toast from 'react-hot-toast';
 import { createClient } from '@/lib/supabase';
 import { useOrderStore } from '@/store/useOrderStore';
 import { usePlatformStore } from '@/store/usePlatformStore';
-import { OrderStatus } from '@/types/order';
+import { OrderListFilter } from '@/types/order';
 import OrderCard from '@/components/OrderCard';
 import ThemeToggle from '@/components/ThemeToggle';
 import { useAuth } from '@/hooks/useAuth';
@@ -70,11 +70,11 @@ export default function DashboardPage() {
 
   const handleExportExcel = () => {
     const allOrders = useOrderStore.getState().orders;
-    const headers = ['Order ID','Platform','Email','Brand','Product','Order Date','Amount','Seller Less','Mediator','Reviewer','Type','Status','Delivered Date','Return Days','Review/Rating Date','Refund Form Date','Informed Mediator Date','Payment Received Date','Payment Bank'];
+    const headers = ['Order ID','Platform','Email','Brand','Product','Order Date','Amount','Seller Less','Mediator','Reviewer','Type','Status','Delivered Date','Return Days','Review After Days','Review/Rating Date','Refund Form Date','Informed Mediator Date','Payment Received Date','Payment Bank'];
     const rows = allOrders.map(o => [
       o.orderId, o.platform, o.email, o.brandName, o.productName, o.orderDate,
       o.totalAmount, o.sellerLess, o.mediatorName, o.reviewerName, o.orderType,
-      o.status, o.deliveredDate || '', o.returnPeriodDays || '', o.reviewRatingDate || '', o.refundFormFilledDate || '', o.informedMediatorDate || '', o.paymentReceivedDate || '', o.paymentBank || '',
+      o.status, o.deliveredDate || '', o.returnPeriodDays || '', o.reviewAfterDays ?? '', o.reviewRatingDate || '', o.refundFormFilledDate || '', o.informedMediatorDate || '', o.paymentReceivedDate || '', o.paymentBank || '',
     ]);
     const csv = [headers.join(','), ...rows.map(r => r.map(v => `"${v}"`).join(','))].join('\n');
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
@@ -195,16 +195,16 @@ export default function DashboardPage() {
 
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<OrderStatus | 'all'>('all');
+  const [statusFilter, setStatusFilter] = useState<OrderListFilter>('all');
   const [platformFilter, setPlatformFilter] = useState<string>('all');
   const [monthFilter, setMonthFilter] = useState('all');
   const [sortOption, setSortOption] = useState('newest');
-  const [appliedStatus, setAppliedStatus] = useState<OrderStatus | 'all'>('all');
+  const [appliedStatus, setAppliedStatus] = useState<OrderListFilter>('all');
 
-  const stats = useMemo(() => getStats(platformFilter), [orders, getStats, platformFilter]);
+  const stats = useMemo(() => getStats(platformFilter, today ?? undefined), [orders, getStats, platformFilter, today]);
   const filteredOrders = useMemo(
-    () => getActiveOrders(appliedStatus, searchQuery, 'all', platformFilter, monthFilter),
-    [orders, appliedStatus, searchQuery, platformFilter, monthFilter, getActiveOrders]
+    () => getActiveOrders(appliedStatus, searchQuery, 'all', platformFilter, monthFilter, today ?? undefined),
+    [orders, appliedStatus, searchQuery, platformFilter, monthFilter, getActiveOrders, today]
   );
 
   const sortedOrders = useMemo(() => {
@@ -263,7 +263,7 @@ export default function DashboardPage() {
   };
 
   // Click on KPI card to filter
-  const handleKpiClick = (status: OrderStatus | 'all') => {
+  const handleKpiClick = (status: OrderListFilter) => {
     setAppliedStatus(status);
     setStatusFilter(status);
   };
@@ -276,13 +276,24 @@ export default function DashboardPage() {
     sortOption !== 'newest';
 
   const hasPending = stats.refundFormPending > 0;
-  const kpiCards = [
+  const hasReviewPending = stats.reviewRatingPending > 0;
+  const kpiCards: {
+    label: string;
+    value: string;
+    sub: string;
+    color: string;
+    filterStatus: OrderListFilter;
+    clickable: boolean;
+    urgent?: boolean;
+    urgentClass?: string;
+    link?: string;
+  }[] = [
     {
       label: 'Active Orders',
       value: stats.totalOrders.toString(),
       sub: 'Tap to view all',
       color: 'text-yellow-400',
-      filterStatus: 'all' as OrderStatus | 'all',
+      filterStatus: 'all',
       clickable: true,
     },
     {
@@ -290,7 +301,7 @@ export default function DashboardPage() {
       value: `₹${stats.totalAmount.toLocaleString('en-IN')}`,
       sub: 'Active order value',
       color: 'text-green-400',
-      filterStatus: 'all' as OrderStatus | 'all',
+      filterStatus: 'all',
       clickable: false,
     },
     {
@@ -298,7 +309,7 @@ export default function DashboardPage() {
       value: stats.refundFormPending.toString(),
       sub: hasPending ? 'Needs your action' : 'All caught up',
       color: hasPending ? 'text-red-400' : 'text-text-muted',
-      filterStatus: 'refund_form_pending' as OrderStatus | 'all',
+      filterStatus: 'refund_form_pending',
       clickable: true,
       urgent: hasPending,
     },
@@ -307,7 +318,7 @@ export default function DashboardPage() {
       value: stats.refundFormFilled.toString(),
       sub: 'Awaiting processing',
       color: 'text-green-400',
-      filterStatus: 'refund_form_filled' as OrderStatus | 'all',
+      filterStatus: 'refund_form_filled',
       clickable: true,
     },
     {
@@ -315,17 +326,19 @@ export default function DashboardPage() {
       value: stats.archivedOrders.toString(),
       sub: 'Open archive →',
       color: 'text-emerald-400',
-      filterStatus: 'payment_received' as OrderStatus | 'all',
+      filterStatus: 'payment_received',
       clickable: false,
       link: '/archive',
     },
     {
-      label: 'Actual Spent',
-      value: `₹${stats.actualSpent.toLocaleString('en-IN')}`,
-      sub: 'Your money invested',
-      color: 'text-cyan-400',
-      filterStatus: 'all' as OrderStatus | 'all',
-      clickable: false,
+      label: 'Rating & Review Pending',
+      value: stats.reviewRatingPending.toString(),
+      sub: hasReviewPending ? 'Needs your action' : 'All caught up',
+      color: hasReviewPending ? 'text-purple-400' : 'text-text-muted',
+      filterStatus: 'review_rating_pending',
+      clickable: true,
+      urgent: hasReviewPending,
+      urgentClass: 'border-purple-500/40',
     },
   ];
 
@@ -551,7 +564,7 @@ export default function DashboardPage() {
                 aria-pressed={appliedStatus === kpi.filterStatus}
                 className={`text-left p-4 rounded-xl bg-dashboard-card border hover:bg-dashboard-card-hover transition cursor-pointer ${
                   appliedStatus === kpi.filterStatus ? 'ring-2 ring-accent-blue border-accent-blue' : 'border-dashboard-border'
-                } ${kpi.urgent ? 'border-red-500/40' : ''}`}
+                } ${kpi.urgent ? (kpi.urgentClass || 'border-red-500/40') : ''}`}
               >
                 <p className="text-xs text-text-muted">{kpi.label}</p>
                 <p className={`text-xl font-bold mt-1 ${kpi.color}`}>{kpi.value}</p>
