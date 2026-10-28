@@ -1,7 +1,9 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import ThemeToggle from '@/components/ThemeToggle';
+import { createClient } from '@/lib/supabase';
 
 const CONTACT_CHANNELS = [
   {
@@ -59,17 +61,37 @@ const CONTACT_CHANNELS = [
 ];
 
 export default function ContactPage() {
+  const [signedIn, setSignedIn] = useState(false);
+
+  useEffect(() => {
+    try {
+      const supabase = createClient();
+      supabase.auth.getUser().then(({ data }) => {
+        setSignedIn(Boolean(data.user));
+      }).catch(() => {});
+    } catch {
+      // Stay on the public contact page.
+    }
+  }, []);
+
   return (
     <div className="min-h-screen">
       {/* Top bar */}
       <div className="sticky top-0 z-30 bg-dashboard-bg/80 backdrop-blur-xl border-b border-dashboard-border">
         <div className="flex items-center justify-between px-6 h-14">
-          <Link href="/dashboard" className="flex items-center gap-2 text-text-secondary hover:text-text-primary transition text-sm">
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-            </svg>
-            Dashboard
-          </Link>
+          <div className="flex items-center gap-4">
+            <Link href="/" className="flex items-center gap-2 text-text-secondary hover:text-text-primary transition text-sm">
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+              </svg>
+              Home
+            </Link>
+            {signedIn && (
+              <Link href="/dashboard" className="text-sm text-text-secondary hover:text-text-primary transition">
+                Dashboard
+              </Link>
+            )}
+          </div>
           <ThemeToggle />
         </div>
       </div>

@@ -1,0 +1,37 @@
+# OrderFlow
+
+OrderFlow is a free order manager for agency and mediator workflows. It tracks marketplace orders, reviews, and refunds.
+
+- Site: https://orderflow-manager.vercel.app/
+- Demo: https://orderflow-manager.vercel.app/demo
+- Contact: https://orderflow-manager.vercel.app/contact
+- Price: free (INR 0). No credit card.
+
+## What it does
+
+- Order dashboard for Flipkart, Amazon, Meesho, Myntra, and other marketplaces
+- Review and refund status tracking
+- Mediator message and refund-form link storage
+- Excel import and CSV or JSON export
+- Telegram order lookup
+
+## Support
+
+Email anilsahu2672000@gmail.com, Telegram @jack26_ig, Discord aceop26, and WhatsApp +91 9082146640. The Contact page is public.
+
+## FAQ
+
+Is OrderFlow free?
+Yes. Create an account with no credit card. There is no paid plan in the app today.
+
+Who is it for?
+People who handle review-based orders through agencies and mediators, not a general warehouse system.
+
+What can I track?
+Order status from ordered through delivery, review, refund form, and payment received, plus mediator messages.
+
+Can I try it first?
+Yes. The live demo is on this site, with sample orders and no account required.
+
+How do I get help?
+Email, Telegram, Discord, and WhatsApp are listed on the Contact page. You do not need an account to open it.

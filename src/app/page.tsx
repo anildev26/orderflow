@@ -1,11 +1,12 @@
-'use client';
-
+import type { Metadata } from 'next';
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { createClient } from '@/lib/supabase';
-import { useTheme } from '@/context/ThemeContext';
 import ThemeToggle from '@/components/ThemeToggle';
+import LoggedInRedirect from '@/components/LoggedInRedirect';
+import { HOME_FAQ, homeJsonLd } from '@/lib/site';
+
+export const metadata: Metadata = {
+  alternates: { canonical: '/' },
+};
 
 function BrandLogo({ size = 32 }: { size?: number }) {
   return (
@@ -101,32 +102,13 @@ const FEATURES = [
 const PLATFORMS = ['Flipkart', 'Amazon', 'Meesho', 'Myntra', 'Ajio', 'Nykaa', 'Blinkit', 'Shopsy', 'Jio', 'Other'];
 
 export default function LandingPage() {
-  const router = useRouter();
-  const [checking, setChecking] = useState(true);
-  const { theme } = useTheme();
-
-  // If user is already logged in, send to dashboard
-  useEffect(() => {
-    const supabase = createClient();
-    supabase.auth.getUser().then(({ data }) => {
-      if (data.user) {
-        router.replace('/dashboard');
-      } else {
-        setChecking(false);
-      }
-    });
-  }, [router]);
-
-  if (checking) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-dashboard-bg">
-        <div className="w-8 h-8 rounded-full border-2 border-accent-blue border-t-transparent animate-spin" />
-      </div>
-    );
-  }
-
   return (
     <div className="min-h-screen bg-dashboard-bg text-text-primary">
+      <LoggedInRedirect />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(homeJsonLd()).replace(/</g, '\\u003c') }}
+      />
       {/* NAV */}
       <nav className="sticky top-0 z-50 border-b border-dashboard-border bg-dashboard-bg/80 backdrop-blur-xl">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 flex items-center justify-between h-14">
@@ -163,18 +145,17 @@ export default function LandingPage() {
         </div>
 
         <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold tracking-tight leading-tight mb-6">
-          Manage all your{' '}
+          Free order manager for{' '}
           <span className="bg-gradient-to-r from-blue-400 to-violet-400 bg-clip-text text-transparent">
             agency orders
           </span>
-          <br />
-          from one place
+          , reviews, and refunds
         </h1>
 
         <p className="max-w-2xl mx-auto text-lg text-text-secondary mb-10">
-          OrderFlow is a purpose-built order management platform for users who take orders through
-          agencies, mediators, and marketing workflows. Track status, store mediator messages,
-          manage refunds, and export data — all in one dashboard.
+          OrderFlow tracks orders from Flipkart, Amazon, Meesho, Myntra, and other marketplaces in one place.
+          Follow each order through delivery, review, and refund, store mediator messages, and export when you need to.
+          Free to start. No credit card.
         </p>
 
         <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
@@ -311,6 +292,24 @@ export default function LandingPage() {
                 <span className="text-4xl font-black text-text-muted/20 absolute top-4 right-5 select-none">{s.step}</span>
                 <h3 className="font-semibold mb-2">{s.title}</h3>
                 <p className="text-sm text-text-muted leading-relaxed">{s.desc}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* FAQ */}
+      <section className="border-t border-dashboard-border bg-dashboard-card/30">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-20">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl font-bold mb-3">Common questions</h2>
+            <p className="text-text-secondary">Straight answers before you create an account.</p>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {HOME_FAQ.map((item) => (
+              <div key={item.question} className="rounded-xl border border-dashboard-border bg-dashboard-card p-6">
+                <h3 className="font-semibold mb-2">{item.question}</h3>
+                <p className="text-sm text-text-muted leading-relaxed">{item.answer}</p>
               </div>
             ))}
           </div>

@@ -1,6 +1,8 @@
-'use client';
-
+import type { Metadata } from 'next';
 import Sidebar from '@/components/Sidebar';
+import { noIndexMetadata } from '@/lib/site';
+
+export const metadata: Metadata = noIndexMetadata;
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   return (
