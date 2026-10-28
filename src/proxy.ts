@@ -29,7 +29,7 @@ export async function proxy(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const publicPaths = ['/', '/demo', '/login', '/signup', '/forgot-password', '/auth/callback'];
+  const publicPaths = ['/', '/demo', '/login', '/signup', '/forgot-password', '/auth/callback', '/contact'];
   const isPublicPath = publicPaths.some((path) =>
     path === '/'
       ? request.nextUrl.pathname === '/'
@@ -43,8 +43,9 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  // If logged in and trying to access login/signup, redirect to dashboard
-  if (user && isPublicPath) {
+  // Contact stays reachable after sign-in. Other public pages still go to the dashboard.
+  const isContact = request.nextUrl.pathname === '/contact' || request.nextUrl.pathname.startsWith('/contact/');
+  if (user && isPublicPath && !isContact) {
     const url = request.nextUrl.clone();
     url.pathname = '/dashboard';
     return NextResponse.redirect(url);
@@ -55,6 +56,6 @@ export async function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
-    '/((?!_next/static|_next/image|favicon.ico|icon.svg|api/telegram|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+    '/((?!_next/static|_next/image|favicon.ico|icon.svg|robots\\.txt|sitemap\\.xml|llms\\.txt|api/telegram|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
 };

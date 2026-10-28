@@ -12,6 +12,14 @@ interface WhatsNewModalProps {
 
 const CHANGELOG = [
   {
+    version: 'v1.1.11',
+    date: 'Oct 2026',
+    items: [
+      { type: 'improvement', text: 'The homepage now loads its full description right away, including a short FAQ, so you can see what OrderFlow does before you sign in.' },
+      { type: 'new', text: 'The Contact page is public. You can reach email, Telegram, Discord, and WhatsApp support without signing in.' },
+    ],
+  },
+  {
     version: 'v1.1.10',
     date: 'Oct 2026',
     items: [
