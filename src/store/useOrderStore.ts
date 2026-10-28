@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { Order, OrderStatus, OrderPlatform, OrderListFilter, ReminderHistoryEntry } from '@/types/order';
 import { createClient } from '@/lib/supabase';
-import { todayStr, addDays } from '@/lib/followup';
+import { todayStr, addDays, effectiveNextReminderDate, snapReminderDate } from '@/lib/followup';
 import { getReturnWindow } from '@/lib/returnWindow';
 import { isReviewRatingDue } from '@/lib/reviewTiming';
 import { isSafeHttpUrl } from '@/lib/urlSafety';
@@ -42,7 +42,7 @@ interface OrderStore {
 }
 
 // Map DB row (snake_case) to Order (camelCase)
-function dbToOrder(row: Record<string, unknown>): Order {
+function mapDbRow(row: Record<string, unknown>): Order {
   // Handle legacy status values - map old statuses to new ones
   let status = row.status as string;
   if (status === 'paid') status = 'payment_received';
@@ -90,6 +90,11 @@ function dbToOrder(row: Record<string, unknown>): Order {
     createdAt: row.created_at as string,
     updatedAt: row.updated_at as string,
   };
+}
+
+function dbToOrder(row: Record<string, unknown>): Order {
+  const order = mapDbRow(row);
+  return { ...order, nextReminderDate: effectiveNextReminderDate(order) };
 }
 
 // Map Order (camelCase) to DB insert (snake_case)
@@ -276,12 +281,13 @@ export const useOrderStore = create<OrderStore>()((set, get) => ({
     const order = get().orders.find((o) => o.id === id);
     if (!order) return;
     const today = todayStr();
-    const entry: ReminderHistoryEntry = { date: today, action: 'contacted', nextReminderDate };
+    const nextDate = snapReminderDate(nextReminderDate);
+    const entry: ReminderHistoryEntry = { date: today, action: 'contacted', nextReminderDate: nextDate };
     if (note && note.trim()) entry.note = note.trim();
     await get().editOrder(id, {
       lastContactedDate: today,
       reminderCount: (order.reminderCount || 0) + 1,
-      nextReminderDate,
+      nextReminderDate: nextDate,
       reminderStatus: 'scheduled',
       reminderHistory: [...(order.reminderHistory || []), entry],
     });
@@ -291,10 +297,11 @@ export const useOrderStore = create<OrderStore>()((set, get) => ({
   snoozeReminder: async (id, nextReminderDate, note) => {
     const order = get().orders.find((o) => o.id === id);
     if (!order) return;
-    const entry: ReminderHistoryEntry = { date: todayStr(), action: 'snoozed', nextReminderDate };
+    const nextDate = snapReminderDate(nextReminderDate);
+    const entry: ReminderHistoryEntry = { date: todayStr(), action: 'snoozed', nextReminderDate: nextDate };
     if (note && note.trim()) entry.note = note.trim();
     await get().editOrder(id, {
-      nextReminderDate,
+      nextReminderDate: nextDate,
       reminderStatus: 'snoozed',
       reminderHistory: [...(order.reminderHistory || []), entry],
     });

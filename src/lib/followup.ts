@@ -1,5 +1,5 @@
-import { expectedRefund, type Order } from '@/types/order';
-import { countWorkingDays, workingDaysLabel } from './workingDays';
+import { expectedRefund, DEFAULT_REFUND_TIMELINE_DAYS, type Order } from '@/types/order';
+import { addWorkingDays, countWorkingDays, ensureWorkingDay, workingDaysLabel } from './workingDays';
 
 // ─── Date helpers (all work in local time, return YYYY-MM-DD) ───
 
@@ -53,13 +53,50 @@ export interface SnoozePreset {
 }
 
 export const SNOOZE_PRESETS: SnoozePreset[] = [
-  { label: 'Tomorrow', getDate: () => addDays(undefined, 1) },
-  { label: 'In 2 days', getDate: () => addDays(undefined, 2) },
-  { label: 'In 3 days', getDate: () => addDays(undefined, 3) },
-  { label: 'Next week', getDate: () => addDays(undefined, 7) },
+  { label: 'Next working day', getDate: () => addWorkingDays(todayStr(), 1) },
+  { label: 'In 2 working days', getDate: () => addWorkingDays(todayStr(), 2) },
+  { label: 'In 3 working days', getDate: () => addWorkingDays(todayStr(), 3) },
+  { label: 'In 5 working days', getDate: () => addWorkingDays(todayStr(), 5) },
   { label: 'Next Monday', getDate: nextMonday },
-  { label: 'In 15 days', getDate: () => addDays(undefined, 15) },
+  { label: 'In 15 working days', getDate: () => addWorkingDays(todayStr(), 15) },
 ];
+
+/** Anchor the refund-timeline reminder is measured from, for the order's current status. */
+export function timelineAnchor(order: Pick<Order, 'status' | 'refundFormFilledDate' | 'informedMediatorDate' | 'reviewRatingDate'>): string | undefined {
+  if (order.status === 'refund_form_filled') return order.refundFormFilledDate || undefined;
+  if (order.status === 'informed_mediator') return order.informedMediatorDate || undefined;
+  if (order.status === 'review_rating_submitted') return order.reviewRatingDate || undefined;
+  return undefined;
+}
+
+/**
+ * Reminder date to show and to judge due/overdue.
+ * Timeline schedules (latest history action "scheduled", or none) are
+ * recomputed as working days from the anchor so older calendar-day dates
+ * line up with the pending count. Snoozed, contacted, and stopped dates
+ * are the user's choice and are returned unchanged.
+ */
+export function effectiveNextReminderDate(order: Order): string | undefined {
+  const stored = order.nextReminderDate;
+  if (!stored) return stored;
+  if (order.reminderStatus === 'snoozed' || order.reminderStatus === 'stopped' || order.reminderStatus === 'contacted') {
+    return stored;
+  }
+  const history = order.reminderHistory || [];
+  const last = history[history.length - 1];
+  if (last && last.action !== 'scheduled') return stored;
+  const anchor = timelineAnchor(order);
+  if (!anchor) return stored;
+  const n = order.refundTimelineDays && order.refundTimelineDays > 0
+    ? order.refundTimelineDays
+    : DEFAULT_REFUND_TIMELINE_DAYS;
+  return addWorkingDays(anchor, n);
+}
+
+/** Next working day on or after `isoDate`, so a picked reminder never stays on Sat/Sun. */
+export function snapReminderDate(isoDate: string): string {
+  return ensureWorkingDay(isoDate);
+}
 
 // ─── WhatsApp follow-up message ───
 
@@ -94,6 +131,10 @@ export function buildFollowUpMessage(order: Order): string {
   if (order.reviewerName) lines.push(`👤 *Reviewer:* ${order.reviewerName}`);
   lines.push(`🧾 *Order Date:* ${fmtDate(order.orderDate)}`);
   if (filled) lines.push(`📝 *Refund Form Filled:* ${fmtDate(filled)}`);
+  if (filled && order.refundTimelineDays && order.refundTimelineDays > 0) {
+    const expected = addWorkingDays(filled, order.refundTimelineDays);
+    lines.push(`📅 *Expected:* ${fmtDate(expected)} (${workingDaysLabel(order.refundTimelineDays)})`);
+  }
 
   lines.push(
     ``,

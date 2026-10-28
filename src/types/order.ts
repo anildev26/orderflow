@@ -30,8 +30,8 @@ export interface ReminderHistoryEntry {
   fromStatus?: OrderStatus;  // status that triggered the schedule (if any)
 }
 
-// Default expected refund timeline (days) used when the user leaves the
-// timeline field blank. Reminders are calculated as anchorDate + timeline.
+// Default expected refund timeline, in working days (Mon–Fri), used when the
+// user leaves the timeline field blank. The reminder is addWorkingDays(anchor, N).
 export const DEFAULT_REFUND_TIMELINE_DAYS = 60;
 
 // Statuses that represent "waiting on someone" — these support reminder
