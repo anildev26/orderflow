@@ -38,3 +38,41 @@ export function countWorkingDays(from: string, to: string, holidays: readonly st
 export function workingDaysLabel(count: number): string {
   return `${count} working day${count === 1 ? '' : 's'}`;
 }
+
+/**
+ * The date `n` working days after `from`. `from` itself is not counted:
+ * counting starts the next day, and the result is always a working day.
+ * `n` < 1 returns `from` unchanged.
+ */
+export function addWorkingDays(from: string, n: number, holidays: readonly string[] = PUBLIC_HOLIDAYS): string {
+  if (!from || n < 1) return from;
+  let cursor = from;
+  let left = Math.floor(n);
+  for (let i = 0; i < 3660 && left > 0; i++) {
+    cursor = addDays(cursor, 1);
+    if (isWorkingDay(cursor, holidays)) left -= 1;
+  }
+  return cursor;
+}
+
+/** Move a weekend (or later, a holiday) forward to the next working day. */
+export function ensureWorkingDay(isoDate: string, holidays: readonly string[] = PUBLIC_HOLIDAYS): string {
+  if (!isoDate || isWorkingDay(isoDate, holidays)) return isoDate;
+  let cursor = isoDate;
+  for (let i = 0; i < 7 && !isWorkingDay(cursor, holidays); i++) {
+    cursor = addDays(cursor, 1);
+  }
+  return cursor;
+}
+
+/**
+ * Working days from `today` to `target`.
+ * Positive = target is still ahead ("in N working days").
+ * Negative = target has passed ("N working days overdue").
+ * 0 = target is today, or no working day falls strictly between the two dates.
+ */
+export function workingDaysOffset(target: string, today: string): number {
+  if (!target || target === today) return 0;
+  if (target > today) return countWorkingDays(today, target);
+  return -countWorkingDays(target, today);
+}

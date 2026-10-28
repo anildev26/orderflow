@@ -8,12 +8,11 @@ import { useOrderStore } from '@/store/useOrderStore';
 import {
   buildFollowUpMessage,
   fmtDate,
-  daysOverdue,
-  addDays,
   todayStr,
+  snapReminderDate,
   SNOOZE_PRESETS,
 } from '@/lib/followup';
-import { countWorkingDays, workingDaysLabel } from '@/lib/workingDays';
+import { addWorkingDays, countWorkingDays, workingDaysLabel, workingDaysOffset } from '@/lib/workingDays';
 
 const UpdateOrderModal = dynamic(() => import('./UpdateOrderModal'), { ssr: false });
 
@@ -44,27 +43,31 @@ export default function FollowUpRow({ order }: { order: Order }) {
 
   const [expanded, setExpanded] = useState(false);
   const [showUpdate, setShowUpdate] = useState(false);
-  const [nextDate, setNextDate] = useState(() => addDays(undefined, 7));
+  const [nextDate, setNextDate] = useState(() => addWorkingDays(todayStr(), 5));
   const [note, setNote] = useState('');
   const [busy, setBusy] = useState(false);
 
-  const overdue = order.nextReminderDate ? daysOverdue(order.nextReminderDate) : 0;
+  const today = todayStr();
+  const reminderOffset = order.nextReminderDate ? workingDaysOffset(order.nextReminderDate, today) : 0;
   const pendingWorkingDays = order.refundFormFilledDate
-    ? countWorkingDays(order.refundFormFilledDate, todayStr())
+    ? countWorkingDays(order.refundFormFilledDate, today)
+    : null;
+  const expectedDate = order.refundFormFilledDate && order.refundTimelineDays && order.refundTimelineDays > 0
+    ? addWorkingDays(order.refundFormFilledDate, order.refundTimelineDays)
     : null;
   const refundAmount = expectedRefund(order.totalAmount, order.sellerLess, order.commissionAmount);
 
   // Urgency drives the left border + the overdue badge
-  const urgency = overdue > 0 ? 'overdue' : overdue === 0 ? 'due' : 'upcoming';
+  const urgency = reminderOffset < 0 ? 'overdue' : reminderOffset === 0 ? 'due' : 'upcoming';
   const borderColor =
     urgency === 'overdue' ? 'border-l-red-500' : urgency === 'due' ? 'border-l-amber-500' : 'border-l-blue-500';
 
   const overdueBadge =
-    urgency === 'overdue'
-      ? { text: `${overdue}d overdue`, cls: 'bg-red-500/15 text-red-400 border-red-500/30' }
-      : urgency === 'due'
+    reminderOffset < 0
+      ? { text: `${workingDaysLabel(-reminderOffset)} overdue`, cls: 'bg-red-500/15 text-red-400 border-red-500/30' }
+      : reminderOffset === 0
         ? { text: 'Due today', cls: 'bg-amber-500/15 text-amber-400 border-amber-500/30' }
-        : { text: `in ${-overdue}d`, cls: 'bg-dashboard-bg text-text-muted border-dashboard-border' };
+        : { text: `in ${workingDaysLabel(reminderOffset)}`, cls: 'bg-dashboard-bg text-text-muted border-dashboard-border' };
 
   const handleCopy = () => {
     navigator.clipboard.writeText(buildFollowUpMessage(order));
@@ -133,6 +136,7 @@ export default function FollowUpRow({ order }: { order: Order }) {
                   </span>
                 )}
                 <span>Next: <span className="text-text-secondary font-medium">{fmtDate(order.nextReminderDate)}</span></span>
+                {expectedDate && <span>Expected: <span className="text-text-secondary font-medium">{fmtDate(expectedDate)}</span></span>}
                 {order.reminderCount ? <span>· Contacted {order.reminderCount}x</span> : null}
               </div>
             </div>
@@ -168,7 +172,8 @@ export default function FollowUpRow({ order }: { order: Order }) {
               {order.refundFormFilledDate && <Detail label="Refund Form Filled" value={fmtDate(order.refundFormFilledDate)} />}
               {pendingWorkingDays != null && <Detail label="Pending" value={workingDaysLabel(pendingWorkingDays)} />}
               {order.informedMediatorDate && <Detail label="Informed Mediator" value={fmtDate(order.informedMediatorDate)} />}
-              {order.refundTimelineDays && <Detail label="Timeline" value={`${order.refundTimelineDays} days`} />}
+              {order.refundTimelineDays && <Detail label="Timeline" value={workingDaysLabel(order.refundTimelineDays)} />}
+              {expectedDate && <Detail label="Expected" value={fmtDate(expectedDate)} />}
               {order.lastContactedDate && <Detail label="Last Contacted" value={fmtDate(order.lastContactedDate)} />}
             </div>
 
@@ -193,10 +198,10 @@ export default function FollowUpRow({ order }: { order: Order }) {
                     </button>
                   );
                 })}
-                <input
+                  <input
                   type="date"
                   value={nextDate}
-                  onChange={(e) => setNextDate(e.target.value)}
+                  onChange={(e) => setNextDate(e.target.value ? snapReminderDate(e.target.value) : e.target.value)}
                   className="px-2.5 py-1 rounded-lg text-[11px] bg-dashboard-card border border-dashboard-border text-text-primary focus:ring-2 focus:ring-accent-blue outline-none"
                 />
               </div>

@@ -12,6 +12,13 @@ interface WhatsNewModalProps {
 
 const CHANGELOG = [
   {
+    version: 'v1.1.10',
+    date: 'Oct 2026',
+    items: [
+      { type: 'improvement', text: 'Refund timelines now use working days, Monday to Friday. The usual 60-day follow-up is 60 working days, and Update Order shows the expected date. Overdue counts and snooze options use the same working days, so a follow-up does not land on a weekend. Return windows and review timing are unchanged.' },
+    ],
+  },
+  {
     version: 'v1.1.9',
     date: 'Oct 2026',
     items: [

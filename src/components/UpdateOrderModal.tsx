@@ -7,6 +7,7 @@ import toast from 'react-hot-toast';
 import { Order, OrderStatus, STATUS_LABELS, STATUS_COLORS, STATUS_OPTIONS, ReminderHistoryEntry, isReminderEligible, DEFAULT_REFUND_TIMELINE_DAYS, formatSellerLess, SellerLessMode, computeSellerLess, expectedRefund, parseCommissionAmount } from '@/types/order';
 import { useOrderStore } from '@/store/useOrderStore';
 import { addDays, todayStr, fmtDate as fmtFullDate } from '@/lib/followup';
+import { addWorkingDays } from '@/lib/workingDays';
 import { getReturnWindow } from '@/lib/returnWindow';
 import { isReviewAfterDays, reviewTimingLabel } from '@/lib/reviewTiming';
 import { useLocalDate } from '@/hooks/useLocalDate';
@@ -166,7 +167,7 @@ export default function UpdateOrderModal({ order, onClose }: UpdateOrderModalPro
         newStatus === 'informed_mediator' ? informedMediatorDate :
         reviewRatingDate;
       const timeline = parseInt(timelineDays, 10) > 0 ? parseInt(timelineDays, 10) : DEFAULT_REFUND_TIMELINE_DAYS;
-      const nextDate = addDays(anchor, timeline);
+      const nextDate = addWorkingDays(anchor, timeline);
       extras.refundTimelineDays = timeline;
       extras.nextReminderDate = nextDate;
       extras.reminderStatus = 'scheduled';
@@ -175,7 +176,7 @@ export default function UpdateOrderModal({ order, onClose }: UpdateOrderModalPro
         action: 'scheduled',
         fromStatus: newStatus,
         nextReminderDate: nextDate,
-        note: `Timeline ${timeline} days`,
+        note: `Timeline ${timeline} working days`,
       };
       extras.reminderHistory = [...(order.reminderHistory || []), entry];
     }
@@ -242,7 +243,7 @@ export default function UpdateOrderModal({ order, onClose }: UpdateOrderModalPro
     newStatus === 'informed_mediator' ? informedMediatorDate :
     reviewRatingDate;
   const previewTimeline = parseInt(timelineDays, 10) > 0 ? parseInt(timelineDays, 10) : DEFAULT_REFUND_TIMELINE_DAYS;
-  const previewNextReminder = addDays(reminderAnchor, previewTimeline);
+  const previewNextReminder = addWorkingDays(reminderAnchor, previewTimeline);
 
   const refundAmount = expectedRefund(order.totalAmount, order.sellerLess, order.commissionAmount);
   const parsedCommission = parseCommissionAmount(commissionInput);
@@ -571,11 +572,11 @@ export default function UpdateOrderModal({ order, onClose }: UpdateOrderModalPro
           {isReminderEligible(newStatus) && (
             <div className="p-4 rounded-xl bg-accent-blue/5 border border-accent-blue/20">
               <label className="block text-sm font-semibold text-text-primary mb-1">
-                Expected Timeline (Days)
+                Expected Timeline (Working Days)
                 <span className="ml-1 text-xs font-normal text-text-muted">optional</span>
               </label>
               <p className="text-[11px] text-text-muted mb-2">
-                Check the mediator&apos;s message for the expected refund time. Leave blank to use the default of {DEFAULT_REFUND_TIMELINE_DAYS} days.
+                Check the mediator&apos;s message for the expected refund time. Leave blank to use the default of {DEFAULT_REFUND_TIMELINE_DAYS} working days (Monday to Friday).
               </p>
               <input
                 type="number"
@@ -587,7 +588,7 @@ export default function UpdateOrderModal({ order, onClose }: UpdateOrderModalPro
               />
               <p className="text-[11px] text-accent-blue mt-2">
                 Next follow-up reminder: <span className="font-semibold">{fmtFullDate(previewNextReminder)}</span>
-                {' '}({previewTimeline} days after {STATUS_LABELS[newStatus].toLowerCase()})
+                {' '}({previewTimeline} working days after {STATUS_LABELS[newStatus].toLowerCase()})
               </p>
             </div>
           )}
