@@ -12,6 +12,13 @@ interface WhatsNewModalProps {
 
 const CHANGELOG = [
   {
+    version: 'v1.1.9',
+    date: 'Oct 2026',
+    items: [
+      { type: 'improvement', text: 'Follow-ups now measure how long a refund has been waiting in working days, Monday to Friday. Weekends are skipped, and the day you filled the refund form does not count. The WhatsApp follow-up uses the same working-day count.' },
+    ],
+  },
+  {
     version: 'v1.1.8',
     date: 'Oct 2026',
     items: [

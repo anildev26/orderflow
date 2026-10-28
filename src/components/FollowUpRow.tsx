@@ -10,8 +10,10 @@ import {
   fmtDate,
   daysOverdue,
   addDays,
+  todayStr,
   SNOOZE_PRESETS,
 } from '@/lib/followup';
+import { countWorkingDays, workingDaysLabel } from '@/lib/workingDays';
 
 const UpdateOrderModal = dynamic(() => import('./UpdateOrderModal'), { ssr: false });
 
@@ -47,6 +49,9 @@ export default function FollowUpRow({ order }: { order: Order }) {
   const [busy, setBusy] = useState(false);
 
   const overdue = order.nextReminderDate ? daysOverdue(order.nextReminderDate) : 0;
+  const pendingWorkingDays = order.refundFormFilledDate
+    ? countWorkingDays(order.refundFormFilledDate, todayStr())
+    : null;
   const refundAmount = expectedRefund(order.totalAmount, order.sellerLess, order.commissionAmount);
 
   // Urgency drives the left border + the overdue badge
@@ -119,7 +124,14 @@ export default function FollowUpRow({ order }: { order: Order }) {
                 <span className="text-emerald-400 font-semibold">Refund ₹{refundAmount.toLocaleString('en-IN')}</span>
               </div>
               <div className="mt-1 flex items-center gap-3 text-[11px] text-text-muted flex-wrap">
-                {order.refundFormFilledDate && <span>Filled: {fmtDate(order.refundFormFilledDate)}</span>}
+                {order.refundFormFilledDate && (
+                  <span>
+                    Filled: {fmtDate(order.refundFormFilledDate)}
+                    {pendingWorkingDays != null && (
+                      <span className="text-text-secondary"> · {workingDaysLabel(pendingWorkingDays)}</span>
+                    )}
+                  </span>
+                )}
                 <span>Next: <span className="text-text-secondary font-medium">{fmtDate(order.nextReminderDate)}</span></span>
                 {order.reminderCount ? <span>· Contacted {order.reminderCount}x</span> : null}
               </div>
@@ -154,6 +166,7 @@ export default function FollowUpRow({ order }: { order: Order }) {
               <Detail label="Refund Amount" value={`₹${refundAmount.toLocaleString('en-IN')}`} accent />
               {order.email && <Detail label="Email" value={order.email} />}
               {order.refundFormFilledDate && <Detail label="Refund Form Filled" value={fmtDate(order.refundFormFilledDate)} />}
+              {pendingWorkingDays != null && <Detail label="Pending" value={workingDaysLabel(pendingWorkingDays)} />}
               {order.informedMediatorDate && <Detail label="Informed Mediator" value={fmtDate(order.informedMediatorDate)} />}
               {order.refundTimelineDays && <Detail label="Timeline" value={`${order.refundTimelineDays} days`} />}
               {order.lastContactedDate && <Detail label="Last Contacted" value={fmtDate(order.lastContactedDate)} />}

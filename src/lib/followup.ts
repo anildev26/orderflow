@@ -1,4 +1,5 @@
 import { expectedRefund, type Order } from '@/types/order';
+import { countWorkingDays, workingDaysLabel } from './workingDays';
 
 // ─── Date helpers (all work in local time, return YYYY-MM-DD) ───
 
@@ -77,7 +78,7 @@ export function buildFollowUpMessage(order: Order): string {
   const refundAmount = expectedRefund(order.totalAmount, order.sellerLess, order.commissionAmount);
   const platform = PLATFORM_TITLE[order.platform] || order.platform;
   const filled = order.refundFormFilledDate;
-  const sinceFilled = filled ? daysBetween(todayStr(), filled) : null;
+  const sinceFilled = filled ? countWorkingDays(filled, todayStr()) : null;
 
   const lines: string[] = [
     `🙏 *Refund Follow-up*`,
@@ -108,7 +109,7 @@ export function buildFollowUpMessage(order: Order): string {
 
   if (sinceFilled !== null && sinceFilled > 0) {
     lines.push(
-      `It has been *${sinceFilled} days* since the refund form was submitted. Could you please share the current refund status? Thank you! 🙏`
+      `It has been *${workingDaysLabel(sinceFilled)}* since the refund form was submitted. Could you please share the current refund status? Thank you! 🙏`
     );
   } else {
     lines.push(`Could you please share the current refund status? Thank you! 🙏`);
