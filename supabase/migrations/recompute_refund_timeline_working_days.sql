@@ -29,18 +29,21 @@ BEGIN
 END;
 $$;
 
+-- next_reminder_date is date. refund_timeline_days is integer.
+-- reminder_status is text. reminder_history is jsonb.
+-- The status anchors are text (YYYY-MM-DD); cast them to date. NULLIF skips ''.
 UPDATE public.orders AS o
 SET next_reminder_date = public.add_working_days(
   CASE o.status
-    WHEN 'refund_form_filled' THEN o.refund_form_filled_date::date
-    WHEN 'informed_mediator' THEN o.informed_mediator_date::date
-    WHEN 'review_rating_submitted' THEN o.review_rating_date::date
+    WHEN 'refund_form_filled' THEN NULLIF(o.refund_form_filled_date, '')::date
+    WHEN 'informed_mediator' THEN NULLIF(o.informed_mediator_date, '')::date
+    WHEN 'review_rating_submitted' THEN NULLIF(o.review_rating_date, '')::date
   END,
   CASE
     WHEN o.refund_timeline_days IS NOT NULL AND o.refund_timeline_days > 0 THEN o.refund_timeline_days
     ELSE 60
   END
-)::text
+)
 WHERE o.reminder_status = 'scheduled'
   AND o.next_reminder_date IS NOT NULL
   AND (
@@ -50,7 +53,7 @@ WHERE o.reminder_status = 'scheduled'
     OR o.reminder_history -> (jsonb_array_length(o.reminder_history) - 1) ->> 'action' = 'scheduled'
   )
   AND CASE o.status
-    WHEN 'refund_form_filled' THEN o.refund_form_filled_date
-    WHEN 'informed_mediator' THEN o.informed_mediator_date
-    WHEN 'review_rating_submitted' THEN o.review_rating_date
+    WHEN 'refund_form_filled' THEN NULLIF(o.refund_form_filled_date, '')
+    WHEN 'informed_mediator' THEN NULLIF(o.informed_mediator_date, '')
+    WHEN 'review_rating_submitted' THEN NULLIF(o.review_rating_date, '')
   END IS NOT NULL;
