@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
@@ -12,6 +12,9 @@ import { getReturnWindow } from '@/lib/returnWindow';
 import { isReviewAfterDays, reviewDueDate, reviewTimingLabel } from '@/lib/reviewTiming';
 import { useLocalDate } from '@/hooks/useLocalDate';
 import { isSafeHttpUrl } from '@/lib/urlSafety';
+import { useMediatorStore } from '@/store/useMediatorStore';
+import { orderChatPhone } from '@/lib/mediators';
+import { WhatsAppChatLink } from '@/components/WhatsAppChatLink';
 
 const EditOrderModal = dynamic(() => import('./EditOrderModal'), { ssr: false });
 
@@ -28,6 +31,10 @@ interface UpdateOrderModalProps {
 export default function UpdateOrderModal({ order, onClose }: UpdateOrderModalProps) {
   const router = useRouter();
   const updateOrderStatus = useOrderStore((s) => s.updateOrderStatus);
+  const mediators = useMediatorStore((s) => s.mediators);
+  const ensureMediators = useMediatorStore((s) => s.ensureLoaded);
+  useEffect(() => { void ensureMediators(); }, [ensureMediators]);
+  const chatPhone = orderChatPhone(order, mediators);
   // Bank is now a free-text field (no longer driven by settings store)
   const localDate = useLocalDate();
   const today = localDate || todayStr();
@@ -326,7 +333,10 @@ export default function UpdateOrderModal({ order, onClose }: UpdateOrderModalPro
             </div>
             <div className="flex items-center justify-between">
               <span className="text-xs text-text-muted">Mediator</span>
-              <span className="text-sm text-text-primary">{order.mediatorName || '-'}</span>
+              <span className="text-sm text-text-primary inline-flex items-center gap-2 min-w-0">
+                <span className="truncate">{order.mediatorName || '-'}</span>
+                {chatPhone && order.mediatorName ? <WhatsAppChatLink phone={chatPhone} name={order.mediatorName} /> : null}
+              </span>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-xs text-text-muted">Reviewer</span>

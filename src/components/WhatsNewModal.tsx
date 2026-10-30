@@ -12,6 +12,13 @@ interface WhatsNewModalProps {
 
 const CHANGELOG = [
   {
+    version: 'v1.1.13',
+    date: 'Oct 2026',
+    items: [
+      { type: 'new', text: 'Save your mediators, with an optional WhatsApp number, in Settings. Pick them when you add or edit an order, and tap the WhatsApp icon to open a chat.' },
+    ],
+  },
+  {
     version: 'v1.1.12',
     date: 'Oct 2026',
     items: [

@@ -63,6 +63,8 @@ function mapDbRow(row: Record<string, unknown>): Order {
     sellerLessPercent: row.seller_less_percent != null ? Number(row.seller_less_percent) : null,
     commissionAmount: row.commission_amount != null && row.commission_amount !== '' ? Number(row.commission_amount) : null,
     mediatorName: (row.mediator_name as string) || '',
+    mediatorId: (row.mediator_id as string) || null,
+    mediatorPhone: (row.mediator_phone as string) || null,
     reviewerName: (row.reviewer_name as string) || '',
     orderType: (row.order_type as string) || 'Rating',
     isReplacement: (row.is_replacement as boolean) || false,
@@ -112,6 +114,8 @@ function orderToDb(order: Partial<Order> & { userId?: string }) {
   if (order.sellerLessPercent !== undefined) result.seller_less_percent = order.sellerLessPercent;
   if (order.commissionAmount !== undefined) result.commission_amount = order.commissionAmount;
   if (order.mediatorName !== undefined) result.mediator_name = order.mediatorName;
+  if (order.mediatorId !== undefined) result.mediator_id = order.mediatorId;
+  if (order.mediatorPhone !== undefined) result.mediator_phone = order.mediatorPhone;
   if (order.reviewerName !== undefined) result.reviewer_name = order.reviewerName;
   if (order.orderType !== undefined) result.order_type = order.orderType;
   if (order.isReplacement !== undefined) result.is_replacement = order.isReplacement;
@@ -337,6 +341,9 @@ export const useOrderStore = create<OrderStore>()((set, get) => ({
     if (extras.sellerLess !== undefined) updateData.seller_less = extras.sellerLess;
     if (extras.sellerLessPercent !== undefined) updateData.seller_less_percent = extras.sellerLessPercent;
     if (extras.commissionAmount !== undefined) updateData.commission_amount = extras.commissionAmount;
+    if (extras.mediatorName !== undefined) updateData.mediator_name = extras.mediatorName;
+    if (extras.mediatorId !== undefined) updateData.mediator_id = extras.mediatorId;
+    if (extras.mediatorPhone !== undefined) updateData.mediator_phone = extras.mediatorPhone;
     if (extras.isReplacement !== undefined) updateData.is_replacement = extras.isReplacement;
     if (extras.replacementOrderId !== undefined) updateData.replacement_order_id = extras.replacementOrderId;
     if (extras.totalAmount !== undefined) updateData.total_amount = extras.totalAmount;

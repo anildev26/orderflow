@@ -66,6 +66,8 @@ export interface Order {
   // plus this flat INR amount. Never set together with a non-zero sellerLess.
   commissionAmount?: number | null;
   mediatorName: string;
+  mediatorId?: string | null;
+  mediatorPhone?: string | null;
   reviewerName: string;
   orderType: string;
   isReplacement: boolean;

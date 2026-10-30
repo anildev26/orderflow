@@ -9,6 +9,9 @@ import { useAuth } from '@/hooks/useAuth';
 import { OrderPlatform, ORDER_TYPES, SellerLessMode, computeSellerLess, parseCommissionAmount } from '@/types/order';
 import { isSafeHttpUrl } from '@/lib/urlSafety';
 import ThemeToggle from '@/components/ThemeToggle';
+import { MediatorFields, type MediatorFieldValue } from '@/components/MediatorFields';
+import { commitMediatorDraft } from '@/lib/commitMediator';
+import { useMediatorStore } from '@/store/useMediatorStore';
 
 const ORDER_TYPE_ICON_PATHS: Record<string, string> = {
   Rating: 'M11.48 3.499a.562.562 0 011.04 0l2.125 5.111a.563.563 0 00.475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 00-.182.557l1.285 5.385c.117.489-.412.885-.84.633l-4.725-2.885a.563.563 0 00-.586 0L6.982 20.63c-.428.252-.957-.144-.84-.633l1.285-5.385a.562.562 0 00-.182-.557l-4.204-3.602c-.38-.325-.178-.948.321-.988l5.518-.442a.563.563 0 00.475-.345L11.48 3.5z',
@@ -90,6 +93,14 @@ export default function OrderFormPage() {
   };
 
   const [submitting, setSubmitting] = useState(false);
+  const mediators = useMediatorStore((s) => s.mediators);
+  const addMediator = useMediatorStore((s) => s.addMediator);
+  const [mediator, setMediator] = useState<MediatorFieldValue>({
+    name: '',
+    phoneInput: '',
+    mediatorId: null,
+    saveToList: true,
+  });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -122,6 +133,20 @@ export default function OrderFormPage() {
           parseFloat(sellerLessPercentInput) || 0,
           parseFloat(form.totalAmount) || 0
         );
+    let savedMediator;
+    try {
+      savedMediator = await commitMediatorDraft({
+        name: mediator.name,
+        phoneInput: mediator.phoneInput,
+        saveToList: mediator.saveToList,
+        pickedId: mediator.mediatorId,
+        list: mediators,
+        create: addMediator,
+      });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Check the mediator number');
+      return;
+    }
     setSubmitting(true);
     try {
       await addOrder({
@@ -135,7 +160,9 @@ export default function OrderFormPage() {
         sellerLess,
         sellerLessPercent,
         commissionAmount,
-        mediatorName: form.mediatorNameCustom || '',
+        mediatorName: savedMediator.name,
+        mediatorId: savedMediator.mediatorId,
+        mediatorPhone: savedMediator.mediatorPhone,
         reviewerName: form.reviewerNameCustom || '',
         orderType: form.orderType,
         isReplacement: form.isReplacement,
@@ -157,6 +184,7 @@ export default function OrderFormPage() {
     setDealMode('seller_less');
     setSellerLessMode('inr');
     setSellerLessPercentInput('');
+    setMediator({ name: '', phoneInput: '', mediatorId: null, saveToList: true });
     setForm({
       platform: '',
       email,
@@ -465,11 +493,8 @@ export default function OrderFormPage() {
                 )}
               </div>
 
-              {/* 10. Mediator Name */}
-              <div>
-                <label className={labelClass}>Mediator Name <span className="text-accent-red">*</span></label>
-                <input type="text" name="mediatorNameCustom" value={form.mediatorNameCustom} onChange={handleChange} maxLength={100} placeholder="Type mediator name" className={inputClass} />
-              </div>
+              {/* 10. Mediator */}
+              <MediatorFields tone="form" value={mediator} onChange={setMediator} />
 
               {/* 11. Reviewer Name */}
               <div>
