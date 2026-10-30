@@ -9,7 +9,7 @@ import { useOrderStore } from '@/store/useOrderStore';
 import { addDays, todayStr, fmtDate as fmtFullDate } from '@/lib/followup';
 import { addWorkingDays } from '@/lib/workingDays';
 import { getReturnWindow } from '@/lib/returnWindow';
-import { isReviewAfterDays, reviewTimingLabel } from '@/lib/reviewTiming';
+import { isReviewAfterDays, reviewDueDate, reviewTimingLabel } from '@/lib/reviewTiming';
 import { useLocalDate } from '@/hooks/useLocalDate';
 import { isSafeHttpUrl } from '@/lib/urlSafety';
 
@@ -219,6 +219,7 @@ export default function UpdateOrderModal({ order, onClose }: UpdateOrderModalPro
 
   const returnWindow = getReturnWindow(order, today);
   const returnDaysLeft = returnWindow?.daysLeft ?? null;
+  const reviewReminderFrom = reviewDueDate({ deliveredDate, reviewAfterDays });
 
   const hasChanges =
     newStatus !== order.status ||
@@ -638,12 +639,12 @@ export default function UpdateOrderModal({ order, onClose }: UpdateOrderModalPro
                   No early reminder. Mark Review/Rating Submitted yourself when you are ready. The refund form still waits until the return window ends.
                 </p>
               )}
-              {deliveredDate && isReviewAfterDays(reviewAfterDays) && (
+              {deliveredDate && reviewReminderFrom && (
                 <p className="text-[11px] text-purple-400">
-                  Rating &amp; review reminder from {fmtFullDate(addDays(deliveredDate, reviewAfterDays))}
+                  Rating &amp; review reminder from {fmtFullDate(reviewReminderFrom)}
                 </p>
               )}
-              {deliveredDate && isReviewAfterDays(reviewAfterDays) && addDays(deliveredDate, reviewAfterDays) > addDays(deliveredDate, returnPeriodDays) && (
+              {deliveredDate && reviewReminderFrom && reviewReminderFrom > addDays(deliveredDate, returnPeriodDays) && (
                 <p className="text-[11px] text-amber-400">
                   This date is after the return window closes on {fmtFullDate(addDays(deliveredDate, returnPeriodDays))}. The order will move to Refund Form Pending before the reminder, so it will not show on the Rating &amp; Review Pending card. You can still save.
                 </p>

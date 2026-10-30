@@ -12,6 +12,13 @@ interface WhatsNewModalProps {
 
 const CHANGELOG = [
   {
+    version: 'v1.1.12',
+    date: 'Oct 2026',
+    items: [
+      { type: 'improvement', text: 'Review reminders now come after the full number of days you pick. Delivered on the 26th with “After 3 days” reminds you on the 30th — the 27th, 28th and 29th all pass first.' },
+    ],
+  },
+  {
     version: 'v1.1.11',
     date: 'Oct 2026',
     items: [
