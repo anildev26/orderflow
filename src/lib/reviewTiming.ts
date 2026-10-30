@@ -11,12 +11,17 @@ export function isReviewAfterDays(value: number | null | undefined): value is Re
   return value === 1 || value === 3 || value === 7;
 }
 
-/** Local calendar date the reminder begins, or null for "after the return period". */
+/**
+ * Local calendar date the reminder begins, or null for "after the return period".
+ * The N days after delivery are not themselves the due day: those days pass
+ * first, and the reminder is the next calendar day (delivered + N + 1).
+ * Delivered 26 Oct with 3 days → 27, 28 and 29 pass → due 30 Oct.
+ */
 export function reviewDueDate(
   order: Pick<Order, 'deliveredDate' | 'reviewAfterDays'>
 ): string | null {
   if (!order.deliveredDate || !isReviewAfterDays(order.reviewAfterDays)) return null;
-  return addDays(order.deliveredDate, order.reviewAfterDays);
+  return addDays(order.deliveredDate, order.reviewAfterDays + 1);
 }
 
 /**

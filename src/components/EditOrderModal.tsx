@@ -5,6 +5,9 @@ import toast from 'react-hot-toast';
 import { Order, OrderPlatform, ORDER_TYPES, SellerLessMode, computeSellerLess, parseCommissionAmount } from '@/types/order';
 import { useOrderStore } from '@/store/useOrderStore';
 import { usePlatformStore } from '@/store/usePlatformStore';
+import { useMediatorStore } from '@/store/useMediatorStore';
+import { MediatorFields, mediatorFieldsFromOrder, type MediatorFieldValue } from '@/components/MediatorFields';
+import { commitMediatorDraft } from '@/lib/commitMediator';
 
 interface EditOrderModalProps {
   order: Order;
@@ -29,6 +32,9 @@ export default function EditOrderModal({ order, onClose }: EditOrderModalProps) 
   });
   const [sellerLessMode, setSellerLessMode] = useState<SellerLessMode>(order.sellerLessPercent != null ? 'less_percent' : 'inr');
   const [sellerLessPercentInput, setSellerLessPercentInput] = useState(order.sellerLessPercent != null ? String(order.sellerLessPercent) : '');
+  const mediators = useMediatorStore((s) => s.mediators);
+  const addMediator = useMediatorStore((s) => s.addMediator);
+  const [mediator, setMediator] = useState<MediatorFieldValue>(() => mediatorFieldsFromOrder(order, false));
   const [isCommission, setIsCommission] = useState(order.commissionAmount != null);
   const [commissionInput, setCommissionInput] = useState(order.commissionAmount != null ? String(order.commissionAmount) : '');
 
@@ -67,6 +73,20 @@ export default function EditOrderModal({ order, onClose }: EditOrderModalProps) 
           parseFloat(sellerLessPercentInput) || 0,
           totalAmount
         );
+    let savedMediator;
+    try {
+      savedMediator = await commitMediatorDraft({
+        name: mediator.name,
+        phoneInput: mediator.phoneInput,
+        saveToList: mediator.saveToList,
+        pickedId: mediator.mediatorId,
+        list: mediators,
+        create: addMediator,
+      });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Check the mediator number');
+      return;
+    }
     setSaving(true);
     try {
       await editOrder(order.id, {
@@ -79,7 +99,9 @@ export default function EditOrderModal({ order, onClose }: EditOrderModalProps) 
         sellerLess,
         sellerLessPercent,
         commissionAmount,
-        mediatorName: form.mediatorName,
+        mediatorName: savedMediator.name,
+        mediatorId: savedMediator.mediatorId,
+        mediatorPhone: savedMediator.mediatorPhone,
         reviewerName: form.reviewerName,
       });
       toast.success('Order updated!');
@@ -268,11 +290,7 @@ export default function EditOrderModal({ order, onClose }: EditOrderModalProps) 
             )}
           </div>
 
-          {/* Mediator Name */}
-          <div>
-            <label className="block text-xs font-semibold text-text-secondary mb-1.5">Mediator Name</label>
-            <input type="text" name="mediatorName" value={form.mediatorName} onChange={handleChange} maxLength={100} className={ic} />
-          </div>
+          <MediatorFields tone="dashboard" value={mediator} onChange={setMediator} idPrefix="edit-mediator" />
 
           {/* Reviewer Name */}
           <div>

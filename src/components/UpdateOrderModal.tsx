@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
@@ -9,9 +9,12 @@ import { useOrderStore } from '@/store/useOrderStore';
 import { addDays, todayStr, fmtDate as fmtFullDate } from '@/lib/followup';
 import { addWorkingDays } from '@/lib/workingDays';
 import { getReturnWindow } from '@/lib/returnWindow';
-import { isReviewAfterDays, reviewTimingLabel } from '@/lib/reviewTiming';
+import { isReviewAfterDays, reviewDueDate, reviewTimingLabel } from '@/lib/reviewTiming';
 import { useLocalDate } from '@/hooks/useLocalDate';
 import { isSafeHttpUrl } from '@/lib/urlSafety';
+import { useMediatorStore } from '@/store/useMediatorStore';
+import { orderChatPhone } from '@/lib/mediators';
+import { WhatsAppChatLink } from '@/components/WhatsAppChatLink';
 
 const EditOrderModal = dynamic(() => import('./EditOrderModal'), { ssr: false });
 
@@ -28,6 +31,10 @@ interface UpdateOrderModalProps {
 export default function UpdateOrderModal({ order, onClose }: UpdateOrderModalProps) {
   const router = useRouter();
   const updateOrderStatus = useOrderStore((s) => s.updateOrderStatus);
+  const mediators = useMediatorStore((s) => s.mediators);
+  const ensureMediators = useMediatorStore((s) => s.ensureLoaded);
+  useEffect(() => { void ensureMediators(); }, [ensureMediators]);
+  const chatPhone = orderChatPhone(order, mediators);
   // Bank is now a free-text field (no longer driven by settings store)
   const localDate = useLocalDate();
   const today = localDate || todayStr();
@@ -219,6 +226,7 @@ export default function UpdateOrderModal({ order, onClose }: UpdateOrderModalPro
 
   const returnWindow = getReturnWindow(order, today);
   const returnDaysLeft = returnWindow?.daysLeft ?? null;
+  const reviewReminderFrom = reviewDueDate({ deliveredDate, reviewAfterDays });
 
   const hasChanges =
     newStatus !== order.status ||
@@ -325,7 +333,10 @@ export default function UpdateOrderModal({ order, onClose }: UpdateOrderModalPro
             </div>
             <div className="flex items-center justify-between">
               <span className="text-xs text-text-muted">Mediator</span>
-              <span className="text-sm text-text-primary">{order.mediatorName || '-'}</span>
+              <span className="text-sm text-text-primary inline-flex items-center gap-2 min-w-0">
+                <span className="truncate">{order.mediatorName || '-'}</span>
+                {chatPhone && order.mediatorName ? <WhatsAppChatLink phone={chatPhone} name={order.mediatorName} /> : null}
+              </span>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-xs text-text-muted">Reviewer</span>
@@ -638,12 +649,12 @@ export default function UpdateOrderModal({ order, onClose }: UpdateOrderModalPro
                   No early reminder. Mark Review/Rating Submitted yourself when you are ready. The refund form still waits until the return window ends.
                 </p>
               )}
-              {deliveredDate && isReviewAfterDays(reviewAfterDays) && (
+              {deliveredDate && reviewReminderFrom && (
                 <p className="text-[11px] text-purple-400">
-                  Rating &amp; review reminder from {fmtFullDate(addDays(deliveredDate, reviewAfterDays))}
+                  Rating &amp; review reminder from {fmtFullDate(reviewReminderFrom)}
                 </p>
               )}
-              {deliveredDate && isReviewAfterDays(reviewAfterDays) && addDays(deliveredDate, reviewAfterDays) > addDays(deliveredDate, returnPeriodDays) && (
+              {deliveredDate && reviewReminderFrom && reviewReminderFrom > addDays(deliveredDate, returnPeriodDays) && (
                 <p className="text-[11px] text-amber-400">
                   This date is after the return window closes on {fmtFullDate(addDays(deliveredDate, returnPeriodDays))}. The order will move to Refund Form Pending before the reminder, so it will not show on the Rating &amp; Review Pending card. You can still save.
                 </p>

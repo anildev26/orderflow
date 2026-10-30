@@ -12,6 +12,20 @@ interface WhatsNewModalProps {
 
 const CHANGELOG = [
   {
+    version: 'v1.1.13',
+    date: 'Oct 2026',
+    items: [
+      { type: 'new', text: 'Save your mediators, with an optional WhatsApp number, in Settings. Pick them when you add or edit an order, and tap the WhatsApp icon to open a chat.' },
+    ],
+  },
+  {
+    version: 'v1.1.12',
+    date: 'Oct 2026',
+    items: [
+      { type: 'improvement', text: 'Review reminders now come after the full number of days you pick. Delivered on the 26th with “After 3 days” reminds you on the 30th — the 27th, 28th and 29th all pass first.' },
+    ],
+  },
+  {
     version: 'v1.1.11',
     date: 'Oct 2026',
     items: [

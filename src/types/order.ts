@@ -66,6 +66,8 @@ export interface Order {
   // plus this flat INR amount. Never set together with a non-zero sellerLess.
   commissionAmount?: number | null;
   mediatorName: string;
+  mediatorId?: string | null;
+  mediatorPhone?: string | null;
   reviewerName: string;
   orderType: string;
   isReplacement: boolean;
@@ -78,8 +80,8 @@ export interface Order {
   // Dedicated date fields per status
   deliveredDate?: string;
   returnPeriodDays?: number;
-  // null / absent = remind after the return period (default). 1, 3, or 7 =
-  // remind that many local calendar days after deliveredDate.
+  // null / absent = no early reminder (after the return period). 1, 3, or 7 =
+  // that many full calendar days pass after delivery, then the reminder is the next day.
   reviewAfterDays?: number | null;
   reviewRatingDate?: string;
   refundFormFilledDate?: string;
