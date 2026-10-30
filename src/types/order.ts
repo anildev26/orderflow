@@ -66,6 +66,8 @@ export interface Order {
   // plus this flat INR amount. Never set together with a non-zero sellerLess.
   commissionAmount?: number | null;
   mediatorName: string;
+  // Design preview only. Not stored. Digits-only WhatsApp number; absent hides the chat icon.
+  mediatorPhone?: string | null;
   reviewerName: string;
   orderType: string;
   isReplacement: boolean;

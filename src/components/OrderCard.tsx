@@ -132,11 +132,25 @@ export default function OrderCard({ order }: OrderCardProps) {
                 <span className="font-medium text-text-primary">{order.reviewerName}</span>
               </span>
               {order.mediatorName && (
-                <span className="flex items-center gap-1">
-                  <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <span className="flex items-center gap-1 min-w-0">
+                  <svg className="w-3 h-3 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
                   </svg>
-                  {order.mediatorName}
+                  <span className="truncate">{order.mediatorName}</span>
+                  {order.mediatorPhone ? (
+                    <a
+                      href={`https://wa.me/${order.mediatorPhone}?text=${encodeURIComponent(`Order ${order.orderId} — ${order.productName}`)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      aria-label={`Chat with ${order.mediatorName} on WhatsApp`}
+                      title="Chat with mediator"
+                      className="inline-flex items-center justify-center w-5 h-5 rounded-md text-[#25D366] hover:bg-[#25D366]/15 flex-shrink-0"
+                    >
+                      <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                        <path d="M20.5 3.5A11 11 0 0 0 2.1 16.8L1 23l6.4-1.1A11 11 0 1 0 20.5 3.5zM12 20.2a9.1 9.1 0 0 1-4.6-1.3l-.3-.2-3.4.6.6-3.3-.2-.3A9.1 9.1 0 1 1 12 20.2zm5.1-6.8c-.3-.1-1.6-.8-1.8-.9s-.4-.1-.6.1-.7.9-.9 1.1-.3.2-.6.1a7.5 7.5 0 0 1-2.2-1.4 8.3 8.3 0 0 1-1.5-1.9c-.2-.3 0-.4.1-.6l.4-.5c.1-.1.2-.3.2-.5s0-.3-.1-.5-.6-1.5-.8-2-.4-.5-.6-.5h-.5a1 1 0 0 0-.7.3 2.9 2.9 0 0 0-.9 2.2 5.2 5.2 0 0 0 1.1 2.7 11.8 11.8 0 0 0 4.5 4c.6.3 1.2.4 1.6.5.6.1 1.2.1 1.6-.1s1.1-.9 1.3-1.4.1-1.1 0-1.2-.3-.2-.6-.3z" />
+                      </svg>
+                    </a>
+                  ) : null}
                 </span>
               )}
               <span className="capitalize">{order.orderType}</span>

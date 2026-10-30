@@ -325,7 +325,19 @@ export default function UpdateOrderModal({ order, onClose }: UpdateOrderModalPro
             </div>
             <div className="flex items-center justify-between">
               <span className="text-xs text-text-muted">Mediator</span>
-              <span className="text-sm text-text-primary">{order.mediatorName || '-'}</span>
+              <span className="text-sm text-text-primary inline-flex items-center gap-2">
+                {order.mediatorName || '-'}
+                {order.mediatorPhone ? (
+                  <a
+                    href={`https://wa.me/${order.mediatorPhone}?text=${encodeURIComponent(`Order ${order.orderId} — ${order.productName}`)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-[11px] font-semibold text-[#25D366] hover:underline"
+                  >
+                    Chat
+                  </a>
+                ) : null}
+              </span>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-xs text-text-muted">Reviewer</span>
