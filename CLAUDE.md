@@ -29,4 +29,4 @@ Guidance mode (security questions, focused review, triage) is safe to use anytim
 
 # Agent skills (local only)
 
-See AGENTS.md.
+See AGENTS.md. Do not install skills to promote an update.
