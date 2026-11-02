@@ -3,3 +3,35 @@
 
 This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` before writing any code. Heed deprecation notices.
 <!-- END:nextjs-agent-rules -->
+
+# Agent skills (local only)
+
+At the start of every session, install these skill packs and use them for every code change. They cut token use. Do not commit the skill files.
+
+```
+npx -y skills add JuliusBrussee/caveman -y
+npx -y skills add dietrichgebert/ponytail -y
+npx -y skills add rtk-ai/rtk -y
+npx -y skills add mksglu/context-mode -y
+```
+
+They install under `.agents/skills/` and may update `skills-lock.json`. Add both to `.git/info/exclude` so they are never committed (that file is not pushed):
+
+```
+.agents/
+skills-lock.json
+```
+
+`.agents/skills/security-audit/` and the security-audit entry in `skills-lock.json` are already tracked. Leave new skill directories and lock-file edits from the commands above unstaged. Run `git status` before each commit and confirm no skill files are staged. If `skills-lock.json` changed only because of these installs, restore it with `git restore skills-lock.json`.
+
+Use the installed skills on every change:
+
+- caveman: terse replies
+- ponytail: smallest change that finishes the task
+- rtk skills (`code-simplifier`, `issue-triage`, `pr-triage`, `rtk-triage`): review and triage
+- context-mode skills: keep large command and file output out of the transcript when that server is available
+
+The rtk CLI and the context-mode server are separate installs. They save more tokens than the skill files alone. Official commands, checked against each repo README:
+
+- rtk CLI: `brew install rtk` or `curl -fsSL https://raw.githubusercontent.com/rtk-ai/rtk/refs/heads/master/install.sh | sh`, then `rtk init -g --agent cursor`
+- context-mode server: `npm install -g context-mode` (Cursor wiring is in the context-mode README: local plugin, or MCP plus hooks)

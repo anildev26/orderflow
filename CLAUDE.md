@@ -26,3 +26,16 @@ Skip this only for internal-only changes with no visible effect (refactors, migr
 This repo has Cloudflare's `security-audit` Skill installed (source: `.agents/skills/security-audit/`, tracked via `skills-lock.json`). `.claude/` itself is gitignored, so on a fresh checkout the Claude Code symlink won't exist yet — if the skill isn't showing up, run `npx skills experimental_install` once to restore it from the lock file.
 
 Guidance mode (security questions, focused review, triage) is safe to use anytime just by asking. Full audit mode (all six phases, writes a report to disk) only runs when explicitly requested — e.g. "run a full security audit" or "audit this codebase, output to ~/audits/orderflow" — never trigger it on your own initiative.
+
+# Agent skills (local only)
+
+Same instruction as `AGENTS.md`. Install these at the start of every session, add `.agents/` and `skills-lock.json` to `.git/info/exclude`, and do not commit skill files or lock-file edits from the install. Use caveman for terse replies, and ponytail, rtk, and context-mode where they apply.
+
+```
+npx -y skills add JuliusBrussee/caveman -y
+npx -y skills add dietrichgebert/ponytail -y
+npx -y skills add rtk-ai/rtk -y
+npx -y skills add mksglu/context-mode -y
+```
+
+Optional CLIs, from those repos' READMEs: `brew install rtk` or `curl -fsSL https://raw.githubusercontent.com/rtk-ai/rtk/refs/heads/master/install.sh | sh`, then `rtk init -g --agent cursor`. Context-mode server: `npm install -g context-mode`.
