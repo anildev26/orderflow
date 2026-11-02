@@ -13,6 +13,7 @@ import {
   SNOOZE_PRESETS,
 } from '@/lib/followup';
 import { addWorkingDays, countWorkingDays, workingDaysLabel, workingDaysOffset } from '@/lib/workingDays';
+import { CopyTextButton } from '@/components/CopyTextButton';
 
 const UpdateOrderModal = dynamic(() => import('./UpdateOrderModal'), { ssr: false });
 
@@ -103,9 +104,18 @@ export default function FollowUpRow({ order }: { order: Order }) {
     <>
       <div className={`rounded-xl overflow-hidden bg-dashboard-card border border-dashboard-border border-l-4 ${borderColor}`}>
         {/* Collapsed header */}
-        <button
-          type="button"
+        <div
+          role="button"
+          tabIndex={0}
+          aria-expanded={expanded}
           onClick={() => setExpanded((v) => !v)}
+          onKeyDown={(e) => {
+            if (e.target !== e.currentTarget) return;
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              setExpanded((v) => !v);
+            }
+          }}
           className="w-full text-left p-4 hover:bg-dashboard-card-hover transition"
         >
           <div className="flex items-start justify-between gap-3">
@@ -115,6 +125,7 @@ export default function FollowUpRow({ order }: { order: Order }) {
                   {order.platform}
                 </span>
                 <span className="text-sm font-bold font-mono text-text-primary truncate">{order.orderId}</span>
+                <CopyTextButton text={order.orderId} />
                 <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-md text-white ${STATUS_COLORS[order.status]}`}>
                   {STATUS_LABELS[order.status]}
                 </span>
@@ -152,7 +163,7 @@ export default function FollowUpRow({ order }: { order: Order }) {
               </svg>
             </div>
           </div>
-        </button>
+        </div>
 
         {/* Expanded */}
         {expanded && (

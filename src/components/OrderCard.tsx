@@ -2,8 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import dynamic from 'next/dynamic';
-import toast from 'react-hot-toast';
 import { Order, STATUS_LABELS, STATUS_COLORS, OrderPlatform, formatSellerLess } from '@/types/order';
+import { CopyTextButton } from '@/components/CopyTextButton';
 import { isSafeHttpUrl } from '@/lib/urlSafety';
 import { getReturnWindow } from '@/lib/returnWindow';
 import { reviewDueDate } from '@/lib/reviewTiming';
@@ -64,11 +64,6 @@ export default function OrderCard({ order }: OrderCardProps) {
 
   const days = mounted ? daysAgo(order.orderDate) : 0;
 
-  const copyToClipboard = (text: string, label: string) => {
-    navigator.clipboard.writeText(text);
-    toast.success(`${label} copied!`);
-  };
-
   // Keep the return window visible alongside later statuses, including reviews.
   const today = useLocalDate();
   const returnWindow = today ? getReturnWindow(order, today) : null;
@@ -105,12 +100,7 @@ export default function OrderCard({ order }: OrderCardProps) {
                 {order.platform}
               </span>
               <span className="text-sm font-bold font-mono text-text-primary truncate">{order.orderId}</span>
-              <button
-                onClick={() => copyToClipboard(order.orderId, 'Order ID')}
-                className="px-1.5 py-0.5 text-[10px] bg-dashboard-bg border border-dashboard-border rounded text-text-muted hover:text-text-primary transition flex-shrink-0"
-              >
-                Copy
-              </button>
+              <CopyTextButton text={order.orderId} />
             </div>
             <div className="flex items-center gap-1.5 flex-shrink-0">
               <span className={`text-[10px] font-semibold px-2 py-1 rounded-md text-white ${STATUS_COLORS[order.status]}`}>
