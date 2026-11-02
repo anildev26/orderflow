@@ -7,7 +7,10 @@ import { useOrderStore } from '@/store/useOrderStore';
 import { usePlatformStore } from '@/store/usePlatformStore';
 import { useMediatorStore } from '@/store/useMediatorStore';
 import { MediatorFields, mediatorFieldsFromOrder, type MediatorFieldValue } from '@/components/MediatorFields';
+import { ReviewerFields, type ReviewerFieldValue } from '@/components/ReviewerFields';
 import { commitMediatorDraft } from '@/lib/commitMediator';
+import { commitReviewerDraft } from '@/lib/commitReviewer';
+import { useReviewerStore } from '@/store/useReviewerStore';
 
 interface EditOrderModalProps {
   order: Order;
@@ -28,13 +31,19 @@ export default function EditOrderModal({ order, onClose }: EditOrderModalProps) 
     totalAmount: String(order.totalAmount),
     sellerLess: String(order.sellerLess),
     mediatorName: order.mediatorName,
-    reviewerName: order.reviewerName,
   });
   const [sellerLessMode, setSellerLessMode] = useState<SellerLessMode>(order.sellerLessPercent != null ? 'less_percent' : 'inr');
   const [sellerLessPercentInput, setSellerLessPercentInput] = useState(order.sellerLessPercent != null ? String(order.sellerLessPercent) : '');
   const mediators = useMediatorStore((s) => s.mediators);
   const addMediator = useMediatorStore((s) => s.addMediator);
+  const reviewers = useReviewerStore((s) => s.reviewers);
+  const addReviewer = useReviewerStore((s) => s.addReviewer);
   const [mediator, setMediator] = useState<MediatorFieldValue>(() => mediatorFieldsFromOrder(order, false));
+  const [reviewer, setReviewer] = useState<ReviewerFieldValue>({
+    name: order.reviewerName || '',
+    reviewerId: null,
+    saveToList: false,
+  });
   const [isCommission, setIsCommission] = useState(order.commissionAmount != null);
   const [commissionInput, setCommissionInput] = useState(order.commissionAmount != null ? String(order.commissionAmount) : '');
 
@@ -87,6 +96,19 @@ export default function EditOrderModal({ order, onClose }: EditOrderModalProps) 
       toast.error(err instanceof Error ? err.message : 'Check the mediator number');
       return;
     }
+    let savedReviewer;
+    try {
+      savedReviewer = await commitReviewerDraft({
+        name: reviewer.name,
+        saveToList: reviewer.saveToList,
+        pickedId: reviewer.reviewerId,
+        list: reviewers,
+        create: addReviewer,
+      });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Could not save the reviewer');
+      return;
+    }
     setSaving(true);
     try {
       await editOrder(order.id, {
@@ -102,7 +124,7 @@ export default function EditOrderModal({ order, onClose }: EditOrderModalProps) 
         mediatorName: savedMediator.name,
         mediatorId: savedMediator.mediatorId,
         mediatorPhone: savedMediator.mediatorPhone,
-        reviewerName: form.reviewerName,
+        reviewerName: savedReviewer.name,
       });
       toast.success('Order updated!');
       onClose();
@@ -292,11 +314,7 @@ export default function EditOrderModal({ order, onClose }: EditOrderModalProps) 
 
           <MediatorFields tone="dashboard" value={mediator} onChange={setMediator} idPrefix="edit-mediator" />
 
-          {/* Reviewer Name */}
-          <div>
-            <label className="block text-xs font-semibold text-text-secondary mb-1.5">Reviewer Name</label>
-            <input type="text" name="reviewerName" value={form.reviewerName} onChange={handleChange} maxLength={100} className={ic} />
-          </div>
+          <ReviewerFields tone="dashboard" value={reviewer} onChange={setReviewer} idPrefix="edit-reviewer" />
 
         </div>
 

@@ -12,6 +12,7 @@ import { usePlatformStore, ADMIN_EMAIL } from '@/store/usePlatformStore';
 import { useDemoOrderStore, DemoOrder, DemoOrderFormData } from '@/store/useDemoOrderStore';
 import { STATUS_OPTIONS, PLATFORM_OPTIONS } from '@/types/order';
 import MediatorsPanel from '@/components/MediatorsPanel';
+import ReviewersPanel from '@/components/ReviewersPanel';
 
 /* ─── Draggable List (reusable) ─── */
 function DraggableList<T>({
@@ -1020,7 +1021,7 @@ function AccountSettingsInner() {
   const { user: authUser } = useAuth();
   const isAdmin = authUser?.email === ADMIN_EMAIL;
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<'account' | 'mediators' | 'admin' | 'demo'>('account');
+  const [activeTab, setActiveTab] = useState<'account' | 'mediators' | 'reviewers' | 'admin' | 'demo'>('account');
 
   return (
     <div className="flex min-h-screen bg-dashboard-bg">
@@ -1070,6 +1071,15 @@ function AccountSettingsInner() {
                   <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
                 </svg>
                 Mediators
+              </button>
+            </li>
+            <li>
+              <button onClick={() => { setActiveTab('reviewers'); setMobileMenuOpen(false); }}
+                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition ${activeTab === 'reviewers' ? 'bg-sidebar-active text-white' : 'text-text-secondary hover:bg-dashboard-card hover:text-text-primary'}`}>
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                </svg>
+                Reviewers
               </button>
             </li>
             {isAdmin && (
@@ -1136,6 +1146,15 @@ function AccountSettingsInner() {
                 Mediators
               </button>
             </li>
+            <li>
+              <button onClick={() => setActiveTab('reviewers')}
+                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition ${activeTab === 'reviewers' ? 'bg-sidebar-active text-white' : 'text-text-secondary hover:bg-dashboard-card hover:text-text-primary'}`}>
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                </svg>
+                Reviewers
+              </button>
+            </li>
             {isAdmin && (
               <li>
                 <button onClick={() => setActiveTab('admin')}
@@ -1173,7 +1192,7 @@ function AccountSettingsInner() {
         <div className="sticky top-0 z-30 bg-dashboard-bg/80 backdrop-blur-xl border-b border-dashboard-border">
           <div className="flex items-center justify-between px-6 h-14 md:pl-6 pl-14">
             <h1 className="text-lg font-bold text-text-primary">
-              {activeTab === 'admin' ? 'Platform Management' : activeTab === 'demo' ? 'Demo Order Management' : activeTab === 'mediators' ? 'Mediators' : 'Account Settings'}
+              {activeTab === 'admin' ? 'Platform Management' : activeTab === 'demo' ? 'Demo Order Management' : activeTab === 'mediators' ? 'Mediators' : activeTab === 'reviewers' ? 'Reviewers' : 'Account Settings'}
             </h1>
             <ThemeToggle />
           </div>
@@ -1185,6 +1204,8 @@ function AccountSettingsInner() {
             <AdminDemoOrderSection />
           ) : activeTab === 'mediators' ? (
             <MediatorsPanel />
+          ) : activeTab === 'reviewers' ? (
+            <ReviewersPanel />
           ) : (
             <AccountSection />
           )}
