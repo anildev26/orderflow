@@ -16,6 +16,7 @@ const CHANGELOG = [
     date: 'Nov 2026',
     items: [
       { type: 'new', text: 'Save the reviewer accounts you use in Settings. On a new or edited order, pick a saved name or type a new one and tick Save to reviewer list. Deleting a name later leaves orders that already used it unchanged.' },
+      { type: 'improvement', text: 'On Follow-ups, copy an order ID from the list without opening the order.' },
     ],
   },
   {
