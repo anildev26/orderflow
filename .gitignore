@@ -45,6 +45,10 @@ next-env.d.ts
 CLAUDE.md
 AGENTS.md
 
+# agent skills (local only)
+.agents/
+skills-lock.json
+
 # migration & setup scripts (contain local data)
 gen-sql.mjs
 migrate-data.sql

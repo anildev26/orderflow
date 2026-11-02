@@ -15,14 +15,14 @@ npx -y skills add rtk-ai/rtk -y
 npx -y skills add mksglu/context-mode -y
 ```
 
-They install under `.agents/skills/` and may update `skills-lock.json`. Add both to `.git/info/exclude` so they are never committed (that file is not pushed):
+They install under `.agents/skills/` and may update `skills-lock.json`. Both paths are in `.gitignore`, so Git does not commit them. Also add them to `.git/info/exclude` (that file is not pushed) if a local checkout is missing the ignore rules:
 
 ```
 .agents/
 skills-lock.json
 ```
 
-`.agents/skills/security-audit/` and the security-audit entry in `skills-lock.json` are already tracked. Leave new skill directories and lock-file edits from the commands above unstaged. Run `git status` before each commit and confirm no skill files are staged. If `skills-lock.json` changed only because of these installs, restore it with `git restore skills-lock.json`.
+Do not force-add skill files or `skills-lock.json`. Run `git status` before each commit and confirm no skill files are staged.
 
 Use the installed skills on every change:
 
