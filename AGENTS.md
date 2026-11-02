@@ -6,32 +6,40 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 # Agent skills (local only)
 
-At the start of every session, install these skill packs and use them for every code change. They cut token use. Do not commit the skill files.
+Install once per workspace. If `.agents/skills/<name>` already exists, skip that skill. Do not reinstall before every change. Never commit skill files.
 
-```
-npx -y skills add JuliusBrussee/caveman -y
-npx -y skills add dietrichgebert/ponytail -y
-npx -y skills add rtk-ai/rtk -y
-npx -y skills add mksglu/context-mode -y
-```
-
-They install under `.agents/skills/` and may update `skills-lock.json`. Both paths are in `.gitignore`, so Git does not commit them. Also add them to `.git/info/exclude` (that file is not pushed) if a local checkout is missing the ignore rules:
-
-```
-.agents/
-skills-lock.json
+```bash
+test -d .agents/skills/caveman || npx -y skills add JuliusBrussee/caveman --skill caveman -y
+test -d .agents/skills/ponytail || npx -y skills add dietrichgebert/ponytail --skill ponytail -y
+test -d .agents/skills/code-simplifier || npx -y skills add rtk-ai/rtk --skill code-simplifier -y
+test -d .agents/skills/context-mode || npx -y skills add mksglu/context-mode --skill context-mode -y
 ```
 
-Do not force-add skill files or `skills-lock.json`. Run `git status` before each commit and confirm no skill files are staged.
+Always pass `--skill`. Without it, `skills add` installs the whole pack.
 
-Use the installed skills on every change:
+`.agents/` and `skills-lock.json` are gitignored. Never `git add -f` them. Run `git status` before each commit and confirm no skill files are staged. If a checkout is missing those ignore rules, add them to `.gitignore` (and `.git/info/exclude` only when you cannot change `.gitignore`).
 
-- caveman: terse replies
-- ponytail: smallest change that finishes the task
-- rtk skills (`code-simplifier`, `issue-triage`, `pr-triage`, `rtk-triage`): review and triage
-- context-mode skills: keep large command and file output out of the transcript when that server is available
+Once per session, read each installed `SKILL.md` under the four directories above. Do not read them again before every change. Follow a skill only when its description matches the task:
 
-The rtk CLI and the context-mode server are separate installs. They save more tokens than the skill files alone. Official commands, checked against each repo README:
+- caveman — terse replies
+- ponytail — smallest change that finishes the task
+- code-simplifier — RTK Rust simplification. Skip it on this TypeScript app.
+- context-mode — only when its MCP server is connected in this session (tools such as `ctx_execute`). If it is not connected, skip it.
 
-- rtk CLI: `brew install rtk` or `curl -fsSL https://raw.githubusercontent.com/rtk-ai/rtk/refs/heads/master/install.sh | sh`, then `rtk init -g --agent cursor`
-- context-mode server: `npm install -g context-mode` (Cursor wiring is in the context-mode README: local plugin, or MCP plus hooks)
+context-mode saves tokens only while that MCP server is running. Cursor's marketplace plugin is not published yet. To enable it locally, use Option B in the [context-mode README](https://github.com/mksglu/context-mode#cursor--hooks-with-stop-support): `npm install -g context-mode`, register the `context-mode` command in `~/.cursor/mcp.json`, restart Cursor. Do not commit MCP or hook files for this.
+
+The rtk CLI is separate from the code-simplifier skill. It filters shell output, and it only helps when the `rtk` binary is on `PATH`. Once per environment, if `command -v rtk` fails (Homebrew: `brew install rtk`; this image has no Homebrew, and the official curl installer works, putting the binary in `~/.local/bin`):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/rtk-ai/rtk/refs/heads/master/install.sh | sh
+export PATH="$HOME/.local/bin:$PATH"
+rtk --version
+```
+
+Then once, if `~/.cursor/hooks.json` does not already run `rtk hook cursor`:
+
+```bash
+rtk init -g --agent cursor
+```
+
+That writes a user-level hook, not a repo file. Use rtk for shell output after that (`rtk git status`, `rtk npm test`, or the hook's rewrite). If install or init fails, skip rtk and continue.

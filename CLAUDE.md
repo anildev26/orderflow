@@ -29,13 +29,4 @@ Guidance mode (security questions, focused review, triage) is safe to use anytim
 
 # Agent skills (local only)
 
-Same instruction as `AGENTS.md`. `.agents/` and `skills-lock.json` are gitignored. Also add them to `.git/info/exclude`. Do not commit skill files. Use caveman for terse replies, and ponytail, rtk, and context-mode where they apply.
-
-```
-npx -y skills add JuliusBrussee/caveman -y
-npx -y skills add dietrichgebert/ponytail -y
-npx -y skills add rtk-ai/rtk -y
-npx -y skills add mksglu/context-mode -y
-```
-
-Optional CLIs, from those repos' READMEs: `brew install rtk` or `curl -fsSL https://raw.githubusercontent.com/rtk-ai/rtk/refs/heads/master/install.sh | sh`, then `rtk init -g --agent cursor`. Context-mode server: `npm install -g context-mode`.
+See AGENTS.md.
