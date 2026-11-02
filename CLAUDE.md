@@ -26,7 +26,3 @@ Skip this only for internal-only changes with no visible effect (refactors, migr
 Cloudflare's `security-audit` skill, when installed, lives under `.agents/skills/security-audit/`. `.agents/` and `skills-lock.json` are gitignored, so they are not in the repo. `.claude/` is gitignored too, so on a fresh checkout the Claude Code symlink will not exist until the skills are installed locally. Do not commit them.
 
 Guidance mode (security questions, focused review, triage) is safe to use anytime just by asking. Full audit mode (all six phases, writes a report to disk) only runs when explicitly requested — e.g. "run a full security audit" or "audit this codebase, output to ~/audits/orderflow" — never trigger it on your own initiative.
-
-# Agent skills (local only)
-
-See AGENTS.md. Do not install skills to promote an update.
