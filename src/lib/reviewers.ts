@@ -40,9 +40,9 @@ export function planReviewerSave(args: {
   const picked = args.pickedId ? args.list.find((r) => r.id === args.pickedId) : undefined;
   if (picked && picked.nameKey === key) return { action: 'link', reviewer: picked };
 
+  if (!args.saveToList) return { action: 'order-only', name };
+
   const exact = args.list.find((r) => r.nameKey === key);
   if (exact) return { action: 'link', reviewer: exact };
-
-  if (!args.saveToList) return { action: 'order-only', name };
   return { action: 'create', name, nameKey: key };
 }

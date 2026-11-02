@@ -35,6 +35,16 @@ describe('planReviewerSave', () => {
     if (plan.action === 'link') assert.equal(plan.reviewer.id, '1');
   });
 
+  it('does not replace the order text when the name is already listed and save is unchecked', () => {
+    const plan = planReviewerSave({
+      name: 'aaditya',
+      saveToList: false,
+      pickedId: null,
+      list: [aaditya],
+    });
+    assert.deepEqual(plan, { action: 'order-only', name: 'aaditya' });
+  });
+
   it('stores the name on the order only when save is unchecked', () => {
     const plan = planReviewerSave({
       name: '  New Reviewer ',
