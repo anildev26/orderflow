@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { NextRequest, NextResponse } from 'next/server';
 import { RateLimiter } from '@/lib/rate-limit';
+import { rejectTelegramWebhook } from '@/lib/telegramWebhookAuth';
 
 const STATUS_LABELS: Record<string, string> = {
   ordered: '🛒 Ordered',
@@ -158,13 +159,15 @@ async function lookupOrder(chatId: number, orderId: string, email: string): Prom
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
   try {
-    // 1. Webhook secret validation
-    const webhookSecret = process.env.TELEGRAM_WEBHOOK_SECRET;
-    if (webhookSecret) {
-      const token = req.headers.get('x-telegram-bot-api-secret-token');
-      if (token !== webhookSecret) {
-        return NextResponse.json({ ok: false }, { status: 401 });
-      }
+    // 1. Webhook secret. Missing secret fails closed in production; local dev stays open.
+    if (
+      rejectTelegramWebhook(
+        process.env.TELEGRAM_WEBHOOK_SECRET,
+        process.env.NODE_ENV === 'production',
+        req.headers.get('x-telegram-bot-api-secret-token'),
+      )
+    ) {
+      return NextResponse.json({ ok: false }, { status: 401 });
     }
 
     // 2. Payload size limit

@@ -12,6 +12,14 @@ interface WhatsNewModalProps {
 
 const CHANGELOG = [
   {
+    version: 'v1.1.15',
+    date: 'Nov 2026',
+    items: [
+      { type: 'security', text: 'On Feature Requests, other signed-in users can no longer read the full email on a request. The card still shows the shortened address, such as jo***@gmail.com.' },
+      { type: 'security', text: 'The Telegram order bot on the live site now stays closed unless its webhook secret is set, so a missing secret cannot leave order lookup open.' },
+    ],
+  },
+  {
     version: 'v1.1.14',
     date: 'Nov 2026',
     items: [

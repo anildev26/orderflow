@@ -40,7 +40,7 @@ export const useFeatureRequestStore = create<FeatureRequestStore>((set, get) => 
 
     const { data: requests, error } = await supabase
       .from('feature_requests')
-      .select('id, user_id, user_email, content, created_at, likes, dislikes, completed, admin_comment')
+      .select('id, user_id, user_email_masked, content, created_at, likes, dislikes, completed, admin_comment')
       .order('created_at', { ascending: false });
 
     if (error || !requests) {
@@ -62,7 +62,7 @@ export const useFeatureRequestStore = create<FeatureRequestStore>((set, get) => 
     const mapped: FeatureRequest[] = requests.map((r) => ({
       id: r.id,
       userId: r.user_id,
-      userEmail: r.user_email,
+      userEmail: r.user_email_masked ?? '',
       content: r.content,
       createdAt: r.created_at,
       likes: r.likes ?? 0,
@@ -83,7 +83,7 @@ export const useFeatureRequestStore = create<FeatureRequestStore>((set, get) => 
     const { data, error } = await supabase
       .from('feature_requests')
       .insert({ content, user_id: user.id, user_email: user.email })
-      .select('id, user_id, user_email, content, created_at, likes, dislikes, completed, admin_comment')
+      .select('id, user_id, user_email_masked, content, created_at, likes, dislikes, completed, admin_comment')
       .single();
 
     if (error) throw new Error(error.message);
@@ -91,7 +91,7 @@ export const useFeatureRequestStore = create<FeatureRequestStore>((set, get) => 
     const newRequest: FeatureRequest = {
       id: data.id,
       userId: data.user_id,
-      userEmail: data.user_email,
+      userEmail: data.user_email_masked ?? '',
       content: data.content,
       createdAt: data.created_at,
       likes: data.likes ?? 0,
@@ -138,7 +138,6 @@ export const useFeatureRequestStore = create<FeatureRequestStore>((set, get) => 
     } else {
       await supabase.from('feature_votes').upsert({ user_id: user.id, request_id: requestId, vote }, { onConflict: 'user_id,request_id' });
     }
-    await supabase.rpc('update_vote_counts', { p_request_id: requestId });
   },
 
   deleteRequest: async (requestId: string) => {
