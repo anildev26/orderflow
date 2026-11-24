@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
 import { useMediatorStore } from '@/store/useMediatorStore';
 import { normalizeIndianMobile, PHONE_CHECK_MESSAGE } from '@/lib/phone';
-import { collapseMediatorName, mediatorNameKey, settingsSaveError } from '@/lib/mediators';
+import { collapseMediatorName, filterMediators, mediatorNameKey, settingsSaveError } from '@/lib/mediators';
 
 export default function MediatorsPanel() {
   const mediators = useMediatorStore((s) => s.mediators);
@@ -23,12 +23,7 @@ export default function MediatorsPanel() {
 
   useEffect(() => { void ensureLoaded(); }, [ensureLoaded]);
 
-  const visible = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return mediators;
-    const digits = q.replace(/\D/g, '');
-    return mediators.filter((m) => m.name.toLowerCase().includes(q) || (digits && m.phoneNormalized.includes(digits)));
-  }, [mediators, query]);
+  const visible = useMemo(() => filterMediators(mediators, query), [mediators, query]);
 
   const saveNew = async () => {
     const parsed = normalizeIndianMobile(phone);

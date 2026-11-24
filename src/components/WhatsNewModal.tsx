@@ -12,6 +12,13 @@ interface WhatsNewModalProps {
 
 const CHANGELOG = [
   {
+    version: 'v1.1.16',
+    date: 'Nov 2026',
+    items: [
+      { type: 'improvement', text: 'On a new or edited order, type a mediator or reviewer name and matching names appear underneath. This includes people you saved and names you already used on your orders. Tap a name, or use the arrow keys and Enter, to fill it in. A saved mediator\'s WhatsApp number fills in too.' },
+    ],
+  },
+  {
     version: 'v1.1.15',
     date: 'Nov 2026',
     items: [
