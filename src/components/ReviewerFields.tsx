@@ -1,8 +1,10 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useReviewerStore } from '@/store/useReviewerStore';
-import { reviewerNameKey, type ReviewerRecord } from '@/lib/reviewers';
+import { filterReviewers, mergeReviewerSuggestions, reviewerNameKey, type ReviewerSuggestion } from '@/lib/reviewers';
+import { useOrderContactNames } from '@/hooks/useOrderContactNames';
+import { handleSuggestionKeyDown, NameSuggestionList, suggestionOptionKey } from '@/components/NameSuggestionList';
 
 export interface ReviewerFieldValue {
   name: string;
@@ -23,18 +25,44 @@ export function ReviewerFields({
 }) {
   const reviewers = useReviewerStore((s) => s.reviewers);
   const ensureLoaded = useReviewerStore((s) => s.ensureLoaded);
-  const [open, setOpen] = useState(false);
-  const [query, setQuery] = useState('');
+  const { reviewerNames } = useOrderContactNames();
+  const [suggesting, setSuggesting] = useState(false);
+  const [browsing, setBrowsing] = useState(false);
+  const [browseQuery, setBrowseQuery] = useState('');
+  const [nav, setNav] = useState({ name: '', index: -1 });
+  const rootRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => { void ensureLoaded(); }, [ensureLoaded]);
 
+  useEffect(() => {
+    if (!suggesting && !browsing) return;
+    const onPointerDown = (event: PointerEvent) => {
+      if (!rootRef.current?.contains(event.target as Node)) {
+        setSuggesting(false);
+        setBrowsing(false);
+      }
+    };
+    document.addEventListener('pointerdown', onPointerDown);
+    return () => document.removeEventListener('pointerdown', onPointerDown);
+  }, [suggesting, browsing]);
+
+  const suggestions = useMemo(
+    () => mergeReviewerSuggestions(reviewers, reviewerNames),
+    [reviewers, reviewerNames],
+  );
+  const filtered = useMemo(
+    () => filterReviewers(suggestions, value.name),
+    [suggestions, value.name],
+  );
+  const savedMatches = useMemo(
+    () => filterReviewers(reviewers, browseQuery),
+    [reviewers, browseQuery],
+  );
+  const activeIndex = nav.name === value.name && nav.index >= 0 && nav.index < filtered.length ? nav.index : -1;
+  const showList = suggesting && filtered.length > 0;
+
   const key = reviewerNameKey(value.name);
   const alreadySaved = !!key && reviewers.some((r) => r.nameKey === key);
-  const filtered = reviewers.filter((r) => {
-    const q = query.trim().toLowerCase();
-    if (!q) return true;
-    return r.name.toLowerCase().includes(q);
-  });
 
   const label = tone === 'form'
     ? 'block text-sm font-semibold text-form-label mb-1'
@@ -43,14 +71,47 @@ export function ReviewerFields({
     ? 'w-full bg-form-input-bg border border-form-border rounded-lg px-4 py-2.5 text-form-text placeholder-form-placeholder focus:ring-2 focus:ring-accent-blue outline-none transition'
     : 'w-full bg-dashboard-bg border border-dashboard-border rounded-lg px-3 py-2.5 text-sm text-text-primary placeholder-text-muted focus:ring-2 focus:ring-accent-blue outline-none transition';
 
-  const pick = (r: ReviewerRecord) => {
-    onChange({ name: r.name, reviewerId: r.id, saveToList: false });
-    setOpen(false);
-    setQuery('');
+  const closeSuggestions = () => {
+    setSuggesting(false);
+    setNav({ name: value.name, index: -1 });
+  };
+
+  const openSuggestions = () => {
+    setBrowsing(false);
+    setSuggesting(true);
+  };
+
+  const toggleBrowse = () => {
+    setSuggesting(false);
+    setNav({ name: value.name, index: -1 });
+    setBrowseQuery('');
+    setBrowsing((current) => !current);
+  };
+
+  const pick = (suggestion: ReviewerSuggestion) => {
+    onChange({
+      name: suggestion.name,
+      reviewerId: suggestion.id,
+      saveToList: suggestion.id ? false : true,
+    });
+    closeSuggestions();
+    setBrowsing(false);
+  };
+
+  const move = (direction: 1 | -1) => {
+    setNav((current) => {
+      const length = filtered.length;
+      if (length === 0) return { name: value.name, index: -1 };
+      const index = current.name === value.name && current.index >= 0 && current.index < length ? current.index : -1;
+      const next = direction > 0
+        ? (index < 0 ? 0 : (index + 1) % length)
+        : (index <= 0 ? length - 1 : index - 1);
+      return { name: value.name, index: next };
+    });
   };
 
   return (
-    <div>
+    <div ref={rootRef}>
       <label className={label} htmlFor={`${idPrefix}-name`}>
         Reviewer Name {tone === 'form' ? <span className="text-accent-red">*</span> : null}
       </label>
@@ -60,36 +121,73 @@ export function ReviewerFields({
         value={value.name}
         maxLength={100}
         placeholder="Type reviewer name"
+        autoComplete="off"
+        role="combobox"
+        aria-expanded={showList}
+        aria-controls={showList ? `${idPrefix}-suggestions` : undefined}
+        aria-autocomplete="list"
+        aria-activedescendant={showList && activeIndex >= 0 ? `${idPrefix}-option-${suggestionOptionKey(filtered[activeIndex].id, filtered[activeIndex].nameKey)}` : undefined}
         className={input}
-        onChange={(e) => onChange({ ...value, name: e.target.value, reviewerId: null, saveToList: true })}
+        onFocus={openSuggestions}
+        onBlur={closeSuggestions}
+        onChange={(e) => {
+          onChange({ ...value, name: e.target.value, reviewerId: null, saveToList: true });
+          openSuggestions();
+        }}
+        onKeyDown={(e) => handleSuggestionKeyDown(e, {
+          open: showList,
+          count: filtered.length,
+          activeIndex: activeIndex,
+          close: closeSuggestions,
+          move,
+          pickActive: () => { if (activeIndex >= 0) pick(filtered[activeIndex]); },
+        })}
       />
-      <button type="button" onClick={() => setOpen((v) => !v)} className="mt-1.5 text-xs font-medium text-accent-blue hover:underline">
+      {showList && (
+        <NameSuggestionList
+          idPrefix={idPrefix}
+          tone={tone}
+          activeIndex={activeIndex}
+          items={filtered.map((suggestion) => ({
+            key: suggestionOptionKey(suggestion.id, suggestion.nameKey),
+            name: suggestion.name,
+          }))}
+          onPick={(index) => pick(filtered[index])}
+        />
+      )}
+      <button type="button" onClick={toggleBrowse} aria-expanded={browsing} className="mt-1.5 text-xs font-medium text-accent-blue hover:underline">
         Choose from my reviewers
       </button>
-      {open && (
+      {browsing && (
         <div className={`mt-2 rounded-lg border overflow-hidden ${tone === 'form' ? 'border-form-border bg-form-input-bg' : 'border-dashboard-border bg-dashboard-bg'}`}>
           <input
             type="text"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            value={browseQuery}
+            onChange={(e) => setBrowseQuery(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Escape') {
+                e.preventDefault();
+                setBrowsing(false);
+              }
+            }}
             placeholder="Search name"
             className={`${input} rounded-none border-0 border-b ${tone === 'form' ? 'border-form-border' : 'border-dashboard-border'}`}
           />
-          <ul className="max-h-40 overflow-auto">
-            {filtered.length === 0 ? (
-              <li className="px-3 py-2 text-xs text-text-muted">No saved reviewers</li>
-            ) : filtered.map((r) => (
-              <li key={r.id}>
-                <button
-                  type="button"
-                  onClick={() => pick(r)}
-                  className={`w-full px-3 py-2 text-left text-sm hover:bg-accent-blue/10 ${value.reviewerId === r.id ? 'bg-accent-blue/15' : ''}`}
-                >
-                  <span className="truncate">{r.name}</span>
-                </button>
-              </li>
-            ))}
-          </ul>
+          {savedMatches.length === 0 ? (
+            <p className="px-3 py-2 text-xs text-text-muted">No saved reviewers</p>
+          ) : (
+            <NameSuggestionList
+              idPrefix={`${idPrefix}-saved`}
+              tone={tone}
+              framed={false}
+              activeIndex={savedMatches.findIndex((reviewer) => reviewer.id === value.reviewerId)}
+              items={savedMatches.map((reviewer) => ({
+                key: reviewer.id,
+                name: reviewer.name,
+              }))}
+              onPick={(index) => pick(savedMatches[index])}
+            />
+          )}
         </div>
       )}
 

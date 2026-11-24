@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
 import { useReviewerStore } from '@/store/useReviewerStore';
-import { collapseReviewerName, reviewerNameKey, reviewerSaveError } from '@/lib/reviewers';
+import { collapseReviewerName, filterReviewers, reviewerNameKey, reviewerSaveError } from '@/lib/reviewers';
 
 export default function ReviewersPanel() {
   const reviewers = useReviewerStore((s) => s.reviewers);
@@ -20,11 +20,7 @@ export default function ReviewersPanel() {
 
   useEffect(() => { void ensureLoaded(); }, [ensureLoaded]);
 
-  const visible = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return reviewers;
-    return reviewers.filter((r) => r.name.toLowerCase().includes(q));
-  }, [reviewers, query]);
+  const visible = useMemo(() => filterReviewers(reviewers, query), [reviewers, query]);
 
   const saveNew = async () => {
     const message = reviewerSaveError(reviewers, name);

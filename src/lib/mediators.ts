@@ -16,6 +16,60 @@ export function mediatorNameKey(name: string): string {
   return collapseMediatorName(name).toLowerCase();
 }
 
+export interface MediatorSuggestion {
+  id: string | null;
+  name: string;
+  nameKey: string;
+  phoneDisplay: string;
+  phoneNormalized: string;
+}
+
+// Saved rows win over the same name on an order, and keep their phone and id.
+// The same name with two saved numbers stays as two rows. orderNames should be
+// newest first so the first spelling of an order-only name is the one shown.
+export function mergeMediatorSuggestions(saved: MediatorRecord[], orderNames: string[]): MediatorSuggestion[] {
+  const savedKeys = new Set(saved.map((mediator) => mediator.nameKey || mediatorNameKey(mediator.name)));
+  const fromSaved: MediatorSuggestion[] = saved
+    .map((mediator) => ({
+      id: mediator.id,
+      name: mediator.name,
+      nameKey: mediator.nameKey || mediatorNameKey(mediator.name),
+      phoneDisplay: mediator.phoneDisplay || '',
+      phoneNormalized: mediator.phoneNormalized || '',
+    }))
+    .filter((mediator) => mediator.nameKey);
+
+  const seen = new Set<string>();
+  const fromOrders: MediatorSuggestion[] = [];
+  for (const raw of orderNames) {
+    const name = collapseMediatorName(raw);
+    const nameKey = mediatorNameKey(name);
+    if (!nameKey || savedKeys.has(nameKey) || seen.has(nameKey)) continue;
+    seen.add(nameKey);
+    fromOrders.push({
+      id: null,
+      name,
+      nameKey,
+      phoneDisplay: '',
+      phoneNormalized: '',
+    });
+  }
+
+  return [...fromSaved, ...fromOrders].sort((a, b) =>
+    a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })
+    || a.phoneNormalized.localeCompare(b.phoneNormalized));
+}
+
+export function filterMediators<T extends { name: string; phoneNormalized?: string }>(list: T[], query: string): T[] {
+  const q = query.trim().toLowerCase();
+  if (!q) return list;
+  const digits = q.replace(/\D/g, '');
+  return list.filter((item) => {
+    if (item.name.toLowerCase().includes(q)) return true;
+    return digits.length > 0 && (item.phoneNormalized || '').includes(digits);
+  });
+}
+
 export function settingsSaveError(
   list: MediatorRecord[],
   name: string,

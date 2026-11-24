@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { planMediatorSave, settingsSaveError, type MediatorRecord } from './mediators.ts';
+import { filterMediators, mergeMediatorSuggestions, planMediatorSave, settingsSaveError, type MediatorRecord } from './mediators.ts';
 
 const anil: MediatorRecord = {
   id: '1',
@@ -93,5 +93,68 @@ describe('planMediatorSave', () => {
       list: [anil],
     });
     assert.equal(plan.action, 'link');
+  });
+});
+
+const saloni: MediatorRecord = {
+  id: '3',
+  name: 'Saloni Selvan',
+  nameKey: 'saloni selvan',
+  phoneDisplay: '+91 98765 43210',
+  phoneNormalized: '919876543210',
+};
+const saloniOther: MediatorRecord = {
+  id: '4',
+  name: 'Saloni Selvan',
+  nameKey: 'saloni selvan',
+  phoneDisplay: '+91 90000 11122',
+  phoneNormalized: '919000011122',
+};
+
+describe('filterMediators', () => {
+  const list = [saloni, yash];
+
+  it('matches a name substring and does not treat a letter query as a phone', () => {
+    assert.deepEqual(filterMediators(list, 'sel').map((m) => m.id), ['3']);
+    assert.deepEqual(filterMediators(list, '  SAL ').map((m) => m.id), ['3']);
+    assert.deepEqual(filterMediators([yash], 'zzz'), []);
+  });
+
+  it('matches a phone only when the query contains digits', () => {
+    assert.deepEqual(filterMediators(list, '98765').map((m) => m.id), ['3']);
+    assert.deepEqual(filterMediators(list, '00000'), []);
+  });
+
+  it('returns the full list when the query is empty', () => {
+    assert.equal(filterMediators(list, '  ').length, 2);
+  });
+});
+
+describe('mergeMediatorSuggestions', () => {
+  it('prefers the saved contact, including its phone and id', () => {
+    const merged = mergeMediatorSuggestions([saloni], ['saloni   selvan', 'Yash']);
+    const saved = merged.find((m) => m.nameKey === 'saloni selvan');
+    const orderOnly = merged.find((m) => m.nameKey === 'yash');
+    assert.equal(saved?.id, '3');
+    assert.equal(saved?.phoneDisplay, '+91 98765 43210');
+    assert.equal(orderOnly?.id, null);
+    assert.equal(orderOnly?.phoneDisplay, '');
+    assert.equal(orderOnly?.phoneNormalized, '');
+  });
+
+  it('keeps two saved numbers for one name and drops the order copy', () => {
+    const merged = mergeMediatorSuggestions([saloni, saloniOther], ['Saloni Selvan']);
+    assert.deepEqual(merged.map((m) => m.id), ['4', '3']);
+  });
+
+  it('keeps the first spelling of an order-only name', () => {
+    const merged = mergeMediatorSuggestions([], ['  YASH  ', 'yash']);
+    assert.deepEqual(merged, [{
+      id: null,
+      name: 'YASH',
+      nameKey: 'yash',
+      phoneDisplay: '',
+      phoneNormalized: '',
+    }]);
   });
 });
