@@ -11,7 +11,8 @@ import {
   type MediatorSuggestion,
 } from '@/lib/mediators';
 import { useOrderContactNames } from '@/hooks/useOrderContactNames';
-import { handleSuggestionKeyDown, NameSuggestionList, suggestionOptionKey } from '@/components/NameSuggestionList';
+import { handleSuggestionKeyDown, NameSuggestionList, suggestionOptionKey, useDelayedSuggestionClose } from '@/components/NameSuggestionList';
+import { shouldShowNameSuggestions } from '@/lib/suggestionList';
 
 export interface MediatorFieldValue {
   name: string;
@@ -67,7 +68,7 @@ export function MediatorFields({
     [mediators, browseQuery],
   );
   const activeIndex = nav.name === value.name && nav.index >= 0 && nav.index < filtered.length ? nav.index : -1;
-  const showList = suggesting && filtered.length > 0;
+  const showList = shouldShowNameSuggestions(value.name, filtered.length, suggesting);
 
   const parsed = normalizeIndianMobile(value.phoneInput);
   const phoneNormalized = parsed.ok && !parsed.empty ? parsed.normalized : '';
@@ -94,6 +95,7 @@ export function MediatorFields({
     setSuggesting(false);
     setNav({ name: value.name, index: -1 });
   };
+  const dismissSuggestions = useDelayedSuggestionClose(closeSuggestions);
 
   const openSuggestions = () => {
     setBrowsing(false);
@@ -123,6 +125,7 @@ export function MediatorFields({
         saveToList: true,
       });
     }
+    dismissSuggestions.cancel();
     closeSuggestions();
     setBrowsing(false);
   };
@@ -157,11 +160,16 @@ export function MediatorFields({
         aria-autocomplete="list"
         aria-activedescendant={showList && activeIndex >= 0 ? `${idPrefix}-option-${suggestionOptionKey(filtered[activeIndex].id, filtered[activeIndex].nameKey)}` : undefined}
         className={input}
-        onFocus={openSuggestions}
-        onBlur={closeSuggestions}
+        onBlur={(event) => {
+          const next = event.relatedTarget;
+          if (next instanceof Element && next.closest('[data-suggestion-list]')) return;
+          dismissSuggestions.schedule();
+        }}
         onChange={(e) => {
-          onChange({ ...value, name: e.target.value, mediatorId: null, saveToList: true });
-          openSuggestions();
+          const nextName = e.target.value;
+          onChange({ ...value, name: nextName, mediatorId: null, saveToList: true });
+          if (nextName.trim()) openSuggestions();
+          else closeSuggestions();
         }}
         onKeyDown={(e) => handleSuggestionKeyDown(e, {
           open: showList,
@@ -182,7 +190,12 @@ export function MediatorFields({
             name: suggestion.name,
             phoneDisplay: suggestion.phoneDisplay,
           }))}
-          onPick={(index) => pick(filtered[index])}
+          onGestureStart={dismissSuggestions.onGestureStart}
+          onGestureEnd={dismissSuggestions.onGestureEnd}
+          onPick={(index) => {
+            dismissSuggestions.cancel();
+            pick(filtered[index]);
+          }}
         />
       )}
       <button type="button" onClick={toggleBrowse} aria-expanded={browsing} className="mt-1.5 text-xs font-medium text-accent-blue hover:underline">
