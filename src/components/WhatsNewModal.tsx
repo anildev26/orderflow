@@ -12,6 +12,13 @@ interface WhatsNewModalProps {
 
 const CHANGELOG = [
   {
+    version: 'v1.1.17',
+    date: 'Nov 2026',
+    items: [
+      { type: 'fix', text: 'Mediator and reviewer suggestions stay closed until you type at least one letter. On a phone, you can scroll the list without it selecting a name by accident.' },
+    ],
+  },
+  {
     version: 'v1.1.16',
     date: 'Nov 2026',
     items: [

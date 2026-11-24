@@ -4,7 +4,8 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useReviewerStore } from '@/store/useReviewerStore';
 import { filterReviewers, mergeReviewerSuggestions, reviewerNameKey, type ReviewerSuggestion } from '@/lib/reviewers';
 import { useOrderContactNames } from '@/hooks/useOrderContactNames';
-import { handleSuggestionKeyDown, NameSuggestionList, suggestionOptionKey } from '@/components/NameSuggestionList';
+import { handleSuggestionKeyDown, NameSuggestionList, suggestionOptionKey, useDelayedSuggestionClose } from '@/components/NameSuggestionList';
+import { shouldShowNameSuggestions } from '@/lib/suggestionList';
 
 export interface ReviewerFieldValue {
   name: string;
@@ -59,7 +60,7 @@ export function ReviewerFields({
     [reviewers, browseQuery],
   );
   const activeIndex = nav.name === value.name && nav.index >= 0 && nav.index < filtered.length ? nav.index : -1;
-  const showList = suggesting && filtered.length > 0;
+  const showList = shouldShowNameSuggestions(value.name, filtered.length, suggesting);
 
   const key = reviewerNameKey(value.name);
   const alreadySaved = !!key && reviewers.some((r) => r.nameKey === key);
@@ -75,6 +76,7 @@ export function ReviewerFields({
     setSuggesting(false);
     setNav({ name: value.name, index: -1 });
   };
+  const dismissSuggestions = useDelayedSuggestionClose(closeSuggestions);
 
   const openSuggestions = () => {
     setBrowsing(false);
@@ -94,6 +96,7 @@ export function ReviewerFields({
       reviewerId: suggestion.id,
       saveToList: suggestion.id ? false : true,
     });
+    dismissSuggestions.cancel();
     closeSuggestions();
     setBrowsing(false);
   };
@@ -128,11 +131,16 @@ export function ReviewerFields({
         aria-autocomplete="list"
         aria-activedescendant={showList && activeIndex >= 0 ? `${idPrefix}-option-${suggestionOptionKey(filtered[activeIndex].id, filtered[activeIndex].nameKey)}` : undefined}
         className={input}
-        onFocus={openSuggestions}
-        onBlur={closeSuggestions}
+        onBlur={(event) => {
+          const next = event.relatedTarget;
+          if (next instanceof Element && next.closest('[data-suggestion-list]')) return;
+          dismissSuggestions.schedule();
+        }}
         onChange={(e) => {
-          onChange({ ...value, name: e.target.value, reviewerId: null, saveToList: true });
-          openSuggestions();
+          const nextName = e.target.value;
+          onChange({ ...value, name: nextName, reviewerId: null, saveToList: true });
+          if (nextName.trim()) openSuggestions();
+          else closeSuggestions();
         }}
         onKeyDown={(e) => handleSuggestionKeyDown(e, {
           open: showList,
@@ -152,7 +160,12 @@ export function ReviewerFields({
             key: suggestionOptionKey(suggestion.id, suggestion.nameKey),
             name: suggestion.name,
           }))}
-          onPick={(index) => pick(filtered[index])}
+          onGestureStart={dismissSuggestions.onGestureStart}
+          onGestureEnd={dismissSuggestions.onGestureEnd}
+          onPick={(index) => {
+            dismissSuggestions.cancel();
+            pick(filtered[index]);
+          }}
         />
       )}
       <button type="button" onClick={toggleBrowse} aria-expanded={browsing} className="mt-1.5 text-xs font-medium text-accent-blue hover:underline">
