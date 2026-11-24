@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useReviewerStore } from '@/store/useReviewerStore';
 import { filterReviewers, mergeReviewerSuggestions, reviewerNameKey, type ReviewerSuggestion } from '@/lib/reviewers';
 import { useOrderContactNames } from '@/hooks/useOrderContactNames';
@@ -26,10 +26,25 @@ export function ReviewerFields({
   const reviewers = useReviewerStore((s) => s.reviewers);
   const ensureLoaded = useReviewerStore((s) => s.ensureLoaded);
   const { reviewerNames } = useOrderContactNames();
-  const [open, setOpen] = useState(false);
+  const [suggesting, setSuggesting] = useState(false);
+  const [browsing, setBrowsing] = useState(false);
+  const [browseQuery, setBrowseQuery] = useState('');
   const [nav, setNav] = useState({ name: '', index: -1 });
+  const rootRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => { void ensureLoaded(); }, [ensureLoaded]);
+
+  useEffect(() => {
+    if (!suggesting && !browsing) return;
+    const onPointerDown = (event: PointerEvent) => {
+      if (!rootRef.current?.contains(event.target as Node)) {
+        setSuggesting(false);
+        setBrowsing(false);
+      }
+    };
+    document.addEventListener('pointerdown', onPointerDown);
+    return () => document.removeEventListener('pointerdown', onPointerDown);
+  }, [suggesting, browsing]);
 
   const suggestions = useMemo(
     () => mergeReviewerSuggestions(reviewers, reviewerNames),
@@ -39,8 +54,12 @@ export function ReviewerFields({
     () => filterReviewers(suggestions, value.name),
     [suggestions, value.name],
   );
+  const savedMatches = useMemo(
+    () => filterReviewers(reviewers, browseQuery),
+    [reviewers, browseQuery],
+  );
   const activeIndex = nav.name === value.name && nav.index >= 0 && nav.index < filtered.length ? nav.index : -1;
-  const showList = open && filtered.length > 0;
+  const showList = suggesting && filtered.length > 0;
 
   const key = reviewerNameKey(value.name);
   const alreadySaved = !!key && reviewers.some((r) => r.nameKey === key);
@@ -52,9 +71,21 @@ export function ReviewerFields({
     ? 'w-full bg-form-input-bg border border-form-border rounded-lg px-4 py-2.5 text-form-text placeholder-form-placeholder focus:ring-2 focus:ring-accent-blue outline-none transition'
     : 'w-full bg-dashboard-bg border border-dashboard-border rounded-lg px-3 py-2.5 text-sm text-text-primary placeholder-text-muted focus:ring-2 focus:ring-accent-blue outline-none transition';
 
-  const close = () => {
-    setOpen(false);
+  const closeSuggestions = () => {
+    setSuggesting(false);
     setNav({ name: value.name, index: -1 });
+  };
+
+  const openSuggestions = () => {
+    setBrowsing(false);
+    setSuggesting(true);
+  };
+
+  const toggleBrowse = () => {
+    setSuggesting(false);
+    setNav({ name: value.name, index: -1 });
+    setBrowseQuery('');
+    setBrowsing((current) => !current);
   };
 
   const pick = (suggestion: ReviewerSuggestion) => {
@@ -63,7 +94,8 @@ export function ReviewerFields({
       reviewerId: suggestion.id,
       saveToList: suggestion.id ? false : true,
     });
-    close();
+    closeSuggestions();
+    setBrowsing(false);
   };
 
   const move = (direction: 1 | -1) => {
@@ -79,7 +111,7 @@ export function ReviewerFields({
   };
 
   return (
-    <div>
+    <div ref={rootRef}>
       <label className={label} htmlFor={`${idPrefix}-name`}>
         Reviewer Name {tone === 'form' ? <span className="text-accent-red">*</span> : null}
       </label>
@@ -96,17 +128,17 @@ export function ReviewerFields({
         aria-autocomplete="list"
         aria-activedescendant={showList && activeIndex >= 0 ? `${idPrefix}-option-${suggestionOptionKey(filtered[activeIndex].id, filtered[activeIndex].nameKey)}` : undefined}
         className={input}
-        onFocus={() => setOpen(true)}
-        onBlur={close}
+        onFocus={openSuggestions}
+        onBlur={closeSuggestions}
         onChange={(e) => {
           onChange({ ...value, name: e.target.value, reviewerId: null, saveToList: true });
-          setOpen(true);
+          openSuggestions();
         }}
         onKeyDown={(e) => handleSuggestionKeyDown(e, {
           open: showList,
           count: filtered.length,
           activeIndex: activeIndex,
-          close,
+          close: closeSuggestions,
           move,
           pickActive: () => { if (activeIndex >= 0) pick(filtered[activeIndex]); },
         })}
@@ -122,6 +154,41 @@ export function ReviewerFields({
           }))}
           onPick={(index) => pick(filtered[index])}
         />
+      )}
+      <button type="button" onClick={toggleBrowse} aria-expanded={browsing} className="mt-1.5 text-xs font-medium text-accent-blue hover:underline">
+        Choose from my reviewers
+      </button>
+      {browsing && (
+        <div className={`mt-2 rounded-lg border overflow-hidden ${tone === 'form' ? 'border-form-border bg-form-input-bg' : 'border-dashboard-border bg-dashboard-bg'}`}>
+          <input
+            type="text"
+            value={browseQuery}
+            onChange={(e) => setBrowseQuery(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Escape') {
+                e.preventDefault();
+                setBrowsing(false);
+              }
+            }}
+            placeholder="Search name"
+            className={`${input} rounded-none border-0 border-b ${tone === 'form' ? 'border-form-border' : 'border-dashboard-border'}`}
+          />
+          {savedMatches.length === 0 ? (
+            <p className="px-3 py-2 text-xs text-text-muted">No saved reviewers</p>
+          ) : (
+            <NameSuggestionList
+              idPrefix={`${idPrefix}-saved`}
+              tone={tone}
+              framed={false}
+              activeIndex={savedMatches.findIndex((reviewer) => reviewer.id === value.reviewerId)}
+              items={savedMatches.map((reviewer) => ({
+                key: reviewer.id,
+                name: reviewer.name,
+              }))}
+              onPick={(index) => pick(savedMatches[index])}
+            />
+          )}
+        </div>
       )}
 
       {!alreadySaved && key && (

@@ -19,12 +19,14 @@ export function NameSuggestionList({
   items,
   activeIndex,
   onPick,
+  framed = true,
 }: {
   idPrefix: string;
   tone: 'form' | 'dashboard';
   items: NameSuggestionItem[];
   activeIndex: number;
   onPick: (index: number) => void;
+  framed?: boolean;
 }) {
   const listRef = useRef<HTMLUListElement>(null);
 
@@ -45,7 +47,7 @@ export function NameSuggestionList({
       ref={listRef}
       id={`${idPrefix}-suggestions`}
       role="listbox"
-      className={`mt-1 max-h-40 overflow-auto rounded-lg border ${box}`}
+      className={framed ? `mt-1 max-h-40 overflow-auto rounded-lg border ${box}` : 'max-h-40 overflow-auto'}
     >
       {items.map((item, index) => (
         <li key={item.key} role="presentation">

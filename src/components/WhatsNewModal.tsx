@@ -15,7 +15,7 @@ const CHANGELOG = [
     version: 'v1.1.16',
     date: 'Nov 2026',
     items: [
-      { type: 'improvement', text: 'On a new or edited order, type a mediator or reviewer name and matching names appear underneath. This includes people you saved and names you already used on your orders. Tap a name, or use the arrow keys and Enter, to fill it in. A saved mediator\'s WhatsApp number fills in too.' },
+      { type: 'improvement', text: 'On a new or edited order, type a mediator or reviewer name and matching names appear underneath, including people you saved and names already on your orders. Choose from my mediators or Choose from my reviewers to browse the saved list if you do not remember the name. Tap a name, or use the arrow keys and Enter, to fill it in. A saved mediator\'s WhatsApp number fills in too.' },
     ],
   },
   {
