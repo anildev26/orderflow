@@ -12,6 +12,13 @@ interface WhatsNewModalProps {
 
 const CHANGELOG = [
   {
+    version: 'v1.1.19',
+    date: 'Nov 2026',
+    items: [
+      { type: 'improvement', text: 'On Follow-ups there is one WhatsApp action. It copies the message, unless that mediator is saved with a number, in which case Send to mediator opens their chat with the same message, emojis included.' },
+    ],
+  },
+  {
     version: 'v1.1.18',
     date: 'Nov 2026',
     items: [

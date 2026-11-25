@@ -7,7 +7,7 @@ import { Order, STATUS_LABELS, STATUS_COLORS, OrderPlatform, formatSellerLess, e
 import { useOrderStore } from '@/store/useOrderStore';
 import { useMediatorStore } from '@/store/useMediatorStore';
 import { followUpMediatorPhone } from '@/lib/mediators';
-import { waMeFollowUpUrl } from '@/lib/phone';
+import { whatsAppFollowUpUrl } from '@/lib/phone';
 import {
   buildFollowUpMessage,
   fmtDate,
@@ -80,7 +80,7 @@ export default function FollowUpRow({ order }: { order: Order }) {
 
   const followUpMessage = buildFollowUpMessage(order);
   const mediatorWaPhone = followUpMediatorPhone(order, mediators);
-  const whatsAppHref = waMeFollowUpUrl(followUpMessage, mediatorWaPhone);
+  const whatsAppHref = mediatorWaPhone ? whatsAppFollowUpUrl(followUpMessage, mediatorWaPhone) : null;
 
   const handleCopy = () => {
     navigator.clipboard.writeText(followUpMessage);
@@ -254,47 +254,27 @@ export default function FollowUpRow({ order }: { order: Order }) {
               >
                 Snooze
               </button>
-              {mediatorWaPhone ? (
-                <>
-                  <a
-                    href={whatsAppHref}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex-1 min-w-[180px] py-2 text-xs font-semibold rounded-lg bg-[#25D366] text-white hover:bg-[#1ebe5d] transition flex items-center justify-center gap-1.5"
-                  >
-                    <WhatsAppGlyph className="w-3.5 h-3.5" />
-                    Follow up with mediator
-                  </a>
-                  <button
-                    type="button"
-                    onClick={handleCopy}
-                    className="py-2 px-3 text-[11px] font-medium rounded-lg text-text-muted hover:text-text-primary transition"
-                  >
-                    Copy message
-                  </button>
-                </>
+              {whatsAppHref ? (
+                <a
+                  href={whatsAppHref}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex-1 min-w-[140px] py-2 text-xs font-medium rounded-lg bg-green-500/10 border border-green-500/30 text-green-400 hover:bg-green-500/20 transition flex items-center justify-center gap-1.5"
+                >
+                  <WhatsAppGlyph className="w-3.5 h-3.5" />
+                  Send to mediator
+                </a>
               ) : (
-                <>
-                  <button
-                    type="button"
-                    onClick={handleCopy}
-                    className="flex-1 min-w-[140px] py-2 text-xs font-medium rounded-lg bg-green-500/10 border border-green-500/30 text-green-400 hover:bg-green-500/20 transition flex items-center justify-center gap-1.5"
-                  >
-                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
-                    </svg>
-                    Copy for WhatsApp
-                  </button>
-                  <a
-                    href={whatsAppHref}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex-1 min-w-[140px] py-2 text-xs font-medium rounded-lg bg-[#25D366]/10 border border-[#25D366]/30 text-[#25D366] hover:bg-[#25D366]/20 transition flex items-center justify-center gap-1.5"
-                  >
-                    <WhatsAppGlyph className="w-3.5 h-3.5" />
-                    Send on WhatsApp
-                  </a>
-                </>
+                <button
+                  type="button"
+                  onClick={handleCopy}
+                  className="flex-1 min-w-[140px] py-2 text-xs font-medium rounded-lg bg-green-500/10 border border-green-500/30 text-green-400 hover:bg-green-500/20 transition flex items-center justify-center gap-1.5"
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
+                  </svg>
+                  Copy for WhatsApp
+                </button>
               )}
               <button
                 onClick={() => setShowUpdate(true)}

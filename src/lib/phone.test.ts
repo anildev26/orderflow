@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { normalizeIndianMobile, PHONE_CHECK_MESSAGE, waMeFollowUpUrl, whatsappPhoneDigits } from './phone.ts';
+import { normalizeIndianMobile, PHONE_CHECK_MESSAGE, whatsAppFollowUpUrl, whatsappPhoneDigits } from './phone.ts';
 
 describe('normalizeIndianMobile', () => {
   const ok = (raw: string) => {
@@ -56,18 +56,14 @@ describe('whatsappPhoneDigits', () => {
   });
 });
 
-describe('waMeFollowUpUrl', () => {
-  const message = '🙏 *Refund Follow-up*\n\nHello Anil,\nLine two';
+describe('whatsAppFollowUpUrl', () => {
+  const message = '🙏 *Refund Follow-up*\n📦 Order\n₹100';
 
-  it('puts the same message on a saved number', () => {
-    const url = new URL(waMeFollowUpUrl(message, '919876543210'));
-    assert.equal(url.origin + url.pathname, 'https://wa.me/919876543210');
-    assert.equal(url.searchParams.get('text'), message);
-  });
-
-  it('opens chat picker when no number is passed', () => {
-    const url = new URL(waMeFollowUpUrl(message));
-    assert.equal(url.origin + url.pathname, 'https://wa.me/');
-    assert.equal(url.searchParams.get('text'), message);
+  it('round-trips the message, including the folded-hands emoji', () => {
+    const link = whatsAppFollowUpUrl(message, '919876543210');
+    assert.equal(link.startsWith('https://api.whatsapp.com/send?phone=919876543210&text='), true);
+    assert.equal(link.includes('%F0%9F%99%8F'), true);
+    const encoded = link.slice(link.indexOf('text=') + 'text='.length);
+    assert.equal(decodeURIComponent(encoded), message);
   });
 });
