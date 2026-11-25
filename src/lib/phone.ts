@@ -42,8 +42,8 @@ export function waMeUrl(normalized: string): string {
 }
 
 /**
- * Digits for a wa.me path. A 10-digit Indian mobile has no country code, so 91
- * is added. Longer digit strings are used as stored.
+ * Digits for a WhatsApp phone path. A 10-digit Indian mobile has no country
+ * code, so 91 is added. Longer digit strings are used as stored.
  */
 export function whatsappPhoneDigits(raw: string | null | undefined): string | null {
   const digits = digitsOnly(raw || '');
@@ -52,9 +52,14 @@ export function whatsappPhoneDigits(raw: string | null | undefined): string | nu
   return null;
 }
 
-/** wa.me link whose text is exactly `message`, including line breaks. */
-export function waMeFollowUpUrl(message: string, phoneDigits?: string | null): string {
-  const text = encodeURIComponent(message);
-  if (phoneDigits) return `https://wa.me/${phoneDigits}?text=${text}`;
-  return `https://wa.me/?text=${text}`;
+/**
+ * Click-to-chat link. `text` is encodeURIComponent of the whole message, so
+ * emoji stay UTF-8 percent-encoding (🙏 is %F0%9F%99%8F).
+ *
+ * Do not use wa.me. It 302s to api.whatsapp.com and rewrites that parameter:
+ * a correctly encoded 🙏 comes back as %EF%BF%BD (U+FFFD), while ₹ (%E2%82%B9)
+ * and *bold* survive. Opening api.whatsapp.com/send directly keeps the encoding.
+ */
+export function whatsAppFollowUpUrl(message: string, phoneDigits: string): string {
+  return `https://api.whatsapp.com/send?phone=${phoneDigits}&text=${encodeURIComponent(message)}`;
 }
