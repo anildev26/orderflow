@@ -40,3 +40,21 @@ export function isNormalizedIndianMobile(value: string | null | undefined): valu
 export function waMeUrl(normalized: string): string {
   return `https://wa.me/${normalized}`;
 }
+
+/**
+ * Digits for a wa.me path. A 10-digit Indian mobile has no country code, so 91
+ * is added. Longer digit strings are used as stored.
+ */
+export function whatsappPhoneDigits(raw: string | null | undefined): string | null {
+  const digits = digitsOnly(raw || '');
+  if (digits.length === 10) return `91${digits}`;
+  if (digits.length > 10) return digits;
+  return null;
+}
+
+/** wa.me link whose text is exactly `message`, including line breaks. */
+export function waMeFollowUpUrl(message: string, phoneDigits?: string | null): string {
+  const text = encodeURIComponent(message);
+  if (phoneDigits) return `https://wa.me/${phoneDigits}?text=${text}`;
+  return `https://wa.me/?text=${text}`;
+}
