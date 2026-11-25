@@ -1,10 +1,13 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import dynamic from 'next/dynamic';
 import toast from 'react-hot-toast';
 import { Order, STATUS_LABELS, STATUS_COLORS, OrderPlatform, formatSellerLess, expectedRefund } from '@/types/order';
 import { useOrderStore } from '@/store/useOrderStore';
+import { useMediatorStore } from '@/store/useMediatorStore';
+import { followUpMediatorPhone } from '@/lib/mediators';
+import { waMeFollowUpUrl } from '@/lib/phone';
 import {
   buildFollowUpMessage,
   fmtDate,
@@ -14,6 +17,7 @@ import {
 } from '@/lib/followup';
 import { addWorkingDays, countWorkingDays, workingDaysLabel, workingDaysOffset } from '@/lib/workingDays';
 import { CopyTextButton } from '@/components/CopyTextButton';
+import { WhatsAppGlyph } from '@/components/WhatsAppChatLink';
 
 const UpdateOrderModal = dynamic(() => import('./UpdateOrderModal'), { ssr: false });
 
@@ -41,6 +45,10 @@ export default function FollowUpRow({ order }: { order: Order }) {
   const markContacted = useOrderStore((s) => s.markContacted);
   const snoozeReminder = useOrderStore((s) => s.snoozeReminder);
   const stopReminders = useOrderStore((s) => s.stopReminders);
+  const mediators = useMediatorStore((s) => s.mediators);
+  const ensureMediators = useMediatorStore((s) => s.ensureLoaded);
+
+  useEffect(() => { void ensureMediators(); }, [ensureMediators]);
 
   const [expanded, setExpanded] = useState(false);
   const [showUpdate, setShowUpdate] = useState(false);
@@ -70,8 +78,12 @@ export default function FollowUpRow({ order }: { order: Order }) {
         ? { text: 'Due today', cls: 'bg-amber-500/15 text-amber-400 border-amber-500/30' }
         : { text: `in ${workingDaysLabel(reminderOffset)}`, cls: 'bg-dashboard-bg text-text-muted border-dashboard-border' };
 
+  const followUpMessage = buildFollowUpMessage(order);
+  const mediatorWaPhone = followUpMediatorPhone(order, mediators);
+  const whatsAppHref = waMeFollowUpUrl(followUpMessage, mediatorWaPhone);
+
   const handleCopy = () => {
-    navigator.clipboard.writeText(buildFollowUpMessage(order));
+    navigator.clipboard.writeText(followUpMessage);
     toast.success('Follow-up message copied! Paste in WhatsApp');
   };
 
@@ -242,15 +254,48 @@ export default function FollowUpRow({ order }: { order: Order }) {
               >
                 Snooze
               </button>
-              <button
-                onClick={handleCopy}
-                className="flex-1 min-w-[140px] py-2 text-xs font-medium rounded-lg bg-green-500/10 border border-green-500/30 text-green-400 hover:bg-green-500/20 transition flex items-center justify-center gap-1.5"
-              >
-                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
-                </svg>
-                Copy for WhatsApp
-              </button>
+              {mediatorWaPhone ? (
+                <>
+                  <a
+                    href={whatsAppHref}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex-1 min-w-[180px] py-2 text-xs font-semibold rounded-lg bg-[#25D366] text-white hover:bg-[#1ebe5d] transition flex items-center justify-center gap-1.5"
+                  >
+                    <WhatsAppGlyph className="w-3.5 h-3.5" />
+                    Follow up with mediator
+                  </a>
+                  <button
+                    type="button"
+                    onClick={handleCopy}
+                    className="py-2 px-3 text-[11px] font-medium rounded-lg text-text-muted hover:text-text-primary transition"
+                  >
+                    Copy message
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    onClick={handleCopy}
+                    className="flex-1 min-w-[140px] py-2 text-xs font-medium rounded-lg bg-green-500/10 border border-green-500/30 text-green-400 hover:bg-green-500/20 transition flex items-center justify-center gap-1.5"
+                  >
+                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
+                    </svg>
+                    Copy for WhatsApp
+                  </button>
+                  <a
+                    href={whatsAppHref}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex-1 min-w-[140px] py-2 text-xs font-medium rounded-lg bg-[#25D366]/10 border border-[#25D366]/30 text-[#25D366] hover:bg-[#25D366]/20 transition flex items-center justify-center gap-1.5"
+                  >
+                    <WhatsAppGlyph className="w-3.5 h-3.5" />
+                    Send on WhatsApp
+                  </a>
+                </>
+              )}
               <button
                 onClick={() => setShowUpdate(true)}
                 className="flex-1 min-w-[120px] py-2 text-xs font-medium rounded-lg bg-accent-blue/10 border border-accent-blue/30 text-blue-400 hover:bg-accent-blue/20 transition"

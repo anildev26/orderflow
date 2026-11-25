@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { filterMediators, mergeMediatorSuggestions, planMediatorSave, settingsSaveError, type MediatorRecord } from './mediators.ts';
+import { filterMediators, followUpMediatorPhone, mergeMediatorSuggestions, planMediatorSave, settingsSaveError, type MediatorRecord } from './mediators.ts';
 
 const anil: MediatorRecord = {
   id: '1',
@@ -110,6 +110,22 @@ const saloniOther: MediatorRecord = {
   phoneDisplay: '+91 90000 11122',
   phoneNormalized: '919000011122',
 };
+
+describe('followUpMediatorPhone', () => {
+  it('uses the linked mediator number, adding 91 when it is only 10 digits', () => {
+    const tenDigit: MediatorRecord = { ...anil, id: 'linked', phoneNormalized: '9876543210' };
+    assert.equal(followUpMediatorPhone({ mediatorId: 'linked', mediatorName: 'Someone else' }, [tenDigit, yash]), '919876543210');
+  });
+
+  it('matches a saved name when the order is not linked', () => {
+    assert.equal(followUpMediatorPhone({ mediatorId: null, mediatorName: '  ANIL   sahu ' }, [yash, anil]), '919876543210');
+  });
+
+  it('returns null when the saved mediator has no number', () => {
+    assert.equal(followUpMediatorPhone({ mediatorId: '2', mediatorName: 'Yash' }, [yash]), null);
+    assert.equal(followUpMediatorPhone({ mediatorId: null, mediatorName: 'Unknown' }, [anil]), null);
+  });
+});
 
 describe('filterMediators', () => {
   const list = [saloni, yash];

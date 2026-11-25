@@ -12,6 +12,13 @@ interface WhatsNewModalProps {
 
 const CHANGELOG = [
   {
+    version: 'v1.1.18',
+    date: 'Nov 2026',
+    items: [
+      { type: 'new', text: 'On Follow-ups, Follow up with mediator opens WhatsApp to that person when you saved their number, with the follow-up message already written. If there is no saved number, Send on WhatsApp still opens WhatsApp so you can choose who to message.' },
+    ],
+  },
+  {
     version: 'v1.1.17',
     date: 'Nov 2026',
     items: [

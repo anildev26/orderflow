@@ -1,4 +1,4 @@
-import { formatIndianMobile, isNormalizedIndianMobile, normalizeIndianMobile } from './phone.ts';
+import { formatIndianMobile, isNormalizedIndianMobile, normalizeIndianMobile, whatsappPhoneDigits } from './phone.ts';
 
 export interface MediatorRecord {
   id: string;
@@ -140,6 +140,27 @@ export function sameNameOtherNumbers(
   const key = mediatorNameKey(name);
   if (!key) return [];
   return list.filter((m) => m.nameKey === key && m.phoneNormalized !== phoneNormalized);
+}
+
+/**
+ * Phone digits for a refund follow-up, from a saved mediator only.
+ * A linked id wins when that row has a number. Otherwise the same normalized
+ * name with a number is used. Order text alone is not enough.
+ */
+export function followUpMediatorPhone(
+  order: { mediatorId?: string | null; mediatorName?: string | null },
+  list: Pick<MediatorRecord, 'id' | 'name' | 'nameKey' | 'phoneNormalized'>[],
+): string | null {
+  if (order.mediatorId) {
+    const linked = list.find((mediator) => mediator.id === order.mediatorId);
+    const linkedPhone = linked ? whatsappPhoneDigits(linked.phoneNormalized) : null;
+    if (linkedPhone) return linkedPhone;
+  }
+  const key = mediatorNameKey(order.mediatorName || '');
+  if (!key) return null;
+  const named = list.find((mediator) =>
+    (mediator.nameKey || mediatorNameKey(mediator.name)) === key && whatsappPhoneDigits(mediator.phoneNormalized));
+  return named ? whatsappPhoneDigits(named.phoneNormalized) : null;
 }
 
 export function orderChatPhone(
