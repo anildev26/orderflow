@@ -1,218 +1,78 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useFeatureRequestStore, FeatureRequest, ADMIN_EMAIL } from '@/store/useFeatureRequestStore';
+import toast from 'react-hot-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { createClient } from '@/lib/supabase';
 import ThemeToggle from '@/components/ThemeToggle';
-
-type FilterOption = 'most_liked' | 'most_disliked' | 'admin_commented';
-
-function maskEmail(email: string): string {
-  const [local, domain] = email.split('@');
-  if (!domain) return email;
-  return `${local.slice(0, 2)}***@${domain}`;
-}
-
-function timeAgo(dateStr: string): string {
-  const diff = Date.now() - new Date(dateStr).getTime();
-  const mins = Math.floor(diff / 60000);
-  if (mins < 1) return 'just now';
-  if (mins < 60) return `${mins}m ago`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs}h ago`;
-  const days = Math.floor(hrs / 24);
-  if (days < 30) return `${days}d ago`;
-  return new Date(dateStr).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
-}
-
-function RequestCard({
-  request,
-  currentUserId,
-  isAdmin,
-  accountAgeDays,
-  onVote,
-  onDelete,
-  onAdminComment,
-  onAdminComplete,
-}: {
-  request: FeatureRequest;
-  currentUserId: string | null;
-  isAdmin: boolean;
-  accountAgeDays: number;
-  onVote: (id: string, vote: 'like' | 'dislike') => void;
-  onDelete: (id: string) => void;
-  onAdminComment: (id: string, comment: string) => void;
-  onAdminComplete: (id: string, completed: boolean) => void;
-}) {
-  const canVote = accountAgeDays >= 15;
-  const isOwn = currentUserId === request.userId;
-  const [confirmDelete, setConfirmDelete] = useState(false);
-  const [editingComment, setEditingComment] = useState(false);
-  const [commentDraft, setCommentDraft] = useState(request.adminComment ?? '');
-
-  return (
-    <div className={`bg-dashboard-card border rounded-xl p-4 flex flex-col gap-3 ${request.completed ? 'border-green-500/40' : 'border-dashboard-border'}`}>
-      {/* Completed badge */}
-      {request.completed && (
-        <div className="flex items-center gap-1.5 text-green-400 text-xs font-medium">
-          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-          Implemented
-        </div>
-      )}
-
-      <p className="text-sm text-text-primary leading-relaxed">{request.content}</p>
-
-      {/* Admin comment */}
-      {request.adminComment && !editingComment && (
-        <div className="flex items-start gap-2 p-3 bg-accent-blue/5 border border-accent-blue/20 rounded-lg">
-          <svg className="w-3.5 h-3.5 text-accent-blue mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-          </svg>
-          <div>
-            <p className="text-[11px] font-semibold text-accent-blue mb-0.5">OrderFlow Dev Team</p>
-            <p className="text-xs text-text-secondary">{request.adminComment}</p>
-          </div>
-        </div>
-      )}
-
-      {/* Admin comment editor */}
-      {isAdmin && editingComment && (
-        <div className="space-y-2">
-          <textarea
-            value={commentDraft}
-            onChange={(e) => setCommentDraft(e.target.value)}
-            rows={2}
-            placeholder="Add a comment as OrderFlow Dev Team..."
-            className="w-full px-3 py-2 bg-dashboard-bg border border-dashboard-border rounded-lg text-xs text-text-primary placeholder-text-muted focus:ring-1 focus:ring-accent-blue outline-none resize-none"
-          />
-          <div className="flex gap-2 justify-end">
-            <button onClick={() => setEditingComment(false)} className="px-3 py-1 text-xs text-text-muted hover:text-text-primary transition">Cancel</button>
-            <button
-              onClick={() => { onAdminComment(request.id, commentDraft.trim()); setEditingComment(false); }}
-              className="px-3 py-1 bg-accent-blue text-white text-xs rounded-lg hover:bg-blue-600 transition"
-            >
-              Save
-            </button>
-          </div>
-        </div>
-      )}
-
-      <div className="flex items-center justify-between flex-wrap gap-2">
-        <div className="flex items-center gap-2">
-          {/* Like */}
-          <button
-            onClick={() => canVote && onVote(request.id, 'like')}
-            title={canVote ? 'Like' : 'Account must be 15+ days old to vote'}
-            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition ${
-              request.userVote === 'like'
-                ? 'bg-green-500/20 text-green-400 border border-green-500/30'
-                : 'bg-dashboard-bg border border-dashboard-border text-text-secondary hover:border-green-500/40 hover:text-green-400'
-            } ${!canVote ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
-          >
-            <svg className="w-3.5 h-3.5" fill={request.userVote === 'like' ? 'currentColor' : 'none'} viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M14 10h4.764a2 2 0 011.789 2.894l-3.5 7A2 2 0 0115.263 21h-4.017c-.163 0-.326-.02-.485-.06L7 20m7-10V5a2 2 0 00-2-2h-.095c-.5 0-.905.405-.905.905 0 .714-.211 1.412-.608 2.006L7 11v9m7-10h-2M7 20H5a2 2 0 01-2-2v-6a2 2 0 012-2h2.5" />
-            </svg>
-            {request.likes}
-          </button>
-
-          {/* Dislike */}
-          <button
-            onClick={() => canVote && onVote(request.id, 'dislike')}
-            title={canVote ? 'Dislike' : 'Account must be 15+ days old to vote'}
-            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition ${
-              request.userVote === 'dislike'
-                ? 'bg-red-500/20 text-red-400 border border-red-500/30'
-                : 'bg-dashboard-bg border border-dashboard-border text-text-secondary hover:border-red-500/40 hover:text-red-400'
-            } ${!canVote ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
-          >
-            <svg className="w-3.5 h-3.5" fill={request.userVote === 'dislike' ? 'currentColor' : 'none'} viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M10 14H5.236a2 2 0 01-1.789-2.894l3.5-7A2 2 0 018.736 3h4.018a2 2 0 01.485.06l3.76.94m-7 10v5a2 2 0 002 2h.095c.5 0 .905-.405.905-.905 0-.714.211-1.412.608-2.006L17 13V4m-7 10h2m5-10h2a2 2 0 012 2v6a2 2 0 01-2 2h-2.5" />
-            </svg>
-            {request.dislikes}
-          </button>
-
-          {/* Admin controls */}
-          {isAdmin && (
-            <>
-              <button
-                onClick={() => onAdminComplete(request.id, !request.completed)}
-                title={request.completed ? 'Mark as pending' : 'Mark as implemented'}
-                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition border ${
-                  request.completed
-                    ? 'bg-green-500/20 text-green-400 border-green-500/30'
-                    : 'bg-dashboard-bg border-dashboard-border text-text-muted hover:border-green-500/40 hover:text-green-400'
-                }`}
-              >
-                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                </svg>
-                {request.completed ? 'Done' : 'Mark Done'}
-              </button>
-              <button
-                onClick={() => { setCommentDraft(request.adminComment ?? ''); setEditingComment(true); }}
-                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition bg-dashboard-bg border border-dashboard-border text-text-muted hover:border-accent-blue/40 hover:text-accent-blue"
-              >
-                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
-                </svg>
-                Comment
-              </button>
-            </>
-          )}
-        </div>
-
-        <div className="flex items-center gap-2 flex-wrap justify-end">
-          <span className="text-[11px] text-text-muted">{maskEmail(request.userEmail)}</span>
-          <span className="text-[11px] text-text-muted">{timeAgo(request.createdAt)}</span>
-          {(isOwn || isAdmin) && (
-            confirmDelete ? (
-              <div className="flex items-center gap-1.5">
-                <span className="text-[11px] text-text-muted">Delete?</span>
-                <button onClick={() => onDelete(request.id)} className="text-[11px] text-red-400 hover:text-red-300 font-medium transition">Yes</button>
-                <button onClick={() => setConfirmDelete(false)} className="text-[11px] text-text-muted hover:text-text-primary transition">No</button>
-              </div>
-            ) : (
-              <button onClick={() => setConfirmDelete(true)} className="text-[11px] text-text-muted hover:text-red-400 transition" title="Delete">
-                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                </svg>
-              </button>
-            )
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
+import { matchesSearch } from '@/lib/featureMatch';
+import {
+  AREAS,
+  BOARD_TABS,
+  SORT_LABEL,
+  isUnread,
+  sortRequests,
+  type AreaId,
+  type BoardTab,
+  type PageTab,
+  type SortKey,
+} from '@/lib/featureRequests';
+import { useFeatureRequestStore } from '@/store/useFeatureRequestStore';
+import RequestComposer from './_components/RequestComposer';
+import RequestCard from './_components/RequestCard';
+import RequestDrawer from './_components/RequestDrawer';
+import TalkToDeveloper from './_components/TalkToDeveloper';
+import { MergeModal, StatusModal } from './_components/AdminModals';
+import { MessagesTab, MineTab, SettingsTab, TriageTab } from './_components/Tabs';
+import type { AdminAction } from './_components/AdminPanel';
+import { btnPrimary, inputClass } from './_components/ui';
 
 export default function FeatureRequestsPage() {
-  const { requests, loading, initialized, fetchRequests, addRequest, vote, deleteRequest, adminMarkCompleted, adminSetComment } = useFeatureRequestStore();
   const { user: authUser } = useAuth();
   const router = useRouter();
-  const [content, setContent] = useState('');
-  const [submitting, setSubmitting] = useState(false);
-  const [submitError, setSubmitError] = useState('');
-  const [voteError, setVoteError] = useState('');
-  const [mounted, setMounted] = useState(false);
-  const [filter, setFilter] = useState<FilterOption>('most_liked');
   const [profileOpen, setProfileOpen] = useState(false);
 
+  const status = useFeatureRequestStore((s) => s.status);
+  const loadError = useFeatureRequestStore((s) => s.loadError);
+  const load = useFeatureRequestStore((s) => s.load);
+  const isAdmin = useFeatureRequestStore((s) => s.isAdmin);
+  const userId = useFeatureRequestStore((s) => s.userId);
+  const requests = useFeatureRequestStore((s) => s.requests);
+  const myVotes = useFeatureRequestStore((s) => s.myVotes);
+  const seen = useFeatureRequestStore((s) => s.seen);
+  const recentVotes = useFeatureRequestStore((s) => s.recentVotes);
+  const commentCounts = useFeatureRequestStore((s) => s.commentCounts);
+  const pendingVotes = useFeatureRequestStore((s) => s.pendingVotes);
+  const priorities = useFeatureRequestStore((s) => s.priorities);
+  const myMessages = useFeatureRequestStore((s) => s.myMessages);
+  const threads = useFeatureRequestStore((s) => s.threads);
+  const toggleVote = useFeatureRequestStore((s) => s.toggleVote);
+
+  const [tab, setTab] = useState<PageTab>('open');
+  const [sortByTab, setSortByTab] = useState<Partial<Record<BoardTab, SortKey>>>({});
+  const [area, setArea] = useState<AreaId | 'all'>('all');
+  const [search, setSearch] = useState('');
+  const [openId, setOpenId] = useState<string | null>(null);
+  const [talkOpen, setTalkOpen] = useState(false);
+  const [talkMode, setTalkMode] = useState<'menu' | 'chat'>('menu');
+  const [talkContext, setTalkContext] = useState<string | null>(null);
+  const [adminAction, setAdminAction] = useState<AdminAction | null>(null);
+
   useEffect(() => {
-    setMounted(true);
-    fetchRequests();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    load();
+  }, [load]);
 
-  const isAdmin = authUser?.email === ADMIN_EMAIL;
-
-  const accountAgeDays = (() => {
-    if (!authUser?.createdAt) return 0;
-    return Math.floor((Date.now() - new Date(authUser.createdAt).getTime()) / (1000 * 60 * 60 * 24));
-  })();
+  // Refresh quietly when the tab comes back into view, so statuses and replies stay current.
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState === 'visible' && useFeatureRequestStore.getState().status === 'ready') {
+        load({ silent: true });
+      }
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
+  }, [load]);
 
   const handleLogout = async () => {
     const supabase = createClient();
@@ -221,62 +81,85 @@ export default function FeatureRequestsPage() {
     router.refresh();
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const trimmed = content.trim();
-    if (trimmed.length < 10) { setSubmitError('Request must be at least 10 characters.'); return; }
-    if (trimmed.length > 500) { setSubmitError('Request must be 500 characters or less.'); return; }
-    setSubmitError('');
-    setSubmitting(true);
-    try {
-      await addRequest(trimmed);
-      setContent('');
-    } catch (err: unknown) {
-      setSubmitError(err instanceof Error ? err.message : 'Failed to submit. Try again.');
-    } finally {
-      setSubmitting(false);
+  const onVote = useCallback(
+    async (id: string) => {
+      try {
+        const nowVoted = await toggleVote(id);
+        if (nowVoted) toast.success('Added your Me too. You will see updates under Mine.', { id: `vote-${id}` });
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : 'Could not save your vote.', { id: `vote-${id}` });
+      }
+    },
+    [toggleVote],
+  );
+
+  const onTalk = useCallback((requestId: string | null) => {
+    setTalkContext(requestId);
+    setTalkMode('chat');
+    setTalkOpen(true);
+  }, []);
+
+  const visible = useMemo(() => requests.filter((r) => !r.mergedInto), [requests]);
+  const counts = useMemo(() => {
+    const c: Record<BoardTab, number> = { open: 0, planned: 0, in_progress: 0, shipped: 0, closed: 0 };
+    for (const r of visible) {
+      const t = BOARD_TABS.find((b) => b.statuses.includes(r.status));
+      if (t) c[t.id] += 1;
     }
+    return c;
+  }, [visible]);
+  const mineCount = useMemo(() => requests.filter((r) => r.userId === userId || myVotes[r.id]).length, [requests, userId, myVotes]);
+  const mineUnread = useMemo(
+    () =>
+      requests.filter((r) => isUnread(r, { userId, myVoteAt: myVotes[r.id], seenAt: seen[r.id] })).length +
+      myMessages.filter((m) => m.fromAdmin && !m.readByUser).length,
+    [requests, userId, myVotes, seen, myMessages],
+  );
+  const triageCount = useMemo(() => visible.filter((r) => r.status === 'new').length, [visible]);
+  const messagesUnread = useMemo(() => threads.reduce((n, t) => n + t.unread, 0), [threads]);
+
+  const boardTab = BOARD_TABS.find((t) => t.id === tab);
+  const sort: SortKey = boardTab ? sortByTab[boardTab.id] ?? boardTab.defaultSort : 'trending';
+  const list = useMemo(() => {
+    if (!boardTab) return [];
+    let l = visible.filter((r) => boardTab.statuses.includes(r.status));
+    if (area !== 'all') l = l.filter((r) => r.area === area);
+    if (search.trim()) l = l.filter((r) => matchesSearch(search, `${r.title} ${r.details ?? ''} ${r.statusNote ?? ''}`));
+    return sortRequests(l, sort, { recentVotes: new Map(Object.entries(recentVotes)) });
+  }, [boardTab, visible, area, search, sort, recentVotes]);
+
+  const switchTab = (t: PageTab) => {
+    setTab(t);
+    setSearch('');
+    setArea('all');
   };
 
-  const handleVote = async (id: string, v: 'like' | 'dislike') => {
-    setVoteError('');
-    try { await vote(id, v); } catch (err: unknown) {
-      setVoteError(err instanceof Error ? err.message : 'Vote failed.');
-    }
-  };
-
-  const handleDelete = async (id: string) => {
-    try { await deleteRequest(id); } catch { /* ignore */ }
-  };
-
-  const handleAdminComment = async (id: string, comment: string) => {
-    try { await adminSetComment(id, comment); } catch { /* ignore */ }
-  };
-
-  const handleAdminComplete = async (id: string, completed: boolean) => {
-    try { await adminMarkCompleted(id, completed); } catch { /* ignore */ }
-  };
-
-  if (!mounted || !initialized) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-dashboard-bg">
-        <div className="w-8 h-8 border-2 border-accent-blue border-t-transparent rounded-full animate-spin" />
-      </div>
-    );
-  }
-
-  const sorted = [...requests].sort((a, b) => {
-    if (filter === 'most_liked') return (b.likes - b.dislikes) - (a.likes - a.dislikes) || new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-    if (filter === 'most_disliked') return b.dislikes - a.dislikes || new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-    if (filter === 'admin_commented') return (b.adminComment ? 1 : 0) - (a.adminComment ? 1 : 0) || new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-    return 0;
-  });
-
-  const filterLabels: Record<FilterOption, string> = {
-    most_liked: 'Most Liked',
-    most_disliked: 'Most Disliked',
-    admin_commented: 'Dev Team Responded',
-  };
+  const tabButton = (id: PageTab, label: string, count?: number, badge?: number, admin = false) => (
+    <button
+      key={id}
+      type="button"
+      role="tab"
+      aria-selected={tab === id}
+      onClick={() => switchTab(id)}
+      className={`px-3 py-2 text-sm whitespace-nowrap border-b-2 transition inline-flex items-center gap-1.5 ${
+        tab === id
+          ? admin
+            ? 'border-accent-orange text-accent-orange font-semibold'
+            : 'border-accent-blue text-text-primary font-semibold'
+          : admin
+            ? 'border-transparent text-accent-orange/80 hover:text-accent-orange'
+            : 'border-transparent text-text-muted hover:text-text-primary'
+      }`}
+    >
+      {label}
+      {count !== undefined && <span className="text-xs font-normal text-text-muted tabular-nums">{count}</span>}
+      {badge ? (
+        <span className={`min-w-[18px] h-[18px] px-1 rounded-full text-white text-[10px] font-bold grid place-items-center ${admin ? 'bg-accent-orange' : 'bg-accent-red'}`}>
+          {badge}
+        </span>
+      ) : null}
+    </button>
+  );
 
   return (
     <div className="min-h-screen">
@@ -286,7 +169,9 @@ export default function FeatureRequestsPage() {
           <ThemeToggle />
           <div className="relative">
             <button
+              type="button"
               onClick={() => setProfileOpen(!profileOpen)}
+              aria-label="Account menu"
               className="w-9 h-9 rounded-full bg-accent-blue flex items-center justify-center text-white font-bold text-xs hover:ring-2 hover:ring-accent-blue/50 transition"
             >
               {authUser?.initials || '??'}
@@ -299,7 +184,7 @@ export default function FeatureRequestsPage() {
                     <p className="text-sm font-semibold text-text-primary">{authUser?.displayName || 'User'}</p>
                     <p className="text-xs text-text-muted truncate">{authUser?.email || ''}</p>
                   </div>
-                  <button onClick={handleLogout} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-400 hover:bg-red-500/10 transition">
+                  <button type="button" onClick={handleLogout} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-400 hover:bg-red-500/10 transition">
                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
                     </svg>
@@ -312,7 +197,7 @@ export default function FeatureRequestsPage() {
         </div>
       </div>
 
-      <div className="max-w-2xl mx-auto px-4 py-6 space-y-5 pb-20 md:pb-6">
+      <div className={`${tab === 'triage' || tab === 'messages' || tab === 'settings' ? 'max-w-5xl' : 'max-w-2xl'} mx-auto px-4 py-6 space-y-5 pb-28`}>
         {/* Page header */}
         <div>
           <h1 className="text-xl font-bold text-text-primary">Feature Requests</h1>
@@ -323,121 +208,180 @@ export default function FeatureRequestsPage() {
         <div className="p-4 bg-accent-blue/5 border border-accent-blue/15 rounded-xl space-y-2">
           <p className="text-xs font-semibold text-accent-blue uppercase tracking-wide">How it works</p>
           <ul className="space-y-1.5 text-xs text-text-secondary">
-            <li className="flex items-start gap-2">
-              <span className="mt-0.5 text-accent-blue">•</span>
-              Users can request features that may help the wider community.
-            </li>
-            <li className="flex items-start gap-2">
-              <span className="mt-0.5 text-accent-blue">•</span>
-              The development team reviews the most liked requests regularly.
-            </li>
-            <li className="flex items-start gap-2">
-              <span className="mt-0.5 text-accent-blue">•</span>
-              If a request is feasible and valuable, it may be implemented in a future update.
-            </li>
-            <li className="flex items-start gap-2">
-              <span className="mt-0.5 text-accent-blue">•</span>
-              Voting requires your account to be at least 15 days old to prevent abuse.
-            </li>
+            {[
+              'Type what you want to do. If OrderFlow already does it, or someone already asked, you will see it right away.',
+              'Tap Me too on requests you want. Each person counts once, so similar ideas add up instead of splitting.',
+              'The developer reads every request and replies with a status: planned, in progress, shipped, or why not.',
+              'Follow your requests under Mine. Want to explain more? Use Talk to the developer.',
+            ].map((t) => (
+              <li key={t} className="flex items-start gap-2">
+                <span className="mt-0.5 text-accent-blue">•</span>
+                {t}
+              </li>
+            ))}
           </ul>
         </div>
 
-        {/* Submit form */}
-        <div className="bg-dashboard-card border border-dashboard-border rounded-2xl p-5">
-          <h2 className="text-sm font-semibold text-text-primary mb-1">Suggest a Feature</h2>
-          <p className="text-xs text-text-muted mb-4">Be specific and concise. Describe the problem and how this feature helps.</p>
-          <form onSubmit={handleSubmit} className="space-y-3">
-            <div className="relative">
-              <textarea
-                value={content}
-                onChange={(e) => setContent(e.target.value)}
-                placeholder="e.g. Add bulk status update for multiple orders at once..."
-                rows={3}
-                maxLength={500}
-                className="w-full px-4 py-3 bg-dashboard-bg border border-dashboard-border rounded-xl text-sm text-text-primary placeholder-text-muted focus:ring-2 focus:ring-accent-blue focus:border-accent-blue outline-none resize-none transition"
-              />
-              <span className={`absolute bottom-2.5 right-3 text-[10px] ${content.length > 450 ? 'text-yellow-400' : 'text-text-muted'}`}>
-                {content.length}/500
-              </span>
-            </div>
-            {submitError && <p className="text-xs text-red-400">{submitError}</p>}
-            <div className="flex items-center justify-between">
-              <p className="text-[11px] text-text-muted">Your email will be partially hidden (e.g. jo***@gmail.com)</p>
-              <button
-                type="submit"
-                disabled={submitting || content.trim().length < 10}
-                className="px-4 py-2 bg-accent-blue text-white text-sm font-medium rounded-lg hover:bg-blue-600 transition disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {submitting ? 'Submitting...' : 'Submit'}
-              </button>
-            </div>
-          </form>
-        </div>
+        {(status === 'idle' || status === 'loading') && (
+          <div className="flex justify-center py-16">
+            <div className="w-8 h-8 border-2 border-accent-blue border-t-transparent rounded-full animate-spin" aria-label="Loading" />
+          </div>
+        )}
 
-        {/* Vote gate */}
-        {accountAgeDays < 15 && (
-          <div className="flex items-start gap-3 p-3.5 bg-yellow-500/10 border border-yellow-500/20 rounded-xl">
-            <svg className="w-4 h-4 text-yellow-400 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-            </svg>
-            <p className="text-xs text-yellow-300">
-              Voting opens after 15 days. Your account is <strong>{accountAgeDays} day{accountAgeDays !== 1 ? 's' : ''}</strong> old.
-              {` ${15 - accountAgeDays} more day${15 - accountAgeDays !== 1 ? 's' : ''} to go.`}
+        {status === 'error' && (
+          <div className="text-center py-12 space-y-3">
+            <p className="text-sm text-text-secondary">{loadError ?? 'Could not load feature requests.'}</p>
+            <button type="button" className={btnPrimary} onClick={() => load()}>Try again</button>
+          </div>
+        )}
+
+        {status === 'needs_upgrade' && (
+          <div className="rounded-xl border border-accent-yellow/30 bg-accent-yellow/10 p-4 space-y-1">
+            <p className="text-sm font-semibold text-text-primary">Feature Requests is being upgraded</p>
+            <p className="text-xs text-text-secondary">
+              {isAdmin
+                ? 'Run supabase/migrations/zz_feature_requests_hybrid.sql in the Supabase SQL editor, then reload this page.'
+                : 'Please check back in a few minutes.'}
             </p>
           </div>
         )}
 
-        {voteError && <p className="text-xs text-red-400 px-1">{voteError}</p>}
+        {status === 'ready' && (
+          <>
+            <RequestComposer onOpen={setOpenId} onVote={onVote} onTalk={onTalk} />
 
-        {/* Filter + count bar */}
-        {sorted.length > 0 && (
-          <div className="flex items-center justify-between">
-            <p className="text-xs text-text-muted">{sorted.length} request{sorted.length !== 1 ? 's' : ''}</p>
-            <div className="relative">
-              <select
-                value={filter}
-                onChange={(e) => setFilter(e.target.value as FilterOption)}
-                className="pl-3 pr-7 py-1.5 bg-dashboard-card border border-dashboard-border rounded-lg text-xs text-text-secondary appearance-none outline-none focus:ring-1 focus:ring-accent-blue cursor-pointer"
-              >
-                <option value="most_liked">Most Liked</option>
-                <option value="most_disliked">Most Disliked</option>
-                <option value="admin_commented">Dev Team Responded</option>
-              </select>
-              <svg className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-text-muted pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-              </svg>
+            <div className="flex overflow-x-auto border-b border-dashboard-border -mx-4 px-4 [scrollbar-width:none]" role="tablist" aria-label="Feature request lists">
+              {BOARD_TABS.map((t) => tabButton(t.id, t.label, counts[t.id]))}
+              {!isAdmin && tabButton('mine', 'Mine', mineCount, mineUnread)}
+              {isAdmin && (
+                <>
+                  <span className="w-px bg-dashboard-border my-2 mx-1 flex-shrink-0" aria-hidden="true" />
+                  {tabButton('triage', 'Triage', undefined, triageCount, true)}
+                  {tabButton('messages', 'Messages', undefined, messagesUnread, true)}
+                  {tabButton('settings', 'Settings', undefined, undefined, true)}
+                </>
+              )}
             </div>
-          </div>
-        )}
 
-        {/* List */}
-        {loading && requests.length === 0 ? (
-          <div className="text-center py-10 text-text-muted text-sm">Loading requests...</div>
-        ) : sorted.length === 0 ? (
-          <div className="text-center py-16">
-            <svg className="w-12 h-12 mx-auto text-text-muted mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-            </svg>
-            <p className="text-text-muted">No requests yet — be the first to suggest a feature!</p>
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {sorted.map((req) => (
-              <RequestCard
-                key={req.id}
-                request={req}
-                currentUserId={authUser?.id ?? null}
-                isAdmin={isAdmin}
-                accountAgeDays={accountAgeDays}
-                onVote={handleVote}
-                onDelete={handleDelete}
-                onAdminComment={handleAdminComment}
-                onAdminComplete={handleAdminComplete}
-              />
-            ))}
-          </div>
+            {boardTab && (
+              <div className="space-y-3">
+                <div className="flex gap-2">
+                  <input
+                    type="search"
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    placeholder="Search requests…"
+                    aria-label="Search requests"
+                    className={`${inputClass} flex-1 min-w-0 py-2`}
+                  />
+                  <select
+                    value={sort}
+                    onChange={(e) => setSortByTab({ ...sortByTab, [boardTab.id]: e.target.value as SortKey })}
+                    aria-label="Sort"
+                    className="px-3 py-2 bg-dashboard-card border border-dashboard-border rounded-xl text-xs text-text-secondary outline-none focus:ring-2 focus:ring-accent-blue"
+                  >
+                    {(Object.keys(SORT_LABEL) as SortKey[]).map((k) => (
+                      <option key={k} value={k}>{SORT_LABEL[k]}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="flex gap-1.5 overflow-x-auto -mx-4 px-4 pb-1 [scrollbar-width:none]" aria-label="Filter by area">
+                  {[{ id: 'all' as const, label: 'All areas' }, ...AREAS].map((a) => (
+                    <button
+                      key={a.id}
+                      type="button"
+                      aria-pressed={area === a.id}
+                      onClick={() => setArea(a.id)}
+                      className={`px-3 py-1 rounded-full text-xs border whitespace-nowrap transition ${
+                        area === a.id
+                          ? 'border-accent-blue/40 bg-accent-blue/10 text-accent-blue'
+                          : 'border-dashboard-border bg-dashboard-card text-text-secondary hover:text-text-primary'
+                      }`}
+                    >
+                      {a.label}
+                    </button>
+                  ))}
+                </div>
+                {list.length === 0 ? (
+                  <p className="text-center py-12 text-sm text-text-muted">
+                    {search || area !== 'all'
+                      ? 'No requests match. Try other words, or post it above.'
+                      : {
+                          open: 'Nothing open yet. Be the first to suggest something.',
+                          planned: 'Nothing planned right now.',
+                          in_progress: 'Nothing in progress right now.',
+                          shipped: 'Nothing shipped from requests yet.',
+                          closed: 'Nothing closed.',
+                        }[boardTab.id]}
+                  </p>
+                ) : (
+                  <div className="space-y-2.5">
+                    {list.map((r) => (
+                      <RequestCard
+                        key={r.id}
+                        request={r}
+                        voted={Boolean(myVotes[r.id])}
+                        pending={Boolean(pendingVotes[r.id])}
+                        unread={!isAdmin && isUnread(r, { userId, myVoteAt: myVotes[r.id], seenAt: seen[r.id] })}
+                        commentCount={commentCounts[r.id] ?? 0}
+                        priority={isAdmin ? priorities[r.id] : undefined}
+                        isMine={r.userId === userId}
+                        onOpen={setOpenId}
+                        onVote={onVote}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {tab === 'mine' && !isAdmin && <MineTab onOpen={setOpenId} onTalk={onTalk} />}
+            {tab === 'triage' && isAdmin && <TriageTab onOpen={setOpenId} onAdminAction={setAdminAction} />}
+            {tab === 'messages' && isAdmin && <MessagesTab />}
+            {tab === 'settings' && isAdmin && <SettingsTab />}
+          </>
         )}
       </div>
+
+      {status === 'ready' && !isAdmin && (
+        <TalkToDeveloper
+          open={talkOpen}
+          mode={talkMode}
+          contextRequestId={talkContext ?? openId}
+          onOpenChange={(o) => {
+            setTalkOpen(o);
+            if (!o) setTalkContext(null);
+          }}
+          onModeChange={setTalkMode}
+        />
+      )}
+
+      {openId && (
+        <RequestDrawer
+          key={openId}
+          requestId={openId}
+          onClose={() => setOpenId(null)}
+          onOpen={setOpenId}
+          onVote={onVote}
+          onAdminAction={setAdminAction}
+          onTalk={onTalk}
+        />
+      )}
+
+      {adminAction?.kind === 'status' && (
+        <StatusModal requestId={adminAction.requestId} preset={adminAction.preset} onClose={() => setAdminAction(null)} />
+      )}
+      {adminAction?.kind === 'merge' && (
+        <MergeModal
+          sourceId={adminAction.requestId}
+          presetTargetId={adminAction.targetId}
+          onClose={() => setAdminAction(null)}
+          onMerged={(targetId) => {
+            setAdminAction(null);
+            if (openId) setOpenId(targetId);
+          }}
+        />
+      )}
     </div>
   );
 }

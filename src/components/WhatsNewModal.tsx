@@ -12,6 +12,17 @@ interface WhatsNewModalProps {
 
 const CHANGELOG = [
   {
+    version: 'v1.1.20',
+    date: 'Nov 2026',
+    items: [
+      { type: 'new', text: 'Feature Requests checks as you type. If OrderFlow already does what you want, you get a link straight to it, and if someone already asked for it, you can add your Me too instead of posting a copy.' },
+      { type: 'new', text: 'Every request now shows where it stands: Under review, Planned, In progress, Shipped, Already exists, or Not planned with the reason. Browse them by tab, area, or search.' },
+      { type: 'new', text: 'The Mine tab collects the requests you posted or said Me too to, with a red dot when the developer replies or changes a status.' },
+      { type: 'new', text: 'Talk to the developer, at the bottom right of Feature Requests, lets you chat on WhatsApp or Telegram, or leave a private message and get the reply right on the page.' },
+      { type: 'improvement', text: 'Like and Dislike are replaced by a single Me too, and new accounts can vote straight away instead of waiting 15 days. Your existing likes are kept.' },
+    ],
+  },
+  {
     version: 'v1.1.19',
     date: 'Nov 2026',
     items: [
