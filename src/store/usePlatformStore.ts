@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { createClient } from '@/lib/supabase';
+import { createClient, getSignedInUser } from '@/lib/supabase';
 
 export const ADMIN_EMAIL = 'anilsahu2672000@gmail.com';
 
@@ -56,7 +56,7 @@ export const usePlatformStore = create<PlatformStore>()((set, get) => ({
 
   refetch: async () => {
     const supabase = createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const user = await getSignedInUser(supabase);
     if (!user) return;
 
     const { data, error } = await supabase

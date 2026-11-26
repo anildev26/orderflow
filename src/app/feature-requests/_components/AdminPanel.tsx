@@ -5,7 +5,8 @@ import toast from 'react-hot-toast';
 import { findExistingFeatures, findSimilarRequests } from '@/lib/featureMatch';
 import { LIMITS, PRIORITY_LABEL, type FeatureRequest, type Priority } from '@/lib/featureRequests';
 import { useFeatureRequestStore } from '@/store/useFeatureRequestStore';
-import { CharCount, Spinner, StatusPill, btnSmall, btnSmallPrimary, inputClass } from './ui';
+import { CharCount, StatusPill, btnSmall, btnSmallPrimary, inputClass } from './ui';
+import { LoadingDots } from '@/components/loading/LoadingDots';
 
 export type AdminAction =
   | { kind: 'status'; requestId: string; preset?: { status?: FeatureRequest['status']; feature?: string } }
@@ -165,7 +166,7 @@ export default function AdminPanel({
           Who is asking{people ? ` · ${reasons} gave a reason` : ''}
         </p>
         {peopleLoading && !people && (
-          <div className="flex items-center gap-2 text-xs text-text-muted"><Spinner className="w-3.5 h-3.5" /> Loading…</div>
+          <LoadingDots size={7} label="Loading who is asking" showLabel />
         )}
         {peopleError && (
           <p className="text-xs text-accent-red">

@@ -14,6 +14,7 @@ import ThemeToggle from '@/components/ThemeToggle';
 import { useAuth } from '@/hooks/useAuth';
 import { useLocalDate } from '@/hooks/useLocalDate';
 import { WHATS_NEW_STORAGE_KEY, LATEST_VERSION } from '@/components/whatsNewConstants';
+import { DashboardSkeleton } from '@/components/loading/Skeleton';
 
 const FilterPanel = dynamic(() => import('@/components/FilterPanel'), { ssr: false });
 const WhatsNewModal = dynamic(() => import('@/components/WhatsNewModal'), { ssr: false });
@@ -343,14 +344,7 @@ export default function DashboardPage() {
   ];
 
   if (!mounted || !initialized) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-dashboard-bg">
-        <div className="flex flex-col items-center gap-3">
-          <div className="w-8 h-8 border-2 border-accent-blue border-t-transparent rounded-full animate-spin" />
-          <div className="text-text-muted text-sm">Loading orders...</div>
-        </div>
-      </div>
-    );
+    return <DashboardSkeleton />;
   }
 
   return (
@@ -524,7 +518,7 @@ export default function DashboardPage() {
         </div>
 
         {/* Month, Sort & Order Count */}
-        <div className="flex items-center gap-2 mb-4">
+        <div className="flex flex-wrap items-center gap-2 mb-4">
           <select
             value={monthFilter}
             onChange={(e) => setMonthFilter(e.target.value)}

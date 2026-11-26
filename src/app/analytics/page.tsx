@@ -9,6 +9,7 @@ import { useOrderStore } from '@/store/useOrderStore';
 import MonthlyTrendChart from '@/components/MonthlyTrendChart';
 import ThemeToggle from '@/components/ThemeToggle';
 import { useAuth } from '@/hooks/useAuth';
+import { AnalyticsSkeleton } from '@/components/loading/Skeleton';
 
 export default function AnalyticsPage() {
   const router = useRouter();
@@ -150,12 +151,8 @@ export default function AnalyticsPage() {
     return parseFloat((orders.length / (customerAge / 30)).toFixed(2));
   }, [orders, customerAge]);
 
-  if (!mounted) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-text-muted text-sm">Loading...</div>
-      </div>
-    );
+  if (!mounted || !initialized) {
+    return <AnalyticsSkeleton />;
   }
 
   return (

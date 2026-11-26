@@ -28,29 +28,18 @@ import TalkToDeveloper from './_components/TalkToDeveloper';
 const loadDrawer = () => import('./_components/RequestDrawer');
 const loadModals = () => import('./_components/AdminModals');
 const loadTabs = () => import('./_components/Tabs');
-function TabLoading() {
-  return (
-    <div className="flex justify-center py-12" role="status" aria-label="Loading">
-      <span className="w-6 h-6 border-2 border-accent-blue border-t-transparent rounded-full animate-spin" />
-    </div>
-  );
-}
-function OverlayLoading() {
-  return (
-    <div className="fixed inset-0 z-[60] bg-black/40 flex items-center justify-center" role="status" aria-label="Loading">
-      <span className="w-7 h-7 border-2 border-white border-t-transparent rounded-full animate-spin" />
-    </div>
-  );
-}
-const RequestDrawer = dynamic(loadDrawer, { ssr: false, loading: OverlayLoading });
-const StatusModal = dynamic(() => loadModals().then((m) => m.StatusModal), { ssr: false, loading: OverlayLoading });
-const MergeModal = dynamic(() => loadModals().then((m) => m.MergeModal), { ssr: false, loading: OverlayLoading });
+const TabLoading = () => <DotsBlock />;
+const RequestDrawer = dynamic(loadDrawer, { ssr: false, loading: DotsOverlay });
+const StatusModal = dynamic(() => loadModals().then((m) => m.StatusModal), { ssr: false, loading: DotsOverlay });
+const MergeModal = dynamic(() => loadModals().then((m) => m.MergeModal), { ssr: false, loading: DotsOverlay });
 const MineTab = dynamic(() => loadTabs().then((m) => m.MineTab), { ssr: false, loading: TabLoading });
 const TriageTab = dynamic(() => loadTabs().then((m) => m.TriageTab), { ssr: false, loading: TabLoading });
 const MessagesTab = dynamic(() => loadTabs().then((m) => m.MessagesTab), { ssr: false, loading: TabLoading });
 const SettingsTab = dynamic(() => loadTabs().then((m) => m.SettingsTab), { ssr: false, loading: TabLoading });
 import type { AdminAction } from './_components/AdminPanel';
 import { btnPrimary, inputClass } from './_components/ui';
+import { FeatureRequestsSkeleton } from '@/components/loading/Skeleton';
+import { DotsBlock, DotsOverlay } from '@/components/loading/LoadingDots';
 
 export default function FeatureRequestsPage() {
   const { user: authUser } = useAuth();
@@ -258,11 +247,7 @@ export default function FeatureRequestsPage() {
           </ul>
         </div>
 
-        {(status === 'idle' || status === 'loading') && (
-          <div className="flex justify-center py-16">
-            <div className="w-8 h-8 border-2 border-accent-blue border-t-transparent rounded-full animate-spin" aria-label="Loading" />
-          </div>
-        )}
+        {(status === 'idle' || status === 'loading') && <FeatureRequestsSkeleton />}
 
         {status === 'error' && (
           <div className="text-center py-12 space-y-3">

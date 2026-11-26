@@ -11,8 +11,9 @@ import { useLocalDate } from '@/hooks/useLocalDate';
 import { useMediatorStore } from '@/store/useMediatorStore';
 import { orderChatPhone } from '@/lib/mediators';
 import { WhatsAppChatLink } from '@/components/WhatsAppChatLink';
+import { DotsOverlay } from '@/components/loading/LoadingDots';
 
-const UpdateOrderModal = dynamic(() => import('./UpdateOrderModal'), { ssr: false });
+const UpdateOrderModal = dynamic(() => import('./UpdateOrderModal'), { ssr: false, loading: DotsOverlay });
 
 const PLATFORM_BADGE_COLORS: Record<OrderPlatform, string> = {
   amazon: 'bg-amber-500/20 text-amber-400 border-amber-500/30',

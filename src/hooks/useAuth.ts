@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { createClient } from '@/lib/supabase';
+import { createClient, getSignedInUser } from '@/lib/supabase';
 
 interface AuthUser {
   id: string;
@@ -18,7 +18,10 @@ export function useAuth() {
 
   useEffect(() => {
     const supabase = createClient();
-    supabase.auth.getUser().then(({ data }) => {
+    let cancelled = false;
+    getSignedInUser(supabase).then((authUser) => {
+      if (cancelled) return;
+      const data = { user: authUser };
       if (data.user) {
         const email = data.user.email || '';
         const meta = data.user.user_metadata || {};
@@ -35,7 +38,12 @@ export function useAuth() {
         setUser({ id: data.user.id, email, displayName, initials, createdAt, createdAtFormatted });
       }
       setLoading(false);
+    }).catch(() => {
+      if (!cancelled) setLoading(false);
     });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const updateDisplayName = async (name: string) => {

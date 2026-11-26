@@ -18,7 +18,8 @@ import { useFeatureRequestStore } from '@/store/useFeatureRequestStore';
 import { WhatsAppGlyph } from '@/components/WhatsAppChatLink';
 import AdminPanel, { type AdminAction } from './AdminPanel';
 import { MeTooButton } from './RequestCard';
-import { CharCount, CloseButton, Drawer, Spinner, StatusPill, btnPrimary, btnSmall, inputClass } from './ui';
+import { CharCount, CloseButton, Drawer, StatusPill, btnPrimary, btnSmall, inputClass } from './ui';
+import { LoadingDots } from '@/components/loading/LoadingDots';
 
 export default function RequestDrawer({
   requestId,
@@ -208,7 +209,7 @@ export default function RequestDrawer({
         <section aria-label="Discussion" className="space-y-2">
           <p className="text-[10.5px] font-mono uppercase tracking-wider text-text-muted">Discussion{comments ? ` · ${comments.length}` : ''}</p>
           {detailLoading && !comments && (
-            <div className="flex items-center gap-2 text-xs text-text-muted"><Spinner className="w-3.5 h-3.5" /> Loading…</div>
+            <LoadingDots size={7} label="Loading discussion" showLabel />
           )}
           {detailError && (
             <p className="text-xs text-accent-red">

@@ -24,6 +24,9 @@ const CHANGELOG = [
       { type: 'fix', text: 'The Follow-ups page no longer slides sideways on phones, and the mediator filter only lists mediators who have follow-ups in the current view, with the same name never listed twice.' },
       { type: 'fix', text: 'If saving a follow-up or an order edit fails, you now see an error instead of a success message.' },
       { type: 'improvement', text: 'Feature Requests and Follow-ups open faster. Coming back to Feature Requests now shows your list straight away and refreshes it in the background.' },
+      { type: 'improvement', text: 'While pages load, you now see the OrderFlow logo when the app opens, then the outline of the page (cards, totals, lists) until your data arrives, instead of a blank spinner. Small things that open inside a page show three dots for a moment.' },
+      { type: 'fix', text: 'Archive and Analytics no longer flash "no orders" or zero totals while your orders are still loading.' },
+      { type: 'fix', text: 'The Dashboard and Archive no longer slide sideways on small phones.' },
     ],
   },
   {
