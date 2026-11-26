@@ -29,11 +29,23 @@ import {
   type MediatorGroup,
 } from '@/lib/followUpBoard';
 import FollowUpCard from './_components/FollowUpCard';
-import { GotPaidSheet, MoreSheet } from './_components/OrderSheets';
-import { CombinedMessageSheet, MediatorCard } from './_components/MediatorView';
+import { MediatorCard } from './_components/MediatorView';
 import { errorMessage, toastWithUndo } from './_components/ui';
 
 const UpdateOrderModal = dynamic(() => import('@/components/UpdateOrderModal'), { ssr: false });
+// Sheets load on first use (and are preloaded once the page is idle), keeping the first load light.
+const loadOrderSheets = () => import('./_components/OrderSheets');
+const loadMessageSheet = () => import('./_components/CombinedMessageSheet');
+function SheetLoading() {
+  return (
+    <div className="fixed inset-0 z-[70] bg-black/40 flex items-center justify-center" role="status" aria-label="Loading">
+      <span className="w-7 h-7 border-2 border-white border-t-transparent rounded-full animate-spin" />
+    </div>
+  );
+}
+const MoreSheet = dynamic(() => loadOrderSheets().then((m) => m.MoreSheet), { ssr: false, loading: SheetLoading });
+const GotPaidSheet = dynamic(() => loadOrderSheets().then((m) => m.GotPaidSheet), { ssr: false, loading: SheetLoading });
+const CombinedMessageSheet = dynamic(loadMessageSheet, { ssr: false, loading: SheetLoading });
 
 const CONTACT_GAP_WORKING_DAYS = 3;
 type GroupBy = 'order' | 'mediator';
@@ -71,6 +83,12 @@ export default function FollowUpsPage() {
     setMounted(true);
     if (!initialized) fetchOrders();
     void ensureMediators();
+    // Fetch the sheets right after the first paint so the first tap opens them instantly.
+    const idle = window.setTimeout(() => {
+      void loadOrderSheets();
+      void loadMessageSheet();
+    }, 0);
+    return () => window.clearTimeout(idle);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

@@ -152,7 +152,11 @@ export const useOrderStore = create<OrderStore>()((set, get) => ({
 
   fetchOrders: async () => {
     const supabase = createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    // Read the signed-in session locally (no extra network round trip). The orders
+    // query is still limited to this user by the database's row-level security.
+    const { data: { session } } = await supabase.auth.getSession();
+    let user = session?.user ?? null;
+    if (!user) user = (await supabase.auth.getUser()).data.user;
     if (!user) { set({ loading: false, initialized: true }); return; }
 
     const { data, error } = await supabase

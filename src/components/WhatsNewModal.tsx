@@ -23,6 +23,7 @@ const CHANGELOG = [
       { type: 'improvement', text: 'Follow-up messages get firmer when you have already asked about an order before. You can still pick the tone or edit the text before sending.' },
       { type: 'fix', text: 'The Follow-ups page no longer slides sideways on phones, and the mediator filter only lists mediators who have follow-ups in the current view, with the same name never listed twice.' },
       { type: 'fix', text: 'If saving a follow-up or an order edit fails, you now see an error instead of a success message.' },
+      { type: 'improvement', text: 'Feature Requests and Follow-ups open faster. Coming back to Feature Requests now shows your list straight away and refreshes it in the background.' },
     ],
   },
   {

@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
 import { useAuth } from '@/hooks/useAuth';
@@ -21,10 +22,33 @@ import {
 import { useFeatureRequestStore } from '@/store/useFeatureRequestStore';
 import RequestComposer from './_components/RequestComposer';
 import RequestCard from './_components/RequestCard';
-import RequestDrawer from './_components/RequestDrawer';
 import TalkToDeveloper from './_components/TalkToDeveloper';
-import { MergeModal, StatusModal } from './_components/AdminModals';
-import { MessagesTab, MineTab, SettingsTab, TriageTab } from './_components/Tabs';
+
+// Parts you open on demand load on first use (and are preloaded once the page is idle).
+const loadDrawer = () => import('./_components/RequestDrawer');
+const loadModals = () => import('./_components/AdminModals');
+const loadTabs = () => import('./_components/Tabs');
+function TabLoading() {
+  return (
+    <div className="flex justify-center py-12" role="status" aria-label="Loading">
+      <span className="w-6 h-6 border-2 border-accent-blue border-t-transparent rounded-full animate-spin" />
+    </div>
+  );
+}
+function OverlayLoading() {
+  return (
+    <div className="fixed inset-0 z-[60] bg-black/40 flex items-center justify-center" role="status" aria-label="Loading">
+      <span className="w-7 h-7 border-2 border-white border-t-transparent rounded-full animate-spin" />
+    </div>
+  );
+}
+const RequestDrawer = dynamic(loadDrawer, { ssr: false, loading: OverlayLoading });
+const StatusModal = dynamic(() => loadModals().then((m) => m.StatusModal), { ssr: false, loading: OverlayLoading });
+const MergeModal = dynamic(() => loadModals().then((m) => m.MergeModal), { ssr: false, loading: OverlayLoading });
+const MineTab = dynamic(() => loadTabs().then((m) => m.MineTab), { ssr: false, loading: TabLoading });
+const TriageTab = dynamic(() => loadTabs().then((m) => m.TriageTab), { ssr: false, loading: TabLoading });
+const MessagesTab = dynamic(() => loadTabs().then((m) => m.MessagesTab), { ssr: false, loading: TabLoading });
+const SettingsTab = dynamic(() => loadTabs().then((m) => m.SettingsTab), { ssr: false, loading: TabLoading });
 import type { AdminAction } from './_components/AdminPanel';
 import { btnPrimary, inputClass } from './_components/ui';
 
@@ -60,8 +84,20 @@ export default function FeatureRequestsPage() {
   const [adminAction, setAdminAction] = useState<AdminAction | null>(null);
 
   useEffect(() => {
-    load();
+    // Coming back to the page: show what we already have straight away and refresh quietly.
+    load(useFeatureRequestStore.getState().status === 'ready' ? { silent: true } : undefined);
   }, [load]);
+
+  useEffect(() => {
+    if (status !== 'ready') return;
+    // The list is on screen; fetch the on-demand parts now so opening them is instant.
+    const idle = window.setTimeout(() => {
+      void loadDrawer();
+      void loadTabs();
+      if (useFeatureRequestStore.getState().isAdmin) void loadModals();
+    }, 0);
+    return () => window.clearTimeout(idle);
+  }, [status]);
 
   // Refresh quietly when the tab comes back into view, so statuses and replies stay current.
   useEffect(() => {

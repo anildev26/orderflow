@@ -196,67 +196,52 @@ export const useFeatureRequestStore = create<FeatureRequestStore>((set, get) => 
     if (!opts?.silent) set({ status: 'loading', loadError: null });
     try {
       const supabase = createClient();
-      const { data: auth, error: authError } = await supabase.auth.getUser();
-      if (authError || !auth.user) {
+      // The session is already in the browser, so reading it costs no network round trip.
+      // Every query below is still checked by the database (RLS) against the signed-in user.
+      const { data: sessionData } = await supabase.auth.getSession();
+      let authUser = sessionData.session?.user ?? null;
+      if (!authUser) {
+        const { data: fresh } = await supabase.auth.getUser();
+        authUser = fresh.user ?? null;
+      }
+      if (!authUser) {
         set({ status: 'error', loadError: 'Your session has expired. Refresh the page or sign in again.' });
         return;
       }
-      const uid = auth.user.id;
-      const email = auth.user.email ?? '';
+      const uid = authUser.id;
+      const email = authUser.email ?? '';
       const isAdmin = email === ADMIN_EMAIL;
       const since = new Date(Date.now() - TRENDING_WINDOW_DAYS * 86_400_000).toISOString();
+      const empty = Promise.resolve({ data: [] as Row[], error: null });
 
-      const [reqRes, myVotesRes, recentRes, seenRes, countsRes, reasonsRes, settingsRes, msgRes, prioRes] = await Promise.all([
-        supabase.from('feature_requests').select(REQUEST_COLS).order('created_at', { ascending: false }).limit(2000),
-        supabase.from('feature_votes').select('request_id, created_at').eq('user_id', uid),
+      // Start everything at once. The list appears as soon as the two queries it needs
+      // are back; counts, dots, settings and messages fill in right after.
+      const reqP = supabase.from('feature_requests').select(REQUEST_COLS).order('created_at', { ascending: false }).limit(2000);
+      const myVotesP = supabase.from('feature_votes').select('request_id, created_at').eq('user_id', uid);
+      const secondaryP = Promise.all([
         supabase.from('feature_votes').select('request_id').gte('created_at', since).limit(10000),
         supabase.from('feature_seen').select('request_id, seen_at').eq('user_id', uid),
         supabase.from('feature_comments').select('request_id').limit(20000),
         supabase.from('feature_request_reasons').select('request_id, reason').eq('user_id', uid),
         supabase.from('feature_board_settings').select(SETTINGS_COLS).eq('id', 1).maybeSingle(),
         isAdmin
-          ? Promise.resolve({ data: [] as Row[], error: null })
+          ? empty
           : supabase.from('feature_messages').select(MESSAGE_COLS).eq('thread_user_id', uid).order('created_at', { ascending: true }).limit(500),
-        isAdmin
-          ? supabase.from('feature_admin_meta').select('request_id, priority')
-          : Promise.resolve({ data: [] as Row[], error: null }),
+        isAdmin ? supabase.from('feature_admin_meta').select('request_id, priority') : empty,
       ]);
-      if (token !== loadToken) return;
 
-      const results = [reqRes, myVotesRes, recentRes, seenRes, countsRes, reasonsRes, settingsRes, msgRes, prioRes];
-      if (results.some((r) => r.error && isMissingSchemaError(r.error))) {
-        console.error('[feature-requests] database not upgraded', results.map((r) => r.error).filter(Boolean));
+      const [reqRes, myVotesRes] = await Promise.all([reqP, myVotesP]);
+      if (token !== loadToken) return;
+      if ([reqRes, myVotesRes].some((r) => r.error && isMissingSchemaError(r.error))) {
+        console.error('[feature-requests] database not upgraded', reqRes.error ?? myVotesRes.error);
         set({ status: 'needs_upgrade', loadError: null, userId: uid, userEmail: email, isAdmin });
         return;
       }
       if (reqRes.error) fail(reqRes.error, 'load requests');
-      // Everything else is secondary: show the board even if one of these fails.
-      for (const r of results.slice(1)) {
-        if (r.error) console.error('[feature-requests] secondary load failed', r.error);
-      }
+      if (myVotesRes.error) console.error('[feature-requests] my votes failed', myVotesRes.error);
 
       const myVotes: Record<string, string> = {};
       for (const v of (myVotesRes.data ?? []) as Row[]) myVotes[str(v.request_id)] = str(v.created_at);
-      const recentVotes: Record<string, number> = {};
-      for (const v of (recentRes.data ?? []) as Row[]) {
-        const id = str(v.request_id);
-        recentVotes[id] = (recentVotes[id] ?? 0) + 1;
-      }
-      const seen: Record<string, string> = {};
-      for (const s of (seenRes.data ?? []) as Row[]) seen[str(s.request_id)] = str(s.seen_at);
-      const commentCounts: Record<string, number> = {};
-      for (const c of (countsRes.data ?? []) as Row[]) {
-        const id = str(c.request_id);
-        commentCounts[id] = (commentCounts[id] ?? 0) + 1;
-      }
-      const myReasons: Record<string, string> = {};
-      for (const r of (reasonsRes.data ?? []) as Row[]) myReasons[str(r.request_id)] = str(r.reason);
-      const priorities: Record<string, Priority> = {};
-      for (const p of (prioRes.data ?? []) as Row[]) {
-        const pr = str(p.priority);
-        if (pr === 'nice' || pr === 'important' || pr === 'must') priorities[str(p.request_id)] = pr;
-      }
-
       set({
         status: 'ready',
         loadError: null,
@@ -265,14 +250,57 @@ export const useFeatureRequestStore = create<FeatureRequestStore>((set, get) => 
         isAdmin,
         requests: ((reqRes.data ?? []) as Row[]).map(toRequest),
         myVotes,
-        recentVotes,
-        seen,
-        commentCounts,
-        myReasons,
-        settings: toSettings((settingsRes.data as Row | null) ?? null),
-        myMessages: ((msgRes.data ?? []) as Row[]).map(toMessage),
-        priorities,
       });
+
+      const [recentRes, seenRes, countsRes, reasonsRes, settingsRes, msgRes, prioRes] = await secondaryP;
+      if (token !== loadToken) return;
+      const secondary = [recentRes, seenRes, countsRes, reasonsRes, settingsRes, msgRes, prioRes];
+      if (secondary.some((r) => r.error && isMissingSchemaError(r.error))) {
+        console.error('[feature-requests] database not upgraded', secondary.map((r) => r.error).filter(Boolean));
+        set({ status: 'needs_upgrade' });
+        return;
+      }
+      // Secondary data: keep what we had if one of these fails, and log it.
+      for (const r of secondary) if (r.error) console.error('[feature-requests] secondary load failed', r.error);
+
+      const patch: Partial<FeatureRequestStore> = {};
+      if (!recentRes.error) {
+        const recentVotes: Record<string, number> = {};
+        for (const v of (recentRes.data ?? []) as Row[]) {
+          const id = str(v.request_id);
+          recentVotes[id] = (recentVotes[id] ?? 0) + 1;
+        }
+        patch.recentVotes = recentVotes;
+      }
+      if (!seenRes.error) {
+        const seen: Record<string, string> = {};
+        for (const x of (seenRes.data ?? []) as Row[]) seen[str(x.request_id)] = str(x.seen_at);
+        patch.seen = seen;
+      }
+      if (!countsRes.error) {
+        const commentCounts: Record<string, number> = {};
+        for (const c of (countsRes.data ?? []) as Row[]) {
+          const id = str(c.request_id);
+          commentCounts[id] = (commentCounts[id] ?? 0) + 1;
+        }
+        patch.commentCounts = commentCounts;
+      }
+      if (!reasonsRes.error) {
+        const myReasons: Record<string, string> = {};
+        for (const r of (reasonsRes.data ?? []) as Row[]) myReasons[str(r.request_id)] = str(r.reason);
+        patch.myReasons = myReasons;
+      }
+      if (!settingsRes.error) patch.settings = toSettings((settingsRes.data as Row | null) ?? null);
+      if (!msgRes.error) patch.myMessages = ((msgRes.data ?? []) as Row[]).map(toMessage);
+      if (!prioRes.error) {
+        const priorities: Record<string, Priority> = {};
+        for (const x of (prioRes.data ?? []) as Row[]) {
+          const pr = str(x.priority);
+          if (pr === 'nice' || pr === 'important' || pr === 'must') priorities[str(x.request_id)] = pr;
+        }
+        patch.priorities = priorities;
+      }
+      set(patch);
     } catch (err) {
       if (token !== loadToken) return;
       console.error('[feature-requests] load failed', err);
