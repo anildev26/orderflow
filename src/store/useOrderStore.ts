@@ -32,6 +32,8 @@ interface OrderStore {
   markContacted: (id: string, nextReminderDate: string, note?: string) => Promise<void>;
   snoozeReminder: (id: string, nextReminderDate: string, note?: string) => Promise<void>;
   stopReminders: (id: string, note?: string) => Promise<void>;
+  markPaid: (id: string, paymentReceivedDate: string, paymentBank: string) => Promise<void>;
+  restoreFollowUp: (snapshot: Order) => Promise<void>;
   exportData: () => string;
   importData: (jsonString: string) => Promise<boolean>;
   importFromTemplate: (rows: Array<Partial<Order> & { orderId: string }>) => Promise<{
@@ -150,7 +152,11 @@ export const useOrderStore = create<OrderStore>()((set, get) => ({
 
   fetchOrders: async () => {
     const supabase = createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    // Read the signed-in session locally (no extra network round trip). The orders
+    // query is still limited to this user by the database's row-level security.
+    const { data: { session } } = await supabase.auth.getSession();
+    let user = session?.user ?? null;
+    if (!user) user = (await supabase.auth.getUser()).data.user;
     if (!user) { set({ loading: false, initialized: true }); return; }
 
     const { data, error } = await supabase
@@ -251,13 +257,14 @@ export const useOrderStore = create<OrderStore>()((set, get) => ({
       .update(dbRow)
       .eq('id', id);
 
-    if (!error) {
-      set((state) => ({
-        orders: state.orders.map((o) =>
-          o.id === id ? { ...o, ...updates, updatedAt: new Date().toISOString() } : o
-        ),
-      }));
-    }
+    // Report failures. Callers show an error instead of a false "saved" message.
+    if (error) throw new Error(error.message);
+
+    set((state) => ({
+      orders: state.orders.map((o) =>
+        o.id === id ? { ...o, ...updates, updatedAt: new Date().toISOString() } : o
+      ),
+    }));
   },
 
   // ─── Follow-up / reminder ───
@@ -309,6 +316,61 @@ export const useOrderStore = create<OrderStore>()((set, get) => ({
       reminderStatus: 'snoozed',
       reminderHistory: [...(order.reminderHistory || []), entry],
     });
+  },
+
+  // Payment received from the Follow-ups page. Same fields Update Order saves, so
+  // Archive and Analytics see it the same way. The refund amount is not changed.
+  markPaid: async (id, paymentReceivedDate, paymentBank) => {
+    const order = get().orders.find((o) => o.id === id);
+    if (!order) throw new Error('This order no longer exists. Refresh the page.');
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(paymentReceivedDate)) throw new Error('Pick the date you received the payment.');
+    const extras: Partial<Order> = {
+      paymentReceivedDate,
+      paymentBank: paymentBank.trim().slice(0, 60),
+    };
+    if (order.reminderStatus && order.reminderStatus !== 'stopped') {
+      extras.reminderStatus = 'stopped';
+      const entry: ReminderHistoryEntry = { date: todayStr(), action: 'stopped', note: 'Payment received' };
+      extras.reminderHistory = [...(order.reminderHistory || []), entry];
+    }
+    await get().updateOrderStatus(id, 'payment_received', extras);
+  },
+
+  // Undo for Follow-ups actions: put back exactly the fields those actions change.
+  restoreFollowUp: async (snapshot) => {
+    const supabase = createClient();
+    const { error } = await supabase
+      .from('orders')
+      .update({
+        status: snapshot.status,
+        payment_received_date: snapshot.paymentReceivedDate || null,
+        payment_bank: snapshot.paymentBank ?? null,
+        next_reminder_date: snapshot.nextReminderDate || null,
+        reminder_status: snapshot.reminderStatus ?? null,
+        last_contacted_date: snapshot.lastContactedDate || null,
+        reminder_count: snapshot.reminderCount ?? 0,
+        reminder_history: snapshot.reminderHistory ?? [],
+      })
+      .eq('id', snapshot.id);
+    if (error) throw new Error(error.message);
+    set((state) => ({
+      orders: state.orders.map((o) =>
+        o.id === snapshot.id
+          ? {
+              ...o,
+              status: snapshot.status,
+              paymentReceivedDate: snapshot.paymentReceivedDate,
+              paymentBank: snapshot.paymentBank,
+              nextReminderDate: snapshot.nextReminderDate,
+              reminderStatus: snapshot.reminderStatus,
+              lastContactedDate: snapshot.lastContactedDate,
+              reminderCount: snapshot.reminderCount,
+              reminderHistory: snapshot.reminderHistory,
+              updatedAt: new Date().toISOString(),
+            }
+          : o
+      ),
+    }));
   },
 
   // Stop all future reminders for this order (refund complete / no longer needed).

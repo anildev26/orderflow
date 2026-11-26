@@ -8,10 +8,12 @@ import ThemeToggle from '@/components/ThemeToggle';
 import { useDemoOrderStore, DemoOrder } from '@/store/useDemoOrderStore';
 import { STATUS_LABELS, STATUS_COLORS } from '@/types/order';
 import { isSafeHttpUrl } from '@/lib/urlSafety';
+import { ListSkeleton } from '@/components/loading/Skeleton';
+import { DotsOverlay } from '@/components/loading/LoadingDots';
 
 const DemoWalkthrough = dynamic(() => import('@/components/DemoWalkthrough'), { ssr: false });
 const DemoModeBanner = dynamic(() => import('@/components/DemoModeBanner'), { ssr: false });
-const DemoOrderModal = dynamic(() => import('@/components/DemoOrderModal'), { ssr: false });
+const DemoOrderModal = dynamic(() => import('@/components/DemoOrderModal'), { ssr: false, loading: DotsOverlay });
 
 /* ─── helpers ─── */
 function fmtDate(d: string): string {
@@ -573,9 +575,7 @@ export default function DemoPage() {
           {/* Order list */}
           <div data-tour="order-list">
             {loading ? (
-              <div className="flex items-center justify-center py-20">
-                <div className="w-8 h-8 rounded-full border-2 border-accent-blue border-t-transparent animate-spin" />
-              </div>
+              <ListSkeleton rows={4} label="Loading demo orders" />
             ) : filtered.length === 0 ? (
               <div className="text-center py-16 text-text-muted">
                 <p className="text-sm">No demo orders match your filters.</p>

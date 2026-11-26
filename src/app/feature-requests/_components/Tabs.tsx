@@ -15,7 +15,8 @@ import {
 } from '@/lib/featureRequests';
 import { useFeatureRequestStore } from '@/store/useFeatureRequestStore';
 import AdminPanel, { type AdminAction } from './AdminPanel';
-import { CharCount, Spinner, StatusPill, Toggle, btnPrimary, btnSmall, inputClass } from './ui';
+import { CharCount, StatusPill, Toggle, btnPrimary, btnSmall, inputClass } from './ui';
+import { DotsBlock, LoadingDots } from '@/components/loading/LoadingDots';
 
 // ───────────────────────── Mine ─────────────────────────
 
@@ -243,7 +244,7 @@ export function MessagesTab() {
   };
 
   if (!loadedOnce && !threads.length) {
-    return <div className="flex items-center gap-2 py-10 justify-center text-sm text-text-muted"><Spinner /> Loading conversations…</div>;
+    return <DotsBlock label="Loading conversations" />;
   }
   if (listErr && !threads.length) {
     return (
@@ -293,7 +294,7 @@ export function MessagesTab() {
             </div>
           )}
           <div className="flex-1 min-h-[220px] max-h-[440px] overflow-y-auto p-4 space-y-2">
-            {!msgs && !threadError && <div className="flex items-center gap-2 text-xs text-text-muted"><Spinner className="w-3.5 h-3.5" /> Loading…</div>}
+            {!msgs && !threadError && <LoadingDots size={7} label="Loading conversation" showLabel />}
             {threadError && <p className="text-xs text-accent-red">{threadError}</p>}
             {msgs?.map((m) => {
               const req = m.requestId ? requests.find((r) => r.id === m.requestId) : undefined;

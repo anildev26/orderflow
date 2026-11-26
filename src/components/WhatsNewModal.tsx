@@ -12,6 +12,24 @@ interface WhatsNewModalProps {
 
 const CHANGELOG = [
   {
+    version: 'v1.1.21',
+    date: 'Nov 2026',
+    items: [
+      { type: 'new', text: 'Follow-ups now shows money first: how much is due now, how much is waiting in total, and your longest wait.' },
+      { type: 'new', text: 'By mediator groups your follow-ups per mediator. Tick the orders you want, and send them all in one WhatsApp message. Only the ticked orders are marked as contacted.' },
+      { type: 'new', text: 'Got paid on a follow-up asks only for the date you received the payment and, if you like, the bank. The order moves to Archive with its refund amount unchanged.' },
+      { type: 'new', text: 'Mediator cards show how fast that mediator usually pays, once you have 3 paid orders with them.' },
+      { type: 'improvement', text: 'WhatsApp and Contacted sit right on each follow-up, with the full order ID visible. Contacted sets the next reminder 3 working days later, and every action can be undone for a few seconds.' },
+      { type: 'improvement', text: 'Follow-up messages get firmer when you have already asked about an order before. You can still pick the tone or edit the text before sending.' },
+      { type: 'fix', text: 'The Follow-ups page no longer slides sideways on phones, and the mediator filter only lists mediators who have follow-ups in the current view, with the same name never listed twice.' },
+      { type: 'fix', text: 'If saving a follow-up or an order edit fails, you now see an error instead of a success message.' },
+      { type: 'improvement', text: 'Feature Requests and Follow-ups open faster. Coming back to Feature Requests now shows your list straight away and refreshes it in the background.' },
+      { type: 'improvement', text: 'While pages load, you now see the OrderFlow logo when the app opens, then the outline of the page (cards, totals, lists) until your data arrives, instead of a blank spinner. Small things that open inside a page show three dots for a moment.' },
+      { type: 'fix', text: 'Archive and Analytics no longer flash "no orders" or zero totals while your orders are still loading.' },
+      { type: 'fix', text: 'The Dashboard and Archive no longer slide sideways on small phones.' },
+    ],
+  },
+  {
     version: 'v1.1.20',
     date: 'Nov 2026',
     items: [

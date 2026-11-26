@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { createClient } from '@/lib/supabase';
+import { createClient, getSignedInUser } from '@/lib/supabase';
 import { ORDER_TYPES } from '@/types/order';
 
 // All platforms available in the system — used for the platform manager
@@ -44,7 +44,7 @@ export const useSettingsStore = create<SettingsStore>()((set, get) => ({
   fetchSettings: async () => {
     if (get().initialized) return;
     const supabase = createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const user = await getSignedInUser(supabase);
     if (!user) { set({ initialized: true }); return; }
 
     const { data } = await supabase

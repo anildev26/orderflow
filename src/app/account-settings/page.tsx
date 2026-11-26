@@ -13,6 +13,7 @@ import { useDemoOrderStore, DemoOrder, DemoOrderFormData } from '@/store/useDemo
 import { STATUS_OPTIONS, PLATFORM_OPTIONS } from '@/types/order';
 import MediatorsPanel from '@/components/MediatorsPanel';
 import ReviewersPanel from '@/components/ReviewersPanel';
+import { ListSkeleton } from '@/components/loading/Skeleton';
 
 /* ─── Draggable List (reusable) ─── */
 function DraggableList<T>({
@@ -917,9 +918,7 @@ function AdminDemoOrderSection() {
 
       {/* Demo orders list */}
       {loading ? (
-        <div className="flex justify-center py-10">
-          <div className="w-7 h-7 rounded-full border-2 border-accent-blue border-t-transparent animate-spin" />
-        </div>
+        <ListSkeleton rows={3} label="Loading demo orders" />
       ) : orders.length === 0 ? (
         <div className="rounded-xl border border-dashed border-dashboard-border p-10 text-center text-text-muted">
           <p className="text-sm">No demo orders yet. Add your first one above.</p>

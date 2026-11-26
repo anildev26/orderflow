@@ -1,5 +1,8 @@
 @AGENTS.md
 
+# Speed and loading
+Every new feature or change must follow "Performance and loading rules" in AGENTS.md: no new waits when a page opens, load extras on demand, use the agreed loading styles (logo when the app opens, skeleton while page data loads, dots for small waits; one at a time), fit 320 px phones, and run the checks listed there before finishing.
+
 # Git Branch Policy
 Always commit and push directly to the `main` branch. Do NOT create feature branches unless explicitly asked to. Never use claude/* branches.
 

@@ -9,6 +9,7 @@ import { usePlatformStore } from '@/store/usePlatformStore';
 import { formatSellerLess, expectedRefund } from '@/types/order';
 import ThemeToggle from '@/components/ThemeToggle';
 import { useAuth } from '@/hooks/useAuth';
+import { ArchiveSkeleton } from '@/components/loading/Skeleton';
 
 const PLATFORM_BADGE_COLORS: Record<string, string> = {
   amazon: 'bg-amber-500/20 text-amber-400 border-amber-500/30',
@@ -137,15 +138,8 @@ export default function ArchivePage() {
     return Array.from(banks).sort();
   }, [orders]);
 
-  if (!mounted) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-dashboard-bg">
-        <div className="flex flex-col items-center gap-3">
-          <div className="w-8 h-8 border-2 border-accent-blue border-t-transparent rounded-full animate-spin" />
-          <div className="text-text-muted text-sm">Loading...</div>
-        </div>
-      </div>
-    );
+  if (!mounted || !initialized) {
+    return <ArchiveSkeleton />;
   }
 
   return (
@@ -273,7 +267,7 @@ export default function ArchivePage() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search archived orders..."
-            className="flex-1 bg-dashboard-card border border-dashboard-border rounded-lg px-4 py-2.5 text-sm text-text-primary placeholder-text-muted focus:ring-2 focus:ring-accent-blue outline-none"
+            className="flex-1 min-w-0 bg-dashboard-card border border-dashboard-border rounded-lg px-4 py-2.5 text-sm text-text-primary placeholder-text-muted focus:ring-2 focus:ring-accent-blue outline-none"
           />
         </div>
 

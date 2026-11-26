@@ -15,8 +15,9 @@ import { isSafeHttpUrl } from '@/lib/urlSafety';
 import { useMediatorStore } from '@/store/useMediatorStore';
 import { orderChatPhone } from '@/lib/mediators';
 import { WhatsAppChatLink } from '@/components/WhatsAppChatLink';
+import { DotsOverlay } from '@/components/loading/LoadingDots';
 
-const EditOrderModal = dynamic(() => import('./EditOrderModal'), { ssr: false });
+const EditOrderModal = dynamic(() => import('./EditOrderModal'), { ssr: false, loading: DotsOverlay });
 
 function fmtDate(d?: string) {
   if (!d) return '-';
