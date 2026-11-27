@@ -12,6 +12,20 @@ interface WhatsNewModalProps {
 
 const CHANGELOG = [
   {
+    version: 'v1.1.22',
+    date: 'Nov 2026',
+    items: [
+      { type: 'new', text: 'Archive has a new Monthly tab: see how much refund you received each month of the year, then open a month to see which bank it landed in and every order paid that month.' },
+      { type: 'new', text: 'Reopen an order from Archive if you marked it paid or cancelled by mistake. It goes back to the exact status it had before, shows on the Dashboard again, and its follow-up reminder comes back. You can undo it right after.' },
+      { type: 'new', text: 'Tap any archived order to see its full journey from ordered to paid, copy its order ID, or fix a wrong paid date or bank.' },
+      { type: 'improvement', text: 'One search box in Archive finds orders by order ID, product, brand, mediator, reviewer or bank as you type.' },
+      { type: 'improvement', text: 'New Archive filters: date paid or cancelled, platform, mediator, reviewer (type a few letters and pick from your own names) and bank, plus sorting by newest, oldest, highest refund or longest wait.' },
+      { type: 'fix', text: 'Refund received in Archive now counts only paid orders. Cancelled orders show ₹0 instead of a received amount.' },
+      { type: 'improvement', text: 'Archive shows 30 orders at a time and loads more as you scroll, so it stays quick with hundreds of orders. Full order IDs are never cut off.' },
+      { type: 'fix', text: 'If your orders fail to load, Archive shows a Try again button instead of an empty list.' },
+    ],
+  },
+  {
     version: 'v1.1.21',
     date: 'Nov 2026',
     items: [
