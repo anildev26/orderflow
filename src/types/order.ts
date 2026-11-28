@@ -88,6 +88,12 @@ export interface Order {
   informedMediatorDate?: string;
   paymentReceivedDate?: string;
   paymentBank?: string;
+  // Set when the order is marked paid or cancelled: the status it had just
+  // before, so Reopen in Archive puts it back exactly there. Absent on orders
+  // archived before this was added (Reopen then works it out from the dates).
+  archivedFromStatus?: OrderStatus | null;
+  // YYYY-MM-DD the order was marked paid or cancelled.
+  archivedAt?: string | null;
   isNewOrder?: boolean;
   // Follow-up / reminder fields
   refundTimelineDays?: number;

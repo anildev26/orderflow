@@ -5,11 +5,14 @@ import { todayStr, addDays, effectiveNextReminderDate, snapReminderDate } from '
 import { getReturnWindow } from '@/lib/returnWindow';
 import { isReviewRatingDue } from '@/lib/reviewTiming';
 import { isSafeHttpUrl } from '@/lib/urlSafety';
+import { PAID_STOP_NOTE, isArchived, previousStatusOf, reopenedReminder } from '@/lib/archive';
 
 interface OrderStore {
   orders: Order[];
   loading: boolean;
   initialized: boolean;
+  /** Set when the last load failed; pages show a "Try again" message instead of an empty list. */
+  loadError: string | null;
   fetchOrders: () => Promise<void>;
   addOrder: (order: Omit<Order, 'id' | 'createdAt' | 'updatedAt' | 'status'>) => Promise<void>;
   updateOrderStatus: (id: string, status: OrderStatus, extras?: Partial<Order>) => Promise<void>;
@@ -34,6 +37,11 @@ interface OrderStore {
   stopReminders: (id: string, note?: string) => Promise<void>;
   markPaid: (id: string, paymentReceivedDate: string, paymentBank: string) => Promise<void>;
   restoreFollowUp: (snapshot: Order) => Promise<void>;
+  // ─── Archive actions ───
+  /** Put a paid or cancelled order back to the status it had before. Returns the order as it was, for Undo. */
+  reopenOrder: (id: string) => Promise<Order>;
+  /** Fix the paid date or bank of a paid order. */
+  editPaymentDetails: (id: string, paymentReceivedDate: string, paymentBank: string) => Promise<void>;
   exportData: () => string;
   importData: (jsonString: string) => Promise<boolean>;
   importFromTemplate: (rows: Array<Partial<Order> & { orderId: string }>) => Promise<{
@@ -84,6 +92,8 @@ function mapDbRow(row: Record<string, unknown>): Order {
     informedMediatorDate: (row.informed_mediator_date as string) || undefined,
     paymentReceivedDate: (row.payment_received_date as string) || (row.payment_date as string) || undefined,
     paymentBank: (row.payment_bank as string) || undefined,
+    archivedFromStatus: (row.archived_from_status as OrderStatus) || null,
+    archivedAt: (row.archived_at as string) || null,
     isNewOrder: (row.is_new_order as boolean) || false,
     refundTimelineDays: row.refund_timeline_days != null ? Number(row.refund_timeline_days) : undefined,
     nextReminderDate: (row.next_reminder_date as string) || undefined,
@@ -145,78 +155,121 @@ function orderToDb(order: Partial<Order> & { userId?: string }) {
   return result;
 }
 
+// The archived_from_status / archived_at columns come from
+// supabase/migrations/add_archive_reopen.sql. Until that migration is run, a
+// write that includes them fails; retry once without them so archiving and
+// reopening keep working (Reopen then works the status out from the dates).
+const ARCHIVE_COLUMNS = ['archived_from_status', 'archived_at'] as const;
+let archiveColumnsMissing = false;
+
+// The first orders load while it is running, shared by everyone who asks for it.
+let firstLoad: Promise<void> | null = null;
+
+async function updateOrderRow(id: string, data: Record<string, unknown>) {
+  const supabase = createClient();
+  const row = { ...data };
+  if (archiveColumnsMissing) for (const c of ARCHIVE_COLUMNS) delete row[c];
+  let { error } = await supabase.from('orders').update(row).eq('id', id);
+  if (error && ARCHIVE_COLUMNS.some((c) => c in row) && /archived_(from_status|at)/.test(error.message || '')) {
+    archiveColumnsMissing = true;
+    for (const c of ARCHIVE_COLUMNS) delete row[c];
+    ({ error } = await supabase.from('orders').update(row).eq('id', id));
+  }
+  if (error) throw new Error(error.message);
+}
+
 export const useOrderStore = create<OrderStore>()((set, get) => ({
   orders: [],
   loading: true,
   initialized: false,
+  loadError: null,
 
-  fetchOrders: async () => {
-    const supabase = createClient();
-    // Read the signed-in session locally (no extra network round trip). The orders
-    // query is still limited to this user by the database's row-level security.
-    const { data: { session } } = await supabase.auth.getSession();
-    let user = session?.user ?? null;
-    if (!user) user = (await supabase.auth.getUser()).data.user;
-    if (!user) { set({ loading: false, initialized: true }); return; }
+  fetchOrders: () => {
+    // Several pages can ask for the first load at the same moment; they share one
+    // request instead of downloading every order twice.
+    if (firstLoad && !get().initialized) return firstLoad;
+    const run = (async () => {
+      const supabase = createClient();
+      // Read the signed-in session locally (no extra network round trip). The orders
+      // query is still limited to this user by the database's row-level security.
+      const { data: { session } } = await supabase.auth.getSession();
+      let user = session?.user ?? null;
+      if (!user) user = (await supabase.auth.getUser()).data.user;
+      if (!user) { set({ loading: false, initialized: true }); return; }
 
-    const { data, error } = await supabase
-      .from('orders')
-      .select('*')
-      .order('order_date', { ascending: false });
-
-    if (!error && data) {
-      const orders = data.map(dbToOrder);
-      // Compare local calendar dates (YYYY-MM-DD), not raw timestamps: `new
-      // Date(dateStr)` parses a date-only string as UTC midnight, which is
-      // still hours *before* midnight in IST — comparing that against
-      // Date.now() flipped orders to the next status up to ~18 hours early,
-      // while the return date they were shown was still technically open.
-      const today = todayStr();
-
-      // 1. Auto-deliver: orders still in 'ordered' status after 30 days from order date
-      const autoDeliverOrders = orders.filter((o) => {
-        if (o.status !== 'ordered') return false;
-        return today > addDays(o.orderDate, 30);
-      });
-
-      if (autoDeliverOrders.length > 0) {
-        for (const o of autoDeliverOrders) {
-          const deliveredDate = addDays(o.orderDate, 30);
-          await supabase
-            .from('orders')
-            .update({ status: 'delivered', delivered_date: deliveredDate, return_period_days: o.returnPeriodDays || 7 })
-            .eq('order_id', o.orderId);
-          o.status = 'delivered';
-          o.deliveredDate = deliveredDate;
-          if (!o.returnPeriodDays) o.returnPeriodDays = 7;
-        }
+      let data: Record<string, unknown>[] | null = null;
+      let error: { message: string } | null = null;
+      try {
+        ({ data, error } = await supabase
+          .from('orders')
+          .select('*')
+          .order('order_date', { ascending: false }));
+      } catch (err) {
+        error = { message: err instanceof Error ? err.message : 'Network error' };
       }
 
-      // 2. Auto-refund-pending: delivered or reviewed orders after the full return closing day.
-      const expiredOrders = orders.filter((o) => {
-        if (o.status !== 'delivered' && o.status !== 'review_rating_submitted') return false;
-        const window = getReturnWindow(o, today);
-        return window !== null && window.daysLeft <= 0;
-      });
+      if (!error && data) {
+        const orders = data.map(dbToOrder);
+        // Compare local calendar dates (YYYY-MM-DD), not raw timestamps: `new
+        // Date(dateStr)` parses a date-only string as UTC midnight, which is
+        // still hours *before* midnight in IST — comparing that against
+        // Date.now() flipped orders to the next status up to ~18 hours early,
+        // while the return date they were shown was still technically open.
+        const today = todayStr();
 
-      if (expiredOrders.length > 0) {
-        const expiredIds = expiredOrders.map((o) => o.orderId);
-        await supabase
-          .from('orders')
-          .update({ status: 'refund_form_pending' })
-          .in('order_id', expiredIds);
+        // 1. Auto-deliver: orders still in 'ordered' status after 30 days from order date
+        const autoDeliverOrders = orders.filter((o) => {
+          if (o.status !== 'ordered') return false;
+          return today > addDays(o.orderDate, 30);
+        });
 
-        for (const o of orders) {
-          if (expiredIds.includes(o.orderId)) {
-            o.status = 'refund_form_pending';
+        if (autoDeliverOrders.length > 0) {
+          for (const o of autoDeliverOrders) {
+            const deliveredDate = addDays(o.orderDate, 30);
+            await supabase
+              .from('orders')
+              .update({ status: 'delivered', delivered_date: deliveredDate, return_period_days: o.returnPeriodDays || 7 })
+              .eq('order_id', o.orderId);
+            o.status = 'delivered';
+            o.deliveredDate = deliveredDate;
+            if (!o.returnPeriodDays) o.returnPeriodDays = 7;
           }
         }
-      }
 
-      set({ orders, loading: false, initialized: true });
-    } else {
-      set({ loading: false, initialized: true });
+        // 2. Auto-refund-pending: delivered or reviewed orders after the full return closing day.
+        const expiredOrders = orders.filter((o) => {
+          if (o.status !== 'delivered' && o.status !== 'review_rating_submitted') return false;
+          const window = getReturnWindow(o, today);
+          return window !== null && window.daysLeft <= 0;
+        });
+
+        if (expiredOrders.length > 0) {
+          const expiredIds = expiredOrders.map((o) => o.orderId);
+          await supabase
+            .from('orders')
+            .update({ status: 'refund_form_pending' })
+            .in('order_id', expiredIds);
+
+          for (const o of orders) {
+            if (expiredIds.includes(o.orderId)) {
+              o.status = 'refund_form_pending';
+            }
+          }
+        }
+
+        set({ orders, loading: false, initialized: true, loadError: null });
+      } else {
+        // Keep any orders already on screen; pages show the error only when there is nothing to show.
+        set({ loading: false, initialized: true, loadError: error?.message || 'Could not load your orders' });
+      }
+    })();
+    if (!get().initialized) {
+      firstLoad = run;
+      void run.finally(() => {
+        if (firstLoad === run) firstLoad = null;
+      });
     }
+    return run;
   },
 
   addOrder: async (orderData) => {
@@ -330,29 +383,27 @@ export const useOrderStore = create<OrderStore>()((set, get) => ({
     };
     if (order.reminderStatus && order.reminderStatus !== 'stopped') {
       extras.reminderStatus = 'stopped';
-      const entry: ReminderHistoryEntry = { date: todayStr(), action: 'stopped', note: 'Payment received' };
+      const entry: ReminderHistoryEntry = { date: todayStr(), action: 'stopped', note: PAID_STOP_NOTE };
       extras.reminderHistory = [...(order.reminderHistory || []), entry];
     }
     await get().updateOrderStatus(id, 'payment_received', extras);
   },
 
   // Undo for Follow-ups actions: put back exactly the fields those actions change.
+  // Also used as Undo for Reopen in Archive, so it puts back the archive fields too.
   restoreFollowUp: async (snapshot) => {
-    const supabase = createClient();
-    const { error } = await supabase
-      .from('orders')
-      .update({
-        status: snapshot.status,
-        payment_received_date: snapshot.paymentReceivedDate || null,
-        payment_bank: snapshot.paymentBank ?? null,
-        next_reminder_date: snapshot.nextReminderDate || null,
-        reminder_status: snapshot.reminderStatus ?? null,
-        last_contacted_date: snapshot.lastContactedDate || null,
-        reminder_count: snapshot.reminderCount ?? 0,
-        reminder_history: snapshot.reminderHistory ?? [],
-      })
-      .eq('id', snapshot.id);
-    if (error) throw new Error(error.message);
+    await updateOrderRow(snapshot.id, {
+      status: snapshot.status,
+      payment_received_date: snapshot.paymentReceivedDate || null,
+      payment_bank: snapshot.paymentBank ?? null,
+      next_reminder_date: snapshot.nextReminderDate || null,
+      reminder_status: snapshot.reminderStatus ?? null,
+      last_contacted_date: snapshot.lastContactedDate || null,
+      reminder_count: snapshot.reminderCount ?? 0,
+      reminder_history: snapshot.reminderHistory ?? [],
+      archived_from_status: snapshot.archivedFromStatus ?? null,
+      archived_at: snapshot.archivedAt ?? null,
+    });
     set((state) => ({
       orders: state.orders.map((o) =>
         o.id === snapshot.id
@@ -366,11 +417,56 @@ export const useOrderStore = create<OrderStore>()((set, get) => ({
               lastContactedDate: snapshot.lastContactedDate,
               reminderCount: snapshot.reminderCount,
               reminderHistory: snapshot.reminderHistory,
+              archivedFromStatus: snapshot.archivedFromStatus ?? null,
+              archivedAt: snapshot.archivedAt ?? null,
               updatedAt: new Date().toISOString(),
             }
           : o
       ),
     }));
+  },
+
+  reopenOrder: async (id) => {
+    const order = get().orders.find((o) => o.id === id);
+    if (!order) throw new Error('This order no longer exists. Refresh the page.');
+    if (!isArchived(order)) throw new Error('This order is already open.');
+    const status = previousStatusOf(order);
+    const reminder = reopenedReminder(order);
+    const data: Record<string, unknown> = {
+      status,
+      payment_received_date: null,
+      payment_bank: null,
+      archived_from_status: null,
+      archived_at: null,
+    };
+    if (reminder.reminderStatus !== undefined) data.reminder_status = reminder.reminderStatus;
+    if (reminder.reminderHistory !== undefined) data.reminder_history = reminder.reminderHistory;
+    await updateOrderRow(id, data);
+    set((state) => ({
+      orders: state.orders.map((o) =>
+        o.id === id
+          ? {
+              ...o,
+              status,
+              paymentReceivedDate: undefined,
+              paymentBank: undefined,
+              archivedFromStatus: null,
+              archivedAt: null,
+              ...reminder,
+              updatedAt: new Date().toISOString(),
+            }
+          : o
+      ),
+    }));
+    return order;
+  },
+
+  editPaymentDetails: async (id, paymentReceivedDate, paymentBank) => {
+    const order = get().orders.find((o) => o.id === id);
+    if (!order) throw new Error('This order no longer exists. Refresh the page.');
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(paymentReceivedDate)) throw new Error('Pick the date you received the payment.');
+    if (paymentReceivedDate > todayStr()) throw new Error('The paid date cannot be in the future.');
+    await get().editOrder(id, { paymentReceivedDate, paymentBank: paymentBank.trim().slice(0, 60) });
   },
 
   // Stop all future reminders for this order (refund complete / no longer needed).
@@ -386,7 +482,6 @@ export const useOrderStore = create<OrderStore>()((set, get) => ({
   },
 
   updateOrderStatus: async (id, status, extras = {}) => {
-    const supabase = createClient();
     const updateData: Record<string, unknown> = { status };
 
     // Map extras to snake_case
@@ -415,17 +510,26 @@ export const useOrderStore = create<OrderStore>()((set, get) => ({
     if (extras.reminderStatus !== undefined) updateData.reminder_status = extras.reminderStatus;
     if (extras.reminderHistory !== undefined) updateData.reminder_history = extras.reminderHistory;
 
-    const { error } = await supabase
-      .from('orders')
-      .update(updateData)
-      .eq('id', id);
+    // Remember where the order was when it is marked paid or cancelled, so
+    // Reopen in Archive can put it back exactly there.
+    const current = get().orders.find((o) => o.id === id);
+    const archiveFields: Partial<Order> = {};
+    if (current && isArchived({ status }) && !isArchived(current)) {
+      archiveFields.archivedFromStatus = current.status;
+      archiveFields.archivedAt = (status === 'payment_received' && extras.paymentReceivedDate) || todayStr();
+    } else if (current && !isArchived({ status }) && isArchived(current)) {
+      archiveFields.archivedFromStatus = null;
+      archiveFields.archivedAt = null;
+    }
+    if (archiveFields.archivedFromStatus !== undefined) updateData.archived_from_status = archiveFields.archivedFromStatus;
+    if (archiveFields.archivedAt !== undefined) updateData.archived_at = archiveFields.archivedAt;
 
-    if (error) throw new Error(error.message);
+    await updateOrderRow(id, updateData);
 
     set((state) => ({
       orders: state.orders.map((order) =>
         order.id === id
-          ? { ...order, ...extras, status, updatedAt: new Date().toISOString() }
+          ? { ...order, ...extras, ...archiveFields, status, updatedAt: new Date().toISOString() }
           : order
       ),
     }));

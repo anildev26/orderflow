@@ -2,8 +2,8 @@
 // so the page looks ready at once and nothing jumps when the data arrives.
 // Each page skeleton mirrors that page's own spacing and grid.
 
-export function Bone({ className = '' }: { className?: string }) {
-  return <div className={`of-bone ${className}`} aria-hidden="true" />;
+export function Bone({ className = '', style }: { className?: string; style?: React.CSSProperties }) {
+  return <div className={`of-bone ${className}`} style={style} aria-hidden="true" />;
 }
 
 function Status({ label, children, className = '' }: { label: string; children: React.ReactNode; className?: string }) {
@@ -133,20 +133,36 @@ export function FollowUpsSkeleton() {
   );
 }
 
-/** Archive: heading, 4 stat tiles, search, paid order rows. */
+/** Archive: heading, Orders / Monthly tabs, 3 money tiles, search, chips, order cards. */
 export function ArchiveSkeleton() {
   return (
     <Status label="Loading archive" className="min-h-screen">
       <TopBarSkeleton />
-      <div className="px-4 md:px-6 pt-5 space-y-4">
+      <div className="max-w-5xl mx-auto px-4 md:px-6 pt-5 pb-16 space-y-4">
         <Heading />
-        <Tiles count={4} className="grid grid-cols-2 md:grid-cols-4 gap-3" />
-        <Bone className="h-10" />
-      </div>
-      <div className="px-4 md:px-6 pb-8 pt-4 space-y-3">
-        {Array.from({ length: 5 }, (_, i) => (
-          <CardBone key={i} actions={false} />
-        ))}
+        <div className="flex border-b border-dashboard-border">
+          <div className="flex-1 sm:flex-none sm:w-32 py-3 flex justify-center"><Bone className="h-4 w-16" /></div>
+          <div className="flex-1 sm:flex-none sm:w-32 py-3 flex justify-center"><Bone className="h-4 w-16" /></div>
+        </div>
+        <div className="grid grid-cols-3 gap-2">
+          {Array.from({ length: 3 }, (_, i) => (
+            <div key={i} className="rounded-xl border border-dashboard-border bg-dashboard-card p-3 space-y-2">
+              <Bone className="h-3 w-14 max-w-full" />
+              <Bone className="h-5 w-16 max-w-full" />
+            </div>
+          ))}
+        </div>
+        <Bone className="h-11 rounded-xl" />
+        <div className="flex gap-1.5 overflow-hidden">
+          {[56, 64, 88, 80, 72].map((w, i) => (
+            <Bone key={i} className="h-8 rounded-full flex-shrink-0" style={{ width: w }} />
+          ))}
+        </div>
+        <div className="grid gap-2.5 lg:grid-cols-2">
+          {Array.from({ length: 6 }, (_, i) => (
+            <CardBone key={i} actions={false} />
+          ))}
+        </div>
       </div>
     </Status>
   );
