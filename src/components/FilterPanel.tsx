@@ -15,7 +15,8 @@ const filterStatusOptions: { value: OrderListFilter; label: string }[] = [
   { value: 'all', label: 'All' },
 ];
 for (const opt of STATUS_OPTIONS) {
-  if (opt.value === 'payment_received') continue;
+  // Paid and cancelled orders live in Archive, never on the Dashboard.
+  if (opt.value === 'payment_received' || opt.value === 'order_cancelled') continue;
   filterStatusOptions.push(opt);
   if (opt.value === 'delivered') {
     filterStatusOptions.push({ value: 'review_rating_pending', label: 'Rating & Review Pending' });

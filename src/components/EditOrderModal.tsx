@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
 import { Order, OrderPlatform, ORDER_TYPES, SellerLessMode, computeSellerLess, parseCommissionAmount } from '@/types/order';
 import { useOrderStore } from '@/store/useOrderStore';
@@ -15,11 +15,20 @@ import { useReviewerStore } from '@/store/useReviewerStore';
 interface EditOrderModalProps {
   order: Order;
   onClose: () => void;
+  /** Called after a successful save, so the window underneath can pick up the new values. */
+  onSaved?: () => void;
 }
 
-export default function EditOrderModal({ order, onClose }: EditOrderModalProps) {
+export default function EditOrderModal({ order, onClose, onSaved }: EditOrderModalProps) {
   const editOrder = useOrderStore((s) => s.editOrder);
   const platforms = usePlatformStore((s) => s.platforms);
+  const fetchPlatforms = usePlatformStore((s) => s.fetchPlatforms);
+  useEffect(() => { void fetchPlatforms(); }, [fetchPlatforms]);
+  // Always offer the order's own platform, even if it is not in the list (yet).
+  const platformOptions = platforms.some((p) => p.value === order.platform)
+    ? platforms
+    : [...platforms, { id: 'current', value: order.platform, label: order.platform.charAt(0).toUpperCase() + order.platform.slice(1), active: true, sortOrder: 999 }];
+  const [confirmDiscard, setConfirmDiscard] = useState(false);
 
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({
@@ -47,6 +56,26 @@ export default function EditOrderModal({ order, onClose }: EditOrderModalProps) 
   const [isCommission, setIsCommission] = useState(order.commissionAmount != null);
   const [commissionInput, setCommissionInput] = useState(order.commissionAmount != null ? String(order.commissionAmount) : '');
 
+  // Everything the user can change, as one string, to tell whether anything was edited.
+  const snapshot = JSON.stringify([form, sellerLessMode, sellerLessPercentInput, isCommission, commissionInput, mediator.name, mediator.phoneInput, mediator.mediatorId, mediator.saveToList, reviewer.name, reviewer.reviewerId, reviewer.saveToList]);
+  const [initialSnapshot] = useState(snapshot);
+  const dirty = snapshot !== initialSnapshot;
+  const requestClose = () => {
+    if (saving) return;
+    if (dirty) setConfirmDiscard(true);
+    else onClose();
+  };
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.stopPropagation();
+        requestClose();
+      }
+    };
+    window.addEventListener('keydown', onKey, true);
+    return () => window.removeEventListener('keydown', onKey, true);
+  });
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setForm((prev) => ({ ...prev, [name]: value }));
@@ -60,8 +89,15 @@ export default function EditOrderModal({ order, onClose }: EditOrderModalProps) 
   };
 
   const handleSave = async () => {
-    if (!form.platform || !form.orderId || !form.orderDate) {
+    if (saving) return;
+    const newOrderId = form.orderId.trim();
+    if (!form.platform || !newOrderId || !form.orderDate) {
       toast.error('Platform, Order ID and Date are required');
+      return;
+    }
+    const clash = useOrderStore.getState().orders.find((o) => o.id !== order.id && o.orderId.trim().toLowerCase() === newOrderId.toLowerCase());
+    if (clash) {
+      toast.error(`You already have an order with ID ${clash.orderId}. Check the ID and try again.`);
       return;
     }
     const totalAmount = parseFloat(form.totalAmount);
@@ -82,6 +118,7 @@ export default function EditOrderModal({ order, onClose }: EditOrderModalProps) 
           parseFloat(sellerLessPercentInput) || 0,
           totalAmount
         );
+    setSaving(true);
     let savedMediator;
     try {
       savedMediator = await commitMediatorDraft({
@@ -93,6 +130,7 @@ export default function EditOrderModal({ order, onClose }: EditOrderModalProps) 
         create: addMediator,
       });
     } catch (err) {
+      setSaving(false);
       toast.error(err instanceof Error ? err.message : 'Check the mediator number');
       return;
     }
@@ -106,14 +144,14 @@ export default function EditOrderModal({ order, onClose }: EditOrderModalProps) 
         create: addReviewer,
       });
     } catch (err) {
+      setSaving(false);
       toast.error(err instanceof Error ? err.message : 'Could not save the reviewer');
       return;
     }
-    setSaving(true);
     try {
       await editOrder(order.id, {
         platform: form.platform as OrderPlatform,
-        orderId: form.orderId,
+        orderId: newOrderId,
         productName: form.productName,
         orderDate: form.orderDate,
         orderType: form.orderType,
@@ -127,11 +165,13 @@ export default function EditOrderModal({ order, onClose }: EditOrderModalProps) 
         reviewerName: savedReviewer.name,
       });
       toast.success('Order updated!');
-      onClose();
-    } catch {
-      toast.error('Failed to save changes');
-    } finally {
       setSaving(false);
+      onSaved?.();
+      onClose();
+    } catch (err) {
+      setSaving(false);
+      const msg = err instanceof Error ? err.message : '';
+      toast.error(/duplicate|unique/i.test(msg) ? 'You already have an order with this ID.' : msg ? `Failed to save changes: ${msg}` : 'Failed to save changes');
     }
   };
 
@@ -157,7 +197,7 @@ export default function EditOrderModal({ order, onClose }: EditOrderModalProps) 
   })();
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60" onClick={onClose}>
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60" onClick={requestClose}>
       <div
         className="bg-dashboard-card rounded-2xl w-full max-w-md mx-4 max-h-[90vh] overflow-auto"
         onClick={(e) => e.stopPropagation()}
@@ -168,7 +208,7 @@ export default function EditOrderModal({ order, onClose }: EditOrderModalProps) 
             <h2 className="text-lg font-semibold text-text-primary">Edit Order</h2>
             <p className="text-xs text-text-muted mt-0.5">Correct order details</p>
           </div>
-          <button onClick={onClose} className="p-1 rounded-lg hover:bg-dashboard-bg text-text-secondary hover:text-text-primary">
+          <button onClick={requestClose} aria-label="Close" className="p-1 rounded-lg hover:bg-dashboard-bg text-text-secondary hover:text-text-primary">
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
@@ -180,7 +220,7 @@ export default function EditOrderModal({ order, onClose }: EditOrderModalProps) 
           <div>
             <label className="block text-xs font-semibold text-text-secondary mb-1.5">Platform</label>
             <select name="platform" value={form.platform} onChange={handleChange} className={ic}>
-              {platforms.map((p) => (
+              {platformOptions.map((p) => (
                 <option key={p.value} value={p.value}>{p.label}</option>
               ))}
             </select>
@@ -319,7 +359,18 @@ export default function EditOrderModal({ order, onClose }: EditOrderModalProps) 
         </div>
 
         {/* Footer */}
-        <div className="px-5 pb-5 flex gap-3 sticky bottom-0 bg-dashboard-card pt-2 border-t border-dashboard-border">
+        <div className="px-5 pb-5 sticky bottom-0 bg-dashboard-card pt-2 border-t border-dashboard-border">
+        {confirmDiscard && (
+          <div role="alert" className="mb-2 p-3 rounded-xl bg-amber-500/10 border border-amber-500/30">
+            <p className="text-sm font-semibold text-text-primary">Discard your changes?</p>
+            <p className="text-xs text-text-secondary mt-0.5">The details you edited are not saved yet.</p>
+            <div className="flex gap-2 mt-2">
+              <button type="button" onClick={onClose} className="flex-1 py-2 rounded-lg text-sm font-medium bg-dashboard-bg text-text-primary border border-dashboard-border">Discard</button>
+              <button type="button" onClick={() => setConfirmDiscard(false)} className="flex-1 py-2 rounded-lg text-sm font-medium bg-accent-blue text-white">Keep editing</button>
+            </div>
+          </div>
+        )}
+        <div className="flex gap-3">
           <button
             onClick={handleSave}
             disabled={saving}
@@ -327,9 +378,10 @@ export default function EditOrderModal({ order, onClose }: EditOrderModalProps) 
           >
             {saving ? 'Saving...' : 'Save Changes'}
           </button>
-          <button onClick={onClose} className="px-5 py-2.5 bg-dashboard-bg text-text-primary font-medium rounded-lg hover:bg-dashboard-border transition">
+          <button onClick={requestClose} disabled={saving} className="px-5 py-2.5 bg-dashboard-bg text-text-primary font-medium rounded-lg hover:bg-dashboard-border transition disabled:opacity-50">
             Cancel
           </button>
+        </div>
         </div>
       </div>
     </div>

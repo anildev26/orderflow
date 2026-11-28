@@ -217,44 +217,58 @@ export const useOrderStore = create<OrderStore>()((set, get) => ({
         // while the return date they were shown was still technically open.
         const today = todayStr();
 
+        // Automatic status moves. They are worked out here and shown at once; the
+        // database is updated afterwards in the background, so opening a page never
+        // waits for them. Each update only applies while the order still has the
+        // status it was moved from, so it can never overwrite a change you made.
         // 1. Auto-deliver: orders still in 'ordered' status after 30 days from order date
-        const autoDeliverOrders = orders.filter((o) => {
-          if (o.status !== 'ordered') return false;
-          return today > addDays(o.orderDate, 30);
-        });
-
-        if (autoDeliverOrders.length > 0) {
-          for (const o of autoDeliverOrders) {
-            const deliveredDate = addDays(o.orderDate, 30);
-            await supabase
-              .from('orders')
-              .update({ status: 'delivered', delivered_date: deliveredDate, return_period_days: o.returnPeriodDays || 7 })
-              .eq('order_id', o.orderId);
-            o.status = 'delivered';
-            o.deliveredDate = deliveredDate;
-            if (!o.returnPeriodDays) o.returnPeriodDays = 7;
-          }
+        const delivered: Order[] = [];
+        for (const o of orders) {
+          if (o.status !== 'ordered' || !(today > addDays(o.orderDate, 30))) continue;
+          o.status = 'delivered';
+          o.deliveredDate = addDays(o.orderDate, 30);
+          if (!o.returnPeriodDays) o.returnPeriodDays = 7;
+          delivered.push(o);
         }
 
         // 2. Auto-refund-pending: delivered or reviewed orders after the full return closing day.
-        const expiredOrders = orders.filter((o) => {
-          if (o.status !== 'delivered' && o.status !== 'review_rating_submitted') return false;
+        const expired = new Set<string>();
+        for (const o of orders) {
+          if (o.status !== 'delivered' && o.status !== 'review_rating_submitted') continue;
           const window = getReturnWindow(o, today);
-          return window !== null && window.daysLeft <= 0;
-        });
-
-        if (expiredOrders.length > 0) {
-          const expiredIds = expiredOrders.map((o) => o.orderId);
-          await supabase
-            .from('orders')
-            .update({ status: 'refund_form_pending' })
-            .in('order_id', expiredIds);
-
-          for (const o of orders) {
-            if (expiredIds.includes(o.orderId)) {
-              o.status = 'refund_form_pending';
-            }
+          if (window !== null && window.daysLeft <= 0) {
+            o.status = 'refund_form_pending';
+            expired.add(o.id);
           }
+        }
+
+        const writes: PromiseLike<unknown>[] = delivered.map((o) =>
+          supabase
+            .from('orders')
+            .update({ status: o.status, delivered_date: o.deliveredDate, return_period_days: o.returnPeriodDays })
+            .eq('id', o.id)
+            .eq('status', 'ordered')
+        );
+        const deliveredIds = new Set(delivered.map((o) => o.id));
+        const expiredOnly = [...expired].filter((id) => !deliveredIds.has(id));
+        if (expiredOnly.length > 0) {
+          writes.push(
+            supabase
+              .from('orders')
+              .update({ status: 'refund_form_pending' })
+              .in('id', expiredOnly)
+              .in('status', ['delivered', 'review_rating_submitted'])
+          );
+        }
+        if (writes.length > 0) {
+          void Promise.all(writes).then(
+            (results) => {
+              for (const r of results as { error?: { message: string } | null }[]) {
+                if (r?.error) console.warn('Automatic status update failed; it will be retried next time:', r.error.message);
+              }
+            },
+            (err) => console.warn('Automatic status update failed; it will be retried next time:', err),
+          );
         }
 
         set({ orders, loading: false, initialized: true, loadError: null });

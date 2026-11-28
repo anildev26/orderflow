@@ -45,13 +45,17 @@ interface PlatformStore {
   deletePlatform: (id: string) => Promise<void>;
 }
 
+let platformsInflight: Promise<void> | null = null;
+
 export const usePlatformStore = create<PlatformStore>()((set, get) => ({
   platforms: FALLBACK,
   initialized: false,
 
-  fetchPlatforms: async () => {
-    if (get().initialized) return;
-    await get().refetch();
+  fetchPlatforms: () => {
+    if (get().initialized) return Promise.resolve();
+    // Pages that ask at the same moment share one request.
+    if (!platformsInflight) platformsInflight = get().refetch().finally(() => { platformsInflight = null; });
+    return platformsInflight;
   },
 
   refetch: async () => {

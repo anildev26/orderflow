@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useMemo, useEffect, useRef } from 'react';
+import { platformTitle } from '@/lib/followUpBoard';
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
@@ -33,11 +34,11 @@ export default function DashboardPage() {
   const dbPlatforms = usePlatformStore((s) => s.platforms);
   const fetchPlatforms = usePlatformStore((s) => s.fetchPlatforms);
   const { user: authUser } = useAuth();
-
-  const ALL_PLATFORMS: { value: string; label: string }[] = [
-    { value: 'all', label: 'All' },
-    ...dbPlatforms.filter((p) => p.active),
-  ];
+  // The full platform list is only needed for the Excel template; load it then.
+  const loadPlatforms = async () => {
+    await fetchPlatforms();
+    return usePlatformStore.getState().platforms;
+  };
 
   const handleLogout = async () => {
     const supabase = createClient();
@@ -77,8 +78,11 @@ export default function DashboardPage() {
       o.totalAmount, o.sellerLess, o.commissionAmount ?? '', o.mediatorName, o.reviewerName, o.orderType,
       o.status, o.deliveredDate || '', o.returnPeriodDays || '', o.reviewAfterDays ?? '', o.reviewRatingDate || '', o.refundFormFilledDate || '', o.informedMediatorDate || '', o.paymentReceivedDate || '', o.paymentBank || '',
     ]);
-    const csv = [headers.join(','), ...rows.map(r => r.map(v => `"${v}"`).join(','))].join('\n');
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    // Quote every cell and double any quote inside it, so names with quotes or commas stay in one cell.
+    const cell = (v: unknown) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+    const csv = [headers.map(cell).join(','), ...rows.map(r => r.map(cell).join(','))].join('\r\n');
+    // The byte-order mark makes Excel read ₹ and Hindi text correctly.
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -92,7 +96,7 @@ export default function DashboardPage() {
   const handleDownloadTemplate = async () => {
     try {
       const { downloadOrderTemplate } = await import('@/lib/orderTemplate');
-      await downloadOrderTemplate(dbPlatforms);
+      await downloadOrderTemplate(await loadPlatforms());
       toast.success('Excel template downloaded. Open it and start filling orders.');
     } catch (err) {
       toast.error('Could not build the template. Please try again.');
@@ -125,7 +129,7 @@ export default function DashboardPage() {
       const loadingId = toast.loading('Reading template…');
       try {
         const { parseTemplateFile } = await import('@/lib/orderTemplate');
-        const { orders: parsed, errors } = await parseTemplateFile(file, dbPlatforms);
+        const { orders: parsed, errors } = await parseTemplateFile(file, await loadPlatforms());
         if (errors.length) {
           toast.dismiss(loadingId);
           const preview = errors.slice(0, 3).join('\n');
@@ -179,14 +183,13 @@ export default function DashboardPage() {
   };
 
   const fetchOrders = useOrderStore((s) => s.fetchOrders);
-  const loading = useOrderStore((s) => s.loading);
   const initialized = useOrderStore((s) => s.initialized);
+  const loadError = useOrderStore((s) => s.loadError);
+  const [retrying, setRetrying] = useState(false);
   const today = useLocalDate();
 
   useEffect(() => {
     setMounted(true);
-    fetchPlatforms();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Refresh expired statuses after midnight, including when a sleeping tab resumes.
@@ -241,6 +244,42 @@ export default function DashboardPage() {
     });
     return Array.from(months).sort().reverse();
   }, [orders]);
+
+  // Platform tabs: only the platforms of your active orders, most used first.
+  const platformTabs = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const o of orders) {
+      if (o.status === 'payment_received' || o.status === 'order_cancelled') continue;
+      counts.set(o.platform, (counts.get(o.platform) || 0) + 1);
+    }
+    if (platformFilter !== 'all' && !counts.has(platformFilter)) counts.set(platformFilter, 0);
+    const label = (v: string) => dbPlatforms.find((p) => p.value === v)?.label || platformTitle(v);
+    return [
+      { value: 'all', label: 'All' },
+      ...[...counts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).map(([value]) => ({ value, label: label(value) })),
+    ];
+  }, [orders, dbPlatforms, platformFilter]);
+
+  // Show 30 cards at a time; start from the top again whenever the list changes.
+  const PAGE = 30;
+  const listKey = `${appliedStatus}|${searchQuery}|${platformFilter}|${monthFilter}|${sortOption}`;
+  const [page, setPage] = useState({ key: listKey, n: PAGE });
+  const shown = page.key === listKey ? page.n : PAGE;
+  const visibleOrders = sortedOrders.slice(0, shown);
+  const hasMore = sortedOrders.length > shown;
+  const sentinel = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = sentinel.current;
+    if (!el || !hasMore) return;
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting)) setPage({ key: listKey, n: shown + PAGE });
+      },
+      { rootMargin: '600px' },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, [hasMore, listKey, shown, mounted, initialized]);
 
   const formatMonth = (m: string) => {
     const [year, month] = m.split('-');
@@ -502,7 +541,7 @@ export default function DashboardPage() {
 
         {/* Platform Tabs */}
         <div className="flex gap-1 overflow-x-auto pb-3 scrollbar-hide">
-          {ALL_PLATFORMS.map((p) => (
+          {platformTabs.map((p) => (
             <button
               key={p.value}
               onClick={() => setPlatformFilter(p.value)}
@@ -588,9 +627,22 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Orders list */}
-      <div data-tour="order-list" className="px-6 pb-8 space-y-3 mt-1">
-        {sortedOrders.length === 0 ? (
+      {/* Orders list. Extra space at the bottom on phones so the New Order button never covers a card. */}
+      <div data-tour="order-list" className="px-6 pb-28 md:pb-8 space-y-3 mt-1">
+        {loadError && orders.length === 0 ? (
+          <div role="alert" className="rounded-xl border border-red-500/30 bg-red-500/10 p-5 text-center space-y-3">
+            <p className="font-semibold text-text-primary">Couldn&apos;t load your orders</p>
+            <p className="text-sm text-text-secondary">Check your internet connection and try again.</p>
+            <button
+              type="button"
+              disabled={retrying}
+              onClick={async () => { setRetrying(true); await fetchOrders(); setRetrying(false); }}
+              className="px-4 py-2 rounded-lg text-sm font-semibold bg-accent-blue text-white disabled:opacity-60"
+            >
+              {retrying ? 'Trying…' : 'Try again'}
+            </button>
+          </div>
+        ) : sortedOrders.length === 0 ? (
           <div className="text-center py-16">
             <svg className="w-16 h-16 mx-auto text-text-muted mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
@@ -604,9 +656,22 @@ export default function DashboardPage() {
             </p>
           </div>
         ) : (
-          sortedOrders.map((order) => (
-            <OrderCard key={order.id} order={order} />
-          ))
+          <>
+            {visibleOrders.map((order) => (
+              <OrderCard key={order.id} order={order} />
+            ))}
+            {hasMore && (
+              <div ref={sentinel} className="flex justify-center pt-1">
+                <button
+                  type="button"
+                  onClick={() => setPage({ key: listKey, n: shown + PAGE })}
+                  className="px-4 py-2 rounded-lg text-sm font-semibold border border-dashboard-border bg-dashboard-card text-text-secondary hover:text-text-primary"
+                >
+                  Show more ({sortedOrders.length - shown} left)
+                </button>
+              </div>
+            )}
+          </>
         )}
       </div>
 

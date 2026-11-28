@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react';
 import dynamic from 'next/dynamic';
-import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
 import { Order, OrderStatus, STATUS_LABELS, STATUS_COLORS, STATUS_OPTIONS, ReminderHistoryEntry, isReminderEligible, DEFAULT_REFUND_TIMELINE_DAYS, formatSellerLess, SellerLessMode, computeSellerLess, expectedRefund, parseCommissionAmount } from '@/types/order';
 import { useOrderStore } from '@/store/useOrderStore';
@@ -16,6 +15,7 @@ import { useMediatorStore } from '@/store/useMediatorStore';
 import { orderChatPhone } from '@/lib/mediators';
 import { WhatsAppChatLink } from '@/components/WhatsAppChatLink';
 import { DotsOverlay } from '@/components/loading/LoadingDots';
+import { copyText } from '@/lib/clipboard';
 
 const EditOrderModal = dynamic(() => import('./EditOrderModal'), { ssr: false, loading: DotsOverlay });
 
@@ -24,13 +24,29 @@ function fmtDate(d?: string) {
   return new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
+// The money and replacement inputs as they start out for an order. Saved only
+// when the user actually changes them here, so values changed meanwhile in
+// Edit Details are never written back over.
+function moneyInputs(o: Order) {
+  return {
+    sellerLess: o.sellerLess,
+    sellerLessMode: (o.sellerLessPercent != null ? 'less_percent' : 'inr') as SellerLessMode,
+    sellerLessPercentInput: o.sellerLessPercent != null ? String(o.sellerLessPercent) : '',
+    isCommission: o.commissionAmount != null,
+    commissionInput: o.commissionAmount != null ? String(o.commissionAmount) : '',
+    isReplacement: o.isReplacement,
+    replacementOrderId: o.replacementOrderId || '',
+    replacementAmount: String(o.totalAmount || ''),
+  };
+}
+type MoneyInputs = ReturnType<typeof moneyInputs>;
+
 interface UpdateOrderModalProps {
   order: Order;
   onClose: () => void;
 }
 
 export default function UpdateOrderModal({ order, onClose }: UpdateOrderModalProps) {
-  const router = useRouter();
   const updateOrderStatus = useOrderStore((s) => s.updateOrderStatus);
   const mediators = useMediatorStore((s) => s.mediators);
   const ensureMediators = useMediatorStore((s) => s.ensureLoaded);
@@ -42,6 +58,8 @@ export default function UpdateOrderModal({ order, onClose }: UpdateOrderModalPro
   const [showArchiveConfirm, setShowArchiveConfirm] = useState(false);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [confirmDiscard, setConfirmDiscard] = useState(false);
 
   const [newStatus, setNewStatus] = useState<OrderStatus>(order.status);
 
@@ -62,14 +80,34 @@ export default function UpdateOrderModal({ order, onClose }: UpdateOrderModalPro
   // General fields
   const [mediatorMessage, setMediatorMessage] = useState(order.mediatorMessage || '');
   const [refundFormLink, setRefundFormLink] = useState(order.refundFormLink || '');
-  const [sellerLess, setSellerLess] = useState(order.sellerLess);
-  const [sellerLessMode, setSellerLessMode] = useState<SellerLessMode>(order.sellerLessPercent != null ? 'less_percent' : 'inr');
-  const [sellerLessPercentInput, setSellerLessPercentInput] = useState(order.sellerLessPercent != null ? String(order.sellerLessPercent) : '');
-  const [isCommission, setIsCommission] = useState(order.commissionAmount != null);
-  const [commissionInput, setCommissionInput] = useState(order.commissionAmount != null ? String(order.commissionAmount) : '');
-  const [isReplacement, setIsReplacement] = useState(order.isReplacement);
-  const [replacementOrderId, setReplacementOrderId] = useState(order.replacementOrderId || '');
-  const [replacementAmount, setReplacementAmount] = useState(String(order.totalAmount || ''));
+  const [moneyBase, setMoneyBase] = useState<MoneyInputs>(() => moneyInputs(order));
+  const [sellerLess, setSellerLess] = useState(moneyBase.sellerLess);
+  const [sellerLessMode, setSellerLessMode] = useState<SellerLessMode>(moneyBase.sellerLessMode);
+  const [sellerLessPercentInput, setSellerLessPercentInput] = useState(moneyBase.sellerLessPercentInput);
+  const [isCommission, setIsCommission] = useState(moneyBase.isCommission);
+  const [commissionInput, setCommissionInput] = useState(moneyBase.commissionInput);
+  const [isReplacement, setIsReplacement] = useState(moneyBase.isReplacement);
+  const [replacementOrderId, setReplacementOrderId] = useState(moneyBase.replacementOrderId);
+  const [replacementAmount, setReplacementAmount] = useState(moneyBase.replacementAmount);
+  const moneyNow: MoneyInputs = { sellerLess, sellerLessMode, sellerLessPercentInput, isCommission, commissionInput, isReplacement, replacementOrderId, replacementAmount };
+  const moneyTouched = (['sellerLess', 'sellerLessMode', 'sellerLessPercentInput', 'isCommission', 'commissionInput'] as const).some((k) => moneyNow[k] !== moneyBase[k]);
+  const replacementTouched = (['isReplacement', 'replacementOrderId', 'replacementAmount'] as const).some((k) => moneyNow[k] !== moneyBase[k]);
+
+  // After Edit Details saves, show its values here and treat them as the new starting point.
+  const handleEditSaved = () => {
+    const fresh = useOrderStore.getState().orders.find((o) => o.id === order.id);
+    if (!fresh) return;
+    const m = moneyInputs(fresh);
+    setMoneyBase(m);
+    setSellerLess(m.sellerLess);
+    setSellerLessMode(m.sellerLessMode);
+    setSellerLessPercentInput(m.sellerLessPercentInput);
+    setIsCommission(m.isCommission);
+    setCommissionInput(m.commissionInput);
+    setIsReplacement(m.isReplacement);
+    setReplacementOrderId(m.replacementOrderId);
+    setReplacementAmount(m.replacementAmount);
+  };
 
   const { sellerLess: finalSellerLess, sellerLessPercent: finalSellerLessPercent } = computeSellerLess(
     sellerLessMode,
@@ -79,7 +117,7 @@ export default function UpdateOrderModal({ order, onClose }: UpdateOrderModalPro
   );
 
   // Copy all details for WhatsApp
-  const handleCopyDetails = () => {
+  const handleCopyDetails = async () => {
     const refundAmount = expectedRefund(order.totalAmount, order.sellerLess, order.commissionAmount);
     const lines: string[] = [
       `📦 *Order Details*`,
@@ -123,11 +161,12 @@ export default function UpdateOrderModal({ order, onClose }: UpdateOrderModalPro
       if (order.replacementOrderId) lines.push(`*New Order ID:* ${order.replacementOrderId}`);
     }
 
-    navigator.clipboard.writeText(lines.join('\n'));
-    toast.success('Order details copied! Paste in WhatsApp');
+    if (await copyText(lines.join('\n'))) toast.success('Order details copied! Paste in WhatsApp');
+    else toast.error('Could not copy on this phone. Try again, or use Track on Telegram.');
   };
 
   const handleUpdate = async () => {
+    if (saving) return;
     if (refundFormLink.trim() && !isSafeHttpUrl(refundFormLink)) {
       toast.error('Refund Form Link must start with http:// or https://');
       return;
@@ -195,32 +234,44 @@ export default function UpdateOrderModal({ order, onClose }: UpdateOrderModalPro
 
     if (mediatorMessage !== (order.mediatorMessage || '')) extras.mediatorMessage = mediatorMessage;
     if (refundFormLink !== (order.refundFormLink || '')) extras.refundFormLink = refundFormLink.trim() || undefined;
-    if (isCommission) {
-      const commission = parseCommissionAmount(commissionInput);
-      if (commission == null) {
-        toast.error('Please enter the commission amount');
-        return;
+    // Money and replacement are saved only when changed in this window.
+    if (moneyTouched) {
+      if (isCommission) {
+        const commission = parseCommissionAmount(commissionInput);
+        if (commission == null) {
+          toast.error('Please enter the commission amount');
+          return;
+        }
+        if (order.commissionAmount !== commission) extras.commissionAmount = commission;
+        if (order.sellerLess !== 0) extras.sellerLess = 0;
+        if ((order.sellerLessPercent ?? null) !== null) extras.sellerLessPercent = null;
+      } else {
+        if (finalSellerLess < 0 || finalSellerLess > order.totalAmount) {
+          toast.error(`Seller's less must be between ₹0 and the order amount (₹${order.totalAmount.toLocaleString('en-IN')}).`);
+          return;
+        }
+        if (order.commissionAmount != null) extras.commissionAmount = null;
+        if (finalSellerLess !== order.sellerLess) extras.sellerLess = finalSellerLess;
+        if (finalSellerLessPercent !== (order.sellerLessPercent ?? null)) extras.sellerLessPercent = finalSellerLessPercent;
       }
-      if (order.commissionAmount !== commission) extras.commissionAmount = commission;
-      if (order.sellerLess !== 0) extras.sellerLess = 0;
-      if ((order.sellerLessPercent ?? null) !== null) extras.sellerLessPercent = null;
-    } else {
-      if (order.commissionAmount != null) extras.commissionAmount = null;
-      if (finalSellerLess !== order.sellerLess) extras.sellerLess = finalSellerLess;
-      if (finalSellerLessPercent !== (order.sellerLessPercent ?? null)) extras.sellerLessPercent = finalSellerLessPercent;
     }
-    if (isReplacement !== order.isReplacement) extras.isReplacement = isReplacement;
-    if (isReplacement) {
-      if (replacementOrderId !== (order.replacementOrderId || '')) extras.replacementOrderId = replacementOrderId;
-      const parsedAmt = parseFloat(replacementAmount);
-      if (!isNaN(parsedAmt) && parsedAmt !== order.totalAmount) extras.totalAmount = parsedAmt;
+    if (replacementTouched) {
+      if (isReplacement !== order.isReplacement) extras.isReplacement = isReplacement;
+      if (isReplacement) {
+        if (replacementOrderId !== (order.replacementOrderId || '')) extras.replacementOrderId = replacementOrderId;
+        const parsedAmt = parseFloat(replacementAmount);
+        if (!isNaN(parsedAmt) && parsedAmt !== order.totalAmount) extras.totalAmount = parsedAmt;
+      }
     }
 
+    setSaving(true);
     try {
       await updateOrderStatus(order.id, newStatus, extras);
       toast.success(`Order updated to: ${STATUS_LABELS[newStatus]}`);
+      setSaving(false);
       onClose();
     } catch (err) {
+      setSaving(false);
       toast.error(err instanceof Error ? `Failed to save: ${err.message}` : 'Failed to save changes');
     }
   };
@@ -233,12 +284,12 @@ export default function UpdateOrderModal({ order, onClose }: UpdateOrderModalPro
     newStatus !== order.status ||
     mediatorMessage !== (order.mediatorMessage || '') ||
     refundFormLink !== (order.refundFormLink || '') ||
-    (isCommission
+    (moneyTouched && (isCommission
       ? order.commissionAmount !== parseCommissionAmount(commissionInput) || order.sellerLess !== 0 || (order.sellerLessPercent ?? null) !== null
-      : order.commissionAmount != null || finalSellerLess !== order.sellerLess || finalSellerLessPercent !== (order.sellerLessPercent ?? null)) ||
-    isReplacement !== order.isReplacement ||
-    (isReplacement && replacementOrderId !== (order.replacementOrderId || '')) ||
-    (isReplacement && parseFloat(replacementAmount) !== order.totalAmount) ||
+      : order.commissionAmount != null || finalSellerLess !== order.sellerLess || finalSellerLessPercent !== (order.sellerLessPercent ?? null))) ||
+    (replacementTouched && (isReplacement !== order.isReplacement ||
+      (isReplacement && replacementOrderId !== (order.replacementOrderId || '')) ||
+      (isReplacement && parseFloat(replacementAmount) !== order.totalAmount))) ||
     (newStatus === 'delivered' && (deliveredDate !== (order.deliveredDate || today) || returnPeriodDays !== (order.returnPeriodDays || 7) || reviewAfterDays !== (order.reviewAfterDays ?? null))) ||
     (newStatus === 'review_rating_submitted' && reviewRatingDate !== (order.reviewRatingDate || today)) ||
     (newStatus === 'refund_form_filled' && refundFormFilledDate !== (order.refundFormFilledDate || today)) ||
@@ -254,6 +305,20 @@ export default function UpdateOrderModal({ order, onClose }: UpdateOrderModalPro
   const previewTimeline = parseInt(timelineDays, 10) > 0 ? parseInt(timelineDays, 10) : DEFAULT_REFUND_TIMELINE_DAYS;
   const previewNextReminder = addWorkingDays(reminderAnchor, previewTimeline);
 
+  const requestClose = () => {
+    if (saving) return;
+    if (hasChanges) setConfirmDiscard(true);
+    else onClose();
+  };
+  useEffect(() => {
+    if (showEdit) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') requestClose();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  });
+
   const refundAmount = expectedRefund(order.totalAmount, order.sellerLess, order.commissionAmount);
   const parsedCommission = parseCommissionAmount(commissionInput);
   const commissionPreview = isCommission && parsedCommission != null
@@ -262,7 +327,7 @@ export default function UpdateOrderModal({ order, onClose }: UpdateOrderModalPro
 
   return (
     <>
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={requestClose}>
       <div
         className="bg-dashboard-card rounded-2xl w-full max-w-md mx-4 max-h-[85vh] overflow-auto"
         onClick={(e) => e.stopPropagation()}
@@ -273,7 +338,7 @@ export default function UpdateOrderModal({ order, onClose }: UpdateOrderModalPro
             <h2 className="text-lg font-semibold text-text-primary">Update Order</h2>
             <p className="text-xs text-text-muted mt-0.5">Update the status of this order</p>
           </div>
-          <button onClick={onClose} className="p-1 rounded-lg hover:bg-dashboard-bg text-text-secondary hover:text-text-primary">
+          <button onClick={requestClose} aria-label="Close" className="p-1 rounded-lg hover:bg-dashboard-bg text-text-secondary hover:text-text-primary">
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
@@ -717,9 +782,10 @@ export default function UpdateOrderModal({ order, onClose }: UpdateOrderModalPro
               <div className="flex gap-2">
                 <button
                   onClick={handleUpdate}
-                  className="px-4 py-2 bg-emerald-600 text-white text-sm font-medium rounded-lg hover:bg-emerald-700 transition"
+                  disabled={saving}
+                  className="px-4 py-2 bg-emerald-600 text-white text-sm font-medium rounded-lg hover:bg-emerald-700 transition disabled:opacity-50"
                 >
-                  Yes, Archive Order
+                  {saving ? 'Saving…' : 'Yes, Archive Order'}
                 </button>
                 <button
                   onClick={() => setShowArchiveConfirm(false)}
@@ -743,9 +809,10 @@ export default function UpdateOrderModal({ order, onClose }: UpdateOrderModalPro
               <div className="flex gap-2">
                 <button
                   onClick={handleUpdate}
-                  className="px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 transition"
+                  disabled={saving}
+                  className="px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 transition disabled:opacity-50"
                 >
-                  Yes, Cancel Order
+                  {saving ? 'Saving…' : 'Yes, Cancel Order'}
                 </button>
                 <button
                   onClick={() => setShowCancelConfirm(false)}
@@ -758,23 +825,37 @@ export default function UpdateOrderModal({ order, onClose }: UpdateOrderModalPro
           </div>
         )}
 
+        {/* Unsaved changes */}
+        {confirmDiscard && (
+          <div className="px-5 pb-3">
+            <div role="alert" className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/30">
+              <p className="text-sm font-semibold text-text-primary mb-1">Discard your changes?</p>
+              <p className="text-xs text-text-secondary mb-3">What you changed in this window is not saved yet.</p>
+              <div className="flex gap-2">
+                <button onClick={onClose} className="flex-1 px-4 py-2 bg-dashboard-bg text-text-primary text-sm font-medium rounded-lg border border-dashboard-border">Discard</button>
+                <button onClick={() => setConfirmDiscard(false)} className="flex-1 px-4 py-2 bg-accent-blue text-white text-sm font-medium rounded-lg">Keep editing</button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Footer */}
         <div className="px-5 pb-5 flex gap-3">
           <button
             onClick={handleUpdate}
-            disabled={!hasChanges}
+            disabled={!hasChanges || saving}
             className="flex-1 py-2.5 bg-accent-blue text-white font-medium rounded-lg hover:bg-blue-600 transition disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            Update Order - {STATUS_LABELS[newStatus]}
+            {saving ? 'Saving…' : `Update Order - ${STATUS_LABELS[newStatus]}`}
           </button>
-          <button onClick={onClose} className="px-6 py-2.5 bg-dashboard-bg text-text-primary font-medium rounded-lg hover:bg-dashboard-border transition">
+          <button onClick={requestClose} disabled={saving} className="px-6 py-2.5 bg-dashboard-bg text-text-primary font-medium rounded-lg hover:bg-dashboard-border transition disabled:opacity-50">
             Cancel
           </button>
         </div>
       </div>
     </div>
 
-    {showEdit && <EditOrderModal order={order} onClose={() => setShowEdit(false)} />}
+    {showEdit && <EditOrderModal order={order} onClose={() => setShowEdit(false)} onSaved={handleEditSaved} />}
     </>
   );
 }

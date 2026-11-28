@@ -12,6 +12,24 @@ interface WhatsNewModalProps {
 
 const CHANGELOG = [
   {
+    version: 'v1.1.23',
+    date: 'Nov 2026',
+    items: [
+      { type: 'fix', text: 'Changing the seller\'s less or commission in Edit Details and then pressing Update Order no longer puts the old amount back.' },
+      { type: 'fix', text: 'Update Order and Edit Details show "Saving…" and can\'t be saved twice by a double tap.' },
+      { type: 'fix', text: 'Tapping outside Update Order or Edit Details no longer throws away what you typed. You\'re asked before anything is discarded.' },
+      { type: 'fix', text: 'On phones, the New Order button no longer covers the buttons of the last order on the Dashboard.' },
+      { type: 'fix', text: 'Edit Details stops you from giving an order an ID you already use for another order.' },
+      { type: 'improvement', text: 'Order cards show the full order ID, product, reviewer and mediator name instead of cutting them off.' },
+      { type: 'improvement', text: 'The mediator message is easier to rely on: text-only messages get a Message button, the message stays visible after you save a refund form link, links ending in a full stop or bracket open correctly, and a product link is never called the refund form. Copy the message with one tap.' },
+      { type: 'improvement', text: 'The Dashboard opens much faster on slow internet. Your orders show first, and automatic status changes are saved in the background.' },
+      { type: 'improvement', text: 'The Dashboard shows 30 orders at a time and loads more as you scroll. Platform tabs list only the platforms you have active orders on.' },
+      { type: 'fix', text: 'If your orders fail to load, the Dashboard shows a Try again button instead of "No orders found".' },
+      { type: 'fix', text: 'Copy for WhatsApp tells you when your phone blocked the copy, instead of saying it worked.' },
+      { type: 'fix', text: 'The CSV export keeps product names with quotes or commas in one cell, and Excel shows ₹ and Hindi text correctly.' },
+    ],
+  },
+  {
     version: 'v1.1.22',
     date: 'Nov 2026',
     items: [

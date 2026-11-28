@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { memo, useEffect, useState } from 'react';
+import toast from 'react-hot-toast';
 import dynamic from 'next/dynamic';
 import { Order, STATUS_LABELS, STATUS_COLORS, OrderPlatform, formatSellerLess } from '@/types/order';
 import { CopyTextButton } from '@/components/CopyTextButton';
@@ -12,6 +13,9 @@ import { useMediatorStore } from '@/store/useMediatorStore';
 import { orderChatPhone } from '@/lib/mediators';
 import { WhatsAppChatLink } from '@/components/WhatsAppChatLink';
 import { DotsOverlay } from '@/components/loading/LoadingDots';
+import { messageView } from '@/lib/mediatorMessage';
+import { copyText } from '@/lib/clipboard';
+import { daysBetween } from '@/lib/followup';
 
 const UpdateOrderModal = dynamic(() => import('./UpdateOrderModal'), { ssr: false, loading: DotsOverlay });
 
@@ -32,9 +36,9 @@ interface OrderCardProps {
   order: Order;
 }
 
-function daysAgo(dateStr: string): number {
-  const diff = Date.now() - new Date(dateStr).getTime();
-  return Math.floor(diff / (1000 * 60 * 60 * 24));
+// Local calendar dates (YYYY-MM-DD) shown as "02 Nov"; avoids the UTC shift of new Date('YYYY-MM-DD').
+function shortDate(d: string): string {
+  return new Date(d.slice(0, 10) + 'T00:00:00').toLocaleDateString('en-IN', { day: '2-digit', month: 'short' });
 }
 
 function fmtDate(d: string): string {
@@ -53,20 +57,18 @@ const BORDER_COLORS: Record<string, string> = {
   payment_received: 'border-l-emerald-600',
 };
 
-export default function OrderCard({ order }: OrderCardProps) {
+function OrderCard({ order }: OrderCardProps) {
   const [showModal, setShowModal] = useState(false);
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => { setMounted(true); }, []);
   const mediators = useMediatorStore((s) => s.mediators);
   const ensureMediators = useMediatorStore((s) => s.ensureLoaded);
   useEffect(() => { void ensureMediators(); }, [ensureMediators]);
   const chatPhone = orderChatPhone(order, mediators);
 
-  const days = mounted ? daysAgo(order.orderDate) : 0;
-
   // Keep the return window visible alongside later statuses, including reviews.
+  // today is null until the page runs in the browser, so dates never differ from the server render.
   const today = useLocalDate();
+  const mounted = today !== null;
+  const days = mounted && today ? Math.max(0, daysBetween(today, order.orderDate.slice(0, 10))) : 0;
   const returnWindow = today ? getReturnWindow(order, today) : null;
   const returnEndStr = returnWindow?.endDate;
   const returnPeriodEnd = returnEndStr ? new Date(returnEndStr + 'T00:00:00') : null;
@@ -75,18 +77,23 @@ export default function OrderCard({ order }: OrderCardProps) {
   const showReviewStrip = mounted && !!today && order.status === 'delivered' && !!reviewDue && !!returnWindow && returnDaysLeft !== null && returnDaysLeft > 0;
   const reviewIsDue = Boolean(showReviewStrip && today && reviewDue && today >= reviewDue);
 
-  // Smart display: dedicated link > single clean URL in message > complex message
-  const mediatorUrls = order.mediatorMessage
-    ? [...order.mediatorMessage.matchAll(/(https?:\/\/[^\s]+)/gi)].map((m) => m[1])
-    : [];
-  const isCleanUrl = mediatorUrls.length === 1 && order.mediatorMessage?.trim() === mediatorUrls[0].trim();
-  const hasComplexMessage = mediatorUrls.length > 0 && !isCleanUrl;
-
-  const safeRefundFormLink = isSafeHttpUrl(order.refundFormLink) ? order.refundFormLink : null;
-  const refundFormUrl: string | null = safeRefundFormLink || (isCleanUrl ? mediatorUrls[0] : null);
-  const showViewMessage = !refundFormUrl && hasComplexMessage;
+  // Refund form button: the saved link, else the form link found in the message.
+  // The message itself stays available whenever it says more than that link.
+  const msg = messageView(order.mediatorMessage, order.refundFormLink, isSafeHttpUrl);
+  const refundFormUrl = msg.formUrl;
+  const showViewMessage = msg.hasMore;
+  const copyMessage = async () => {
+    if (await copyText(order.mediatorMessage || '')) toast.success('Message copied');
+    else toast.error('Could not copy. Press and hold the message to copy it.');
+  };
 
   const [showMessageModal, setShowMessageModal] = useState(false);
+  useEffect(() => {
+    if (!showMessageModal) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setShowMessageModal(false); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [showMessageModal]);
 
   const borderColor = BORDER_COLORS[order.status] || 'border-l-blue-500';
 
@@ -95,12 +102,12 @@ export default function OrderCard({ order }: OrderCardProps) {
       <div className={`rounded-xl overflow-hidden bg-dashboard-card border border-dashboard-border ${borderColor} border-l-4`}>
         <div className="p-4">
           {/* Row 1: Platform badge + Order ID + Status */}
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2 min-w-0 flex-1">
+          <div className="flex items-start justify-between gap-2">
+            <div className="flex items-start gap-2 min-w-0 flex-1">
               <span className={`text-[10px] font-semibold px-2 py-0.5 rounded border capitalize flex-shrink-0 ${PLATFORM_BADGE_COLORS[order.platform] || PLATFORM_BADGE_COLORS.other}`}>
                 {order.platform}
               </span>
-              <span className="text-sm font-bold font-mono text-text-primary truncate">{order.orderId}</span>
+              <span className="text-sm font-bold font-mono text-text-primary break-all min-w-0">{order.orderId}</span>
               <CopyTextButton text={order.orderId} />
             </div>
             <div className="flex items-center gap-1.5 flex-shrink-0">
@@ -112,8 +119,8 @@ export default function OrderCard({ order }: OrderCardProps) {
 
           {/* Row 2: Product + Amount + Date + Reviewer + Mediator */}
           <div className="mt-2 flex flex-col gap-1 md:max-w-xl">
-            <p className="text-sm font-medium text-text-primary truncate">{order.productName}</p>
-            <div className="flex items-center gap-3 text-xs text-text-muted">
+            <p className="text-sm font-medium text-text-primary break-words">{order.productName}</p>
+            <div className="flex items-center gap-x-3 gap-y-0.5 flex-wrap text-xs text-text-muted">
               <span className="text-sm font-bold text-green-400">&#8377;{order.totalAmount.toLocaleString('en-IN')}</span>
               {order.commissionAmount != null ? (
                 <span>Commission: &#8377;{order.commissionAmount.toLocaleString('en-IN')}</span>
@@ -127,14 +134,14 @@ export default function OrderCard({ order }: OrderCardProps) {
                 <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                 </svg>
-                <span className="font-medium text-text-primary">{order.reviewerName}</span>
+                <span className="font-medium text-text-primary break-words">{order.reviewerName}</span>
               </span>
               {order.mediatorName && (
                 <span className="flex items-center gap-1 min-w-0 max-w-full">
                   <svg className="w-3 h-3 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
                   </svg>
-                  <span className="truncate">{order.mediatorName}</span>
+                  <span className="break-words min-w-0">{order.mediatorName}</span>
                   {chatPhone ? <WhatsAppChatLink phone={chatPhone} name={order.mediatorName} compact /> : null}
                 </span>
               )}
@@ -167,17 +174,17 @@ export default function OrderCard({ order }: OrderCardProps) {
             <div className="mt-2 flex flex-wrap gap-1.5">
               {order.reviewRatingDate && (
                 <span className="px-2 py-0.5 rounded text-[10px] bg-purple-500/10 text-purple-400 border border-purple-500/20">
-                  Review: {new Date(order.reviewRatingDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}
+                  Review: {shortDate(order.reviewRatingDate)}
                 </span>
               )}
               {order.refundFormFilledDate && (
                 <span className="px-2 py-0.5 rounded text-[10px] bg-green-500/10 text-green-400 border border-green-500/20">
-                  Form filled: {new Date(order.refundFormFilledDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}
+                  Form filled: {shortDate(order.refundFormFilledDate)}
                 </span>
               )}
               {order.informedMediatorDate && (
                 <span className="px-2 py-0.5 rounded text-[10px] bg-teal-500/10 text-teal-400 border border-teal-500/20">
-                  Mediator: {new Date(order.informedMediatorDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}
+                  Mediator: {shortDate(order.informedMediatorDate)}
                 </span>
               )}
             </div>
@@ -207,12 +214,12 @@ export default function OrderCard({ order }: OrderCardProps) {
               <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
               </svg>
-              Full Message
+              Message
             </button>
           )}
           <button
             onClick={() => setShowModal(true)}
-            className={`${refundFormUrl || showViewMessage ? 'flex-1' : 'w-full'} py-2 text-center text-xs font-medium rounded-lg bg-accent-blue/10 border border-accent-blue/30 text-blue-400 hover:bg-accent-blue/20 transition`}
+            className={`${refundFormUrl || showViewMessage ? 'flex-1' : 'w-full'} min-w-0 py-2 text-center text-xs font-medium rounded-lg bg-accent-blue/10 border border-accent-blue/30 text-blue-400 hover:bg-accent-blue/20 transition`}
           >
             Update Order - {STATUS_LABELS[order.status]}
           </button>
@@ -228,19 +235,25 @@ export default function OrderCard({ order }: OrderCardProps) {
           <div className="bg-dashboard-card rounded-2xl w-full max-w-md mx-4 max-h-[70vh] overflow-auto" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between p-5 border-b border-dashboard-border">
               <h2 className="text-base font-semibold text-text-primary">Mediator Message</h2>
-              <button onClick={() => setShowMessageModal(false)} className="p-1 rounded-lg hover:bg-dashboard-bg text-text-secondary hover:text-text-primary">
+              <button onClick={() => setShowMessageModal(false)} aria-label="Close" className="p-1 rounded-lg hover:bg-dashboard-bg text-text-secondary hover:text-text-primary">
                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>
             </div>
-            <div className="p-5">
-              <p className="text-sm text-text-primary whitespace-pre-wrap break-words">{order.mediatorMessage}</p>
-              {mediatorUrls.length > 0 && (
-                <div className="mt-4 space-y-2">
-                  <p className="text-xs font-semibold text-text-muted">Links in message:</p>
-                  {mediatorUrls.map((url, i) => (
-                    <a key={i} href={url} target="_blank" rel="noopener noreferrer" className="block text-xs text-accent-blue hover:underline break-all">{url}</a>
+            <div className="p-5 space-y-4">
+              <p className="text-sm text-text-primary whitespace-pre-wrap break-words select-text">{order.mediatorMessage}</p>
+              <button type="button" onClick={copyMessage} className="w-full py-2 text-xs font-medium rounded-lg bg-dashboard-bg border border-dashboard-border text-text-secondary hover:text-text-primary transition">
+                Copy message
+              </button>
+              {(msg.links.length > 0 || refundFormUrl) && (
+                <div className="space-y-2">
+                  <p className="text-xs font-semibold text-text-muted">Links</p>
+                  {refundFormUrl && !msg.links.some((l) => l.url === refundFormUrl) && (
+                    <LinkRow href={refundFormUrl} kind="Refund form" />
+                  )}
+                  {msg.links.map((l) => (
+                    <LinkRow key={l.url} href={l.url} kind={l.url === refundFormUrl ? 'Refund form' : l.kind === 'form' ? 'Form' : l.kind === 'product' ? 'Product' : 'Link'} />
                   ))}
                 </div>
               )}
@@ -252,3 +265,13 @@ export default function OrderCard({ order }: OrderCardProps) {
   );
 }
 
+function LinkRow({ href, kind }: { href: string; kind: string }) {
+  return (
+    <a href={href} target="_blank" rel="noopener noreferrer" className="flex items-start gap-2 p-2 rounded-lg bg-dashboard-bg border border-dashboard-border hover:border-accent-blue/40 transition">
+      <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-accent-blue/15 text-accent-blue flex-shrink-0">{kind}</span>
+      <span className="text-xs text-accent-blue break-all min-w-0">{href.replace(/^https?:\/\//i, '')}</span>
+    </a>
+  );
+}
+
+export default memo(OrderCard);
